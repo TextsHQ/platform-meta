@@ -1,0 +1,27 @@
+{
+  "name": "@textshq/platform-x",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "prepack": "tsc",
+    "build": "yarn tsc",
+    "lint": "eslint src --ext ts,tsx,js,jsx --cache"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "true || yarn lint --fix"
+    }
+  },
+  "dependencies": {
+    "@textshq/platform-sdk": "link:../platform-sdk",
+    "react": "https://github.com/TextsHQ/react-global-shim"
+  },
+  "devDependencies": {
+    "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config",
+    "eslint": "^7.14.0",
+    "husky": "^4.3.0",
+    "source-map-support": "^0.5.21",
+    "typescript": "^4.6.0"
+  },
+  "packageManager": "yarn@3.2.0"
+}
