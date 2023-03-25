@@ -1,12 +1,5 @@
-import { AccountInfo, ActivityType, Awaitable, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, texts, Thread, User } from '@textshq/platform-sdk'
+import { AccountInfo, ActivityType, Awaitable, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, texts, Thread, User } from '@textshq/platform-sdk'
 import type { Readable } from 'stream'
-
-const { IS_DEV } = texts
-
-if (IS_DEV) {
-  // eslint-disable-next-line global-require, import/no-extraneous-dependencies
-  require('source-map-support').install()
-}
 
 export default class PlatformX implements PlatformAPI {
   private accountInfo: AccountInfo
@@ -41,7 +34,7 @@ export default class PlatformX implements PlatformAPI {
 
   searchThreads?: (typed: string) => Awaitable<Thread[]>
 
-  searchMessages?: (typed: string, pagination?: PaginationArg, threadID?: string) => Awaitable<Paginated<Message>>
+  searchMessages?: (typed: string, pagination?: PaginationArg, options?: SearchMessageOptions) => Awaitable<Paginated<Message>>
 
   getPresence?: () => Awaitable<PresenceMap>
 
@@ -61,7 +54,7 @@ export default class PlatformX implements PlatformAPI {
 
   createThread: (userIDs: string[], title?: string, messageText?: string) => Awaitable<boolean | Thread>
 
-  updateThread?: (threadID: string, updates: Partial<Thread>) => Awaitable<boolean | void>
+  updateThread?: (threadID: string, updates: Partial<Thread>) => Awaitable<void>
 
   deleteThread?: (threadID: string) => Awaitable<void>
 
@@ -71,13 +64,13 @@ export default class PlatformX implements PlatformAPI {
 
   editMessage?: (threadID: string, messageID: string, content: MessageContent, options?: MessageSendOptions) => Promise<boolean | Message[]>
 
-  forwardMessage?: (threadID: string, messageID: string, threadIDs?: string[], userIDs?: string[]) => Promise<boolean | void>
+  forwardMessage?: (threadID: string, messageID: string, threadIDs?: string[], userIDs?: string[]) => Promise<void>
 
   sendActivityIndicator: (type: ActivityType, threadID?: string) => Awaitable<void>
 
-  deleteMessage?: (threadID: string, messageID: string, forEveryone?: boolean) => Awaitable<boolean | void>
+  deleteMessage?: (threadID: string, messageID: string, forEveryone?: boolean) => Awaitable<void>
 
-  sendReadReceipt: (threadID: string, messageID: string, messageCursor?: string) => Awaitable<boolean | void>
+  sendReadReceipt: (threadID: string, messageID: string, messageCursor?: string) => Awaitable<void>
 
   addReaction?: (threadID: string, messageID: string, reactionKey: string) => Awaitable<void>
 
@@ -85,11 +78,11 @@ export default class PlatformX implements PlatformAPI {
 
   getLinkPreview?: (link: string) => Awaitable<MessageLink>
 
-  addParticipant?: (threadID: string, participantID: string) => Awaitable<boolean | void>
+  addParticipant?: (threadID: string, participantID: string) => Awaitable<void>
 
-  removeParticipant?: (threadID: string, participantID: string) => Awaitable<boolean | void>
+  removeParticipant?: (threadID: string, participantID: string) => Awaitable<void>
 
-  changeParticipantRole?: (threadID: string, participantID: string, role: string) => Awaitable<boolean | void>
+  changeParticipantRole?: (threadID: string, participantID: string, role: string) => Awaitable<void>
 
   changeThreadImage?: (threadID: string, imageBuffer: Buffer, mimeType: string) => Awaitable<void>
 

@@ -7,21 +7,16 @@
     "build": "yarn tsc",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "true || yarn lint --fix"
-    }
-  },
   "dependencies": {
-    "@textshq/platform-sdk": "link:../platform-sdk",
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#0bde861ffc0960c33be30c7c72660cd7341de2c9",
     "react": "https://github.com/TextsHQ/react-global-shim"
   },
   "devDependencies": {
-    "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config",
-    "eslint": "^7.14.0",
-    "husky": "^4.3.0",
-    "source-map-support": "^0.5.21",
-    "typescript": "^4.6.0"
+    "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
+    "@types/eslint": "^8.21.3",
+    "@types/node": "^18.15.8",
+    "eslint": "^8.36.0",
+    "typescript": "^5.0.2"
   },
-  "packageManager": "yarn@3.2.0"
+  "packageManager": "yarn@3.5.0"
 }
