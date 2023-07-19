@@ -1,13 +1,21 @@
-import { AccountInfo, ActivityType, Awaitable, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, texts, Thread, User } from '@textshq/platform-sdk'
+import { ActivityType, Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, texts, Thread, User } from '@textshq/platform-sdk'
 import type { Readable } from 'stream'
+import type PlatformInfo from './info'
+import InstagramAPI from './ig-api'
 
-export default class PlatformX implements PlatformAPI {
-  private accountInfo: AccountInfo
+export default class PlatformInstagram implements PlatformAPI {
+  // private accountInfo: AccountInfo
 
   private loginEventCallback: (data: any) => void
+  private api = new InstagramAPI(this)
 
-  init = async (session?: any, accountInfo?: AccountInfo, prefs?: Record<string, any>) => {
-    this.accountInfo = accountInfo
+  // init = async (session: SerializedSession, _: ClientContext, prefs: Record<keyof typeof PlatformInfo['prefs'], string | boolean>) => {
+  //   this.accountInfo = accountInfo
+  // }
+
+  init = async (session: SerializedSession) => {
+    if (!session) return
+    this.api.init()
   }
 
   dispose: () => Awaitable<void>
@@ -18,8 +26,11 @@ export default class PlatformX implements PlatformAPI {
 
   logout?: () => Awaitable<void>
 
-  serializeSession?: () => any
-
+  serializeSession = () => ({
+    jar: this.api.jar.toJSON(),
+    ua: this.api.ua,
+    authMethod: this.api.authMethod ?? 'login-window',
+  })
   subscribeToEvents: (onEvent: OnServerEventCallback) => Awaitable<void>
 
   onLoginEvent = (onEvent: (data: any) => void) => {

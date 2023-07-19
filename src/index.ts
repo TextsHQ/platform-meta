@@ -7,7 +7,4 @@ export default {
   get api() {
     return require('./api').default
   },
-  get auth() {
-    return texts.React?.lazy(() => import('./auth'))
-  },
 } as Platform
