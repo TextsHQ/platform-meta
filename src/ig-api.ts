@@ -79,6 +79,11 @@ export default class InstagramAPI {
     return { clientId, dtsg, userId };
   }
 
+  get cookies() {
+    // @TODO:use our http client for requests
+    return this.jar.getCookieStringSync(INSTAGRAM_BASE_URL);
+  }
+
   get headers() {
     return {
       authority: "www.instagram.com",
@@ -102,6 +107,55 @@ export default class InstagramAPI {
       "user-agent": this.ua,
       "viewport-width": "558",
     };
+  }
+
+  async apiCall(cid: string, dtsg: string, cursor = null) {
+    const response = await axios.post(
+      "https://www.instagram.com/api/graphql/",
+      new URLSearchParams({
+        fb_dtsg: dtsg,
+        variables: JSON.stringify({
+          deviceId: cid,
+          requestId: 0,
+          requestPayload: JSON.stringify({
+            database: 1,
+            epoch_id: 0,
+            last_applied_cursor: cursor,
+            sync_params: JSON.stringify({}),
+            version: 9477666248971112,
+          }),
+          requestType: 1,
+        }),
+        doc_id: "6195354443842040",
+      }),
+      {
+        headers: {
+          authority: "www.instagram.com",
+          accept: "*/*",
+          "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+          "cache-control": "no-cache",
+          cookie: this.cookies,
+          origin: "https://www.instagram.com",
+          pragma: "no-cache",
+          referer: "https://www.instagram.com/",
+          "sec-ch-prefers-color-scheme": "dark",
+          "sec-ch-ua":
+            '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+          "sec-ch-ua-full-version-list":
+            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"macOS"',
+          "sec-ch-ua-platform-version": '"13.2.1"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          "user-agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+          "x-ig-app-id": "936619743392459",
+        },
+      }
+    );
+    return response;
   }
 
   // private async call<ResultType = any>(url, jsonBody?: any, optOverrides?: Partial<FetchOptions>, attempt?: number): Promise<ResultType> {
