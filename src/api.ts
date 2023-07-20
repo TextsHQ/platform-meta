@@ -2,6 +2,7 @@ import { ActivityType, Awaitable, ClientContext, CurrentUser, CustomEmojiMap, Fe
 import type { Readable } from 'stream'
 import type PlatformInfo from './info'
 import InstagramAPI from './ig-api'
+import { CookieJar } from 'tough-cookie'
 
 export default class PlatformInstagram implements PlatformAPI {
   // private accountInfo: AccountInfo
@@ -13,24 +14,50 @@ export default class PlatformInstagram implements PlatformAPI {
   //   this.accountInfo = accountInfo
   // }
 
-  init = async (session: SerializedSession) => {
+  init = async (session: SerializedSession, _: ClientContext) => {
     if (!session) return
-    this.api.init()
+    const { jar, ua, authMethod } = session
+    this.api.jar = CookieJar.fromJSON(jar)
+    this.api.ua = ua
+    this.api.authMethod = authMethod
+    await this.api.init()
   }
 
   dispose: () => Awaitable<void>
 
-  getCurrentUser: () => Awaitable<CurrentUser>
+  getCurrentUser = async (): Promise<CurrentUser> => {
+    texts.log('getting currect user')
+    const me = await this.api.getMe()
+    return {
+      id: me.id,
+      fullName: me.fullName,
+      username: me.username,
+    }
+  }
 
-  login: (creds?: LoginCreds) => Promise<LoginResult>
+  login = async (creds: LoginCreds): Promise<LoginResult> => {
+    const cookieJarJSON = 'cookieJarJSON' in creds && creds.cookieJarJSON
+    if (!cookieJarJSON) return { type: 'error', errorMessage: 'Cookies not found' }
+    if (creds.jsCodeResult) {
+      const { ua, authMethod } = JSON.parse(creds.jsCodeResult)
+      this.api.ua = ua
+      this.api.authMethod = authMethod || 'login-window'
+    }
+    this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
+    await this.api.init()
+    return { type: 'success' }
+  }
 
-  logout?: () => Awaitable<void>
+  logout = async () => {
+    // @TODO: logout
+  }
 
   serializeSession = () => ({
     jar: this.api.jar.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
   })
+
   subscribeToEvents: (onEvent: OnServerEventCallback) => Awaitable<void>
 
   onLoginEvent = (onEvent: (data: any) => void) => {

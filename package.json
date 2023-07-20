@@ -1,6 +1,6 @@
 {
-  "name": "@textshq/platform-instagram-v3",
-  "version": "0.1.0",
+  "name": "@textshq/platform-instagram",
+  "version": "3.0.0",
   "main": "dist/index.js",
   "scripts": {
     "prepack": "tsc",

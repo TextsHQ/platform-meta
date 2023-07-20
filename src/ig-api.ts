@@ -68,6 +68,8 @@ export default class InstagramAPI {
     this.session = { clientId, dtsg, userId };
     texts.log(`Session: ${JSON.stringify(this.session)}`);
     this.socket = new InstagramWebSocket(this);
+    const me = await this.getMe();
+    texts.log(`Logged in as ${me.username}`);
   }
 
   async getClientID() {
@@ -109,24 +111,13 @@ export default class InstagramAPI {
     };
   }
 
-  async apiCall(cid: string, dtsg: string, cursor = null) {
+  async apiCall<T extends {}>(doc_id: string, variables: T) {
     const response = await axios.post(
       "https://www.instagram.com/api/graphql/",
       new URLSearchParams({
-        fb_dtsg: dtsg,
-        variables: JSON.stringify({
-          deviceId: cid,
-          requestId: 0,
-          requestPayload: JSON.stringify({
-            database: 1,
-            epoch_id: 0,
-            last_applied_cursor: cursor,
-            sync_params: JSON.stringify({}),
-            version: 9477666248971112,
-          }),
-          requestType: 1,
-        }),
-        doc_id: "6195354443842040",
+        fb_dtsg: this.session.dtsg,
+        variables: JSON.stringify(variables),
+        doc_id,
       }),
       {
         headers: {
@@ -156,6 +147,41 @@ export default class InstagramAPI {
       }
     );
     return response;
+  }
+
+  async getUser(user_id: string) {
+    const response = await this.apiCall('6083412141754133', {
+      include_chaining: true,
+      include_highlight_reels: false,
+      include_live_status: true,
+      include_logged_out_extras: false,
+      include_reel: false,
+      include_suggested_users: false,
+      user_id,
+    });
+    const data = response.data as {
+      data: {
+        userInfo: {
+          user: {
+            username: string
+            show_ig_app_switcher_badge: boolean
+            id: string
+          }
+        }
+      }
+      extensions: {
+        is_final: boolean
+      }
+    }
+    return {
+      id: data.data.userInfo.user.id,
+      username: data.data.userInfo.user.username,
+      fullName: data.data.userInfo.user.username, //@TODO
+    }
+  }
+
+  getMe() {
+    return this.getUser(this.session.userId)
   }
 
   // private async call<ResultType = any>(url, jsonBody?: any, optOverrides?: Partial<FetchOptions>, attempt?: number): Promise<ResultType> {
