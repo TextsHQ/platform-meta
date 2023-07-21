@@ -23,17 +23,23 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.api.init()
   }
 
-  dispose: () => Awaitable<void>
+  dispose = () => {}
 
-  getCurrentUser = async (): Promise<CurrentUser> => {
-    texts.log('getting currect user')
-    const me = await this.api.getMe()
-    return {
-      id: me.id,
-      fullName: me.fullName,
-      username: me.username,
-    }
-  }
+  currentUser: CurrentUser
+
+  getCurrentUser = () => this.currentUser
+
+  // getCurrentUser = async (): Promise<CurrentUser> => {
+  //   texts.log(`instagram getting current user ${this.api.viewerConfig}`)
+  //   const user = this.api.viewerConfig
+  //   if (!user) throw new Error('User not found')
+  //   return {
+  //     id: user.id,
+  //     fullName: user.full_name,
+  //     imgURL: user.profile_pic_url,
+  //     username: user.username,
+  //   }
+  // }
 
   login = async (creds: LoginCreds): Promise<LoginResult> => {
     const cookieJarJSON = 'cookieJarJSON' in creds && creds.cookieJarJSON
@@ -78,7 +84,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
-  getThreads: (folderName: string, pagination?: PaginationArg) => Awaitable<Paginated<Thread>>
+  // getThreads: (folderName: string, pagination?: PaginationArg) => Awaitable<Paginated<Thread>>
+
+  async getThreads(folderName: string, pagination?: PaginationArg) {
+    const conversations = await this.api.fetchInitialConversations()
+    texts.log('instagram got conversations', conversations)
+    return { items: [], hasMore: false }
+  }
 
   getMessages: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Message>>
 
@@ -88,7 +100,15 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessage?: (messageID: string) => Awaitable<Message>
 
-  getUser?: (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => Awaitable<User>
+  // getUser?: (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => Awaitable<User>
+
+  getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
+    // type check username
+    const username = 'username' in ids && ids.username
+    const user: User = await this.api.getUserByUsername(username)
+    texts.log('instagram got user', user)
+    return user
+  }
 
   createThread: (userIDs: string[], title?: string, messageText?: string) => Awaitable<boolean | Thread>
 
