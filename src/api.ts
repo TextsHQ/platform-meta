@@ -86,10 +86,44 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // getThreads: (folderName: string, pagination?: PaginationArg) => Awaitable<Paginated<Thread>>
 
-  async getThreads(folderName: string, pagination?: PaginationArg) {
+  getThreads = async (folderName: string, pagination?: PaginationArg) => {
     const conversations = await this.api.fetchInitialConversations()
-    texts.log('instagram got conversations', conversations)
-    return { items: [], hasMore: false }
+    texts.log('instagram got conversations', JSON.stringify(conversations, null, 2))
+
+    const items: Thread[] = conversations?.newConversations.map((thread) => ({
+      _original: JSON.stringify(thread),
+      id: thread.threadId,
+      // folderName: thread.pending ? 'requests' : 'normal',
+      isUnread: thread.unread,
+      isReadOnly: false,
+      type: 'single',
+      title: thread.groupName,
+      messages: {
+        items: [],
+        hasMore: false,
+        oldestCursor: '',
+        newestCursor: ''
+      },
+      timestamp: new Date(Number(thread.lastSentTime)),
+      participants: {
+        items: thread?.participants?.map((participant) => ({
+          id: participant.userId,
+          username: participant.username,
+          fullName: participant.name,
+        })),
+        hasMore: false,
+        oldestCursor: '',
+        newestCursor: ''
+      },
+      lastReadMessageID: thread?.lastMessageDetails?.messageId,
+      partialLastMessage: {
+        id: thread?.lastMessageDetails?.messageId,
+        senderID: thread?.lastMessageDetails?.authorId,
+        text: thread?.lastMessageDetails?.message,
+      }
+    }))
+
+    return { items, hasMore: false }
   }
 
   getMessages: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Message>>
