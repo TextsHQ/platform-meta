@@ -5,7 +5,6 @@
 import WebSocket from "ws";
 import axios from "axios";
 import mqtt from "mqtt-packet";
-import "dotenv/config";
 import fs from "fs";
 import { uuid } from "uuidv4";
 const args = process.argv.slice(2);

@@ -36,4 +36,87 @@ export default class InstagramWebSocket {
   private onError(event: Error) {
     console.log('onError', event);
   }
+
+  private getMessages() {
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 6,
+        qos: 1,
+        dup: false,
+        retain: false,
+        topic: "/ls_req",
+        payload: JSON.stringify({
+          app_id: "936619743392459",
+          payload: JSON.stringify({
+            tasks: [
+              {
+                label: "228",
+                payload: JSON.stringify({
+                  thread_key: Number(threadId),
+                  direction: 0,
+                  reference_timestamp_ms: Number(
+                    messages[messages.length - 1].sentTs
+                  ),
+                  reference_message_id: messages[messages.length - 1].messageId,
+                  sync_group: 1,
+                  cursor: cursor,
+                }),
+                queue_name: `mrq.${threadId}`,
+                task_id: 1,
+                failure_count: null,
+              },
+            ],
+            epoch_id: Number(BigInt(Date.now()) << BigInt(22)),
+            version_id: "9477666248971112",
+          }),
+          request_id: 6,
+          type: 3,
+        }),
+      })
+    );
+  }
+
+  private getThreads() {
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 6,
+        qos: 1,
+        dup: false,
+        retain: false,
+        topic: "/ls_req",
+        payload: JSON.stringify({
+          app_id: "936619743392459",
+          payload: JSON.stringify({
+            tasks: [
+              {
+                label: "145",
+                payload: JSON.stringify({
+                  is_after: 0,
+                  parent_thread_key: 0,
+                  reference_thread_key: Number(
+                    conversations[conversations.length - 1].threadId
+                  ),
+                  reference_activity_timestamp:
+                    conversations[conversations.length - 1].lastSentTime,
+                  additional_pages_to_fetch: 0,
+                  cursor: cursor,
+                  messaging_tag: null,
+                  sync_group: 1,
+                }),
+                queue_name: "trq",
+                task_id: 1,
+                failure_count: null,
+              },
+            ],
+            epoch_id: Number(BigInt(Date.now()) << BigInt(22)),
+            version_id: "9477666248971112",
+          }),
+          request_id: 6,
+          type: 3,
+        }),
+      })
+    );
+  }
 }
