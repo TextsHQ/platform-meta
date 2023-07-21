@@ -91,7 +91,7 @@ export default class InstagramWebSocket {
           ls_fdid: "",
           ls_sv: "9477666248971112", // version id
         }),
-      })
+      } as any)
     );
   }
 
@@ -100,86 +100,63 @@ export default class InstagramWebSocket {
   }
 
   private getMessages() {
-    this.ws.send(
-      mqtt.generate({
-        cmd: "publish",
-        messageId: 6,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: "/ls_req",
-        payload: JSON.stringify({
-          app_id: "936619743392459",
-          payload: JSON.stringify({
-            tasks: [
-              {
-                label: "228",
-                payload: JSON.stringify({
-                  thread_key: Number(threadId),
-                  direction: 0,
-                  reference_timestamp_ms: Number(
-                    messages[messages.length - 1].sentTs
-                  ),
-                  reference_message_id: messages[messages.length - 1].messageId,
-                  sync_group: 1,
-                  cursor: cursor,
-                }),
-                queue_name: `mrq.${threadId}`,
-                task_id: 1,
-                failure_count: null,
-              },
-            ],
-            epoch_id: Number(BigInt(Date.now()) << BigInt(22)),
-            version_id: "9477666248971112",
-          }),
-          request_id: 6,
-          type: 3,
-        }),
-      })
-    );
+    this.publishTask({
+      label: "228",
+      payload: JSON.stringify({
+        thread_key: Number(threadId),
+        direction: 0,
+        reference_timestamp_ms: Number(
+          messages[messages.length - 1].sentTs
+        ),
+        reference_message_id: messages[messages.length - 1].messageId,
+        sync_group: 1,
+        cursor: cursor,
+      }),
+      queue_name: `mrq.${threadId}`,
+      task_id: 1,
+      failure_count: null,
+    })
   }
 
   private getThreads() {
-    this.ws.send(
-      mqtt.generate({
-        cmd: "publish",
-        messageId: 6,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: "/ls_req",
-        payload: JSON.stringify({
-          app_id: "936619743392459",
-          payload: JSON.stringify({
-            tasks: [
-              {
-                label: "145",
-                payload: JSON.stringify({
-                  is_after: 0,
-                  parent_thread_key: 0,
-                  reference_thread_key: Number(
-                    conversations[conversations.length - 1].threadId
-                  ),
-                  reference_activity_timestamp:
-                    conversations[conversations.length - 1].lastSentTime,
-                  additional_pages_to_fetch: 0,
-                  cursor: cursor,
-                  messaging_tag: null,
-                  sync_group: 1,
-                }),
-                queue_name: "trq",
-                task_id: 1,
-                failure_count: null,
-              },
-            ],
-            epoch_id: Number(BigInt(Date.now()) << BigInt(22)),
-            version_id: "9477666248971112",
-          }),
-          request_id: 6,
-          type: 3,
-        }),
-      })
+    this.publishTask(              {
+      label: "145",
+      payload: JSON.stringify({
+        is_after: 0,
+        parent_thread_key: 0,
+        reference_thread_key: Number(
+          conversations[conversations.length - 1].threadId
+        ),
+        reference_activity_timestamp:
+          conversations[conversations.length - 1].lastSentTime,
+        additional_pages_to_fetch: 0,
+        cursor: cursor,
+        messaging_tag: null,
+        sync_group: 1,
+      }),
+      queue_name: "trq",
+      task_id: 1,
+      failure_count: null,
+    })
+  }
+
+  async initialConnection() {
+    const response = await this.igApi.apiCall("6195354443842040", {
+      deviceId: this.igApi.session.clientId,
+      requestId: 0,
+      requestPayload: JSON.stringify({
+        database: 1,
+        epoch_id: 0,
+        last_applied_cursor: cursor,
+        sync_params: JSON.stringify({}),
+        version: 9477666248971112,
+      }),
+      requestType: 1,
+    });
+    const { newConversations, cursor } = parseResponse(
+      response.data.data.lightspeed_web_request_for_igd.payload
     );
+    return { newConversations, cursor };
   }
 
   connect() {
@@ -293,6 +270,31 @@ export default class InstagramWebSocket {
         topic: "/ls_req",
         messageId: 4,
         payload: hmm,
+      })
+    );
+  }
+
+  publishTask(_tasks: any) {
+    const tasks = Array.isArray(_tasks) ? _tasks : [_tasks];
+    const { epoch_id } = getTimeValues();
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 6,
+        qos: 1,
+        dup: false,
+        retain: false,
+        topic: "/ls_req",
+        payload: JSON.stringify({
+          app_id: "936619743392459",
+          payload: JSON.stringify({
+            tasks,
+            epoch_id,
+            version_id: "9477666248971112",
+          }),
+          request_id: 6,
+          type: 3,
+        }),
       })
     );
   }
