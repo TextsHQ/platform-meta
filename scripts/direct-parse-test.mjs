@@ -1,9 +1,5 @@
 import fs from 'fs/promises'
 
-function extractViewer(htmlString) {
-
-}
-
 async function main() {
   const resp = await fs.readFile('./direct.html', 'utf8')
   const clientId = resp.slice(resp.indexOf('{"clientID":')).split('"')[3];

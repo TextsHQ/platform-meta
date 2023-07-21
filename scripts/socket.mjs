@@ -10,6 +10,10 @@ let messages = [threads[threadId].lastMessageDetails];
 
 const cookies = get('cookies');
 
+let isConnectedPromiseResolve
+export const isConnectedPromise = new Promise((resolve, reject) => {
+  isConnectedPromiseResolve = resolve
+})
 // construct the conversations from undecipherable data
 function parseGetCursorResponse(payload) {
   const j = JSON.parse(payload);
@@ -91,6 +95,7 @@ ws.on("error", function incoming(data) {
 
 ws.on("open", function open() {
   console.log("connected");
+  isConnectedPromiseResolve?.()
 
   // initiate connection
   ws.send(
@@ -143,6 +148,7 @@ ws.on("open", function open() {
 });
 
 ws.on("message", function incoming(data) {
+  console.log('on msg from socket', data)
   if (data.toString("hex") == "42020001") {
     // ack for app settings
 
@@ -189,6 +195,11 @@ ws.on("message", function incoming(data) {
     );
   } else if (data[0] != 0x42) {
     // @TODO
+    console.log("data", data);
+
+  } else {
+    console.log("data", data);
+
   }
 });
 

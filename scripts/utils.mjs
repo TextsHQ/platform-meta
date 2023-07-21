@@ -2,33 +2,35 @@ import axios from "axios";
 import mqtt from "mqtt-packet";
 import { get } from "./settings.mjs";
 
-const cookies = get('cookies');
+const commonHeaders = {
+  authority: "www.instagram.com",
+  "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+  "sec-ch-prefers-color-scheme": "light",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"macOS"',
+  "sec-ch-ua-platform-version": '"13.2.1"',
+  "sec-ch-ua":
+    '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+  "sec-fetch-site": "same-origin",
+  "sec-ch-ua-full-version-list": '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+  cookie: get('cookies'),
+}
 
 export async function getClientId() {
   const response = await axios.get("https://www.instagram.com/direct/", {
     headers: {
-      authority: "www.instagram.com",
       accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
       "cache-control": "max-age=0",
-      cookie: cookies,
-      "sec-ch-prefers-color-scheme": "light",
       "sec-ch-ua":
         '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-      "sec-ch-ua-full-version-list":
-        '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
-      "sec-ch-ua-platform-version": '"13.2.1"',
       "sec-fetch-dest": "document",
       "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
       "sec-fetch-user": "?1",
       "upgrade-insecure-requests": "1",
-      "user-agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
       "viewport-width": "558",
+      ...commonHeaders,
     },
   });
   const resp = response.data;
@@ -59,28 +61,15 @@ export async function apiCall(cid, dtsg, cursor = null) {
     }),
     {
       headers: {
-        authority: "www.instagram.com",
         accept: "*/*",
-        "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
         "cache-control": "no-cache",
-        cookie: cookies,
         origin: "https://www.instagram.com",
         pragma: "no-cache",
         referer: "https://www.instagram.com/",
-        "sec-ch-prefers-color-scheme": "dark",
-        "sec-ch-ua":
-          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        "sec-ch-ua-full-version-list":
-          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"macOS"',
-        "sec-ch-ua-platform-version": '"13.2.1"',
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
         "x-ig-app-id": "936619743392459",
+        ...commonHeaders,
       },
     }
   );

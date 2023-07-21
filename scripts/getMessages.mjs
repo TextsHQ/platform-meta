@@ -4,11 +4,9 @@ import { getClientId, apiCall, parseMqttPacket } from "./utils.mjs";
 import { ws } from "./socket.mjs";
 
 const threads = get("threads");
-const threadId = Object.keys(threads)[0];
+const threadId = Object.keys(threads)[2];
 
 let messages = [threads[threadId].lastMessageDetails];
-
-const cookies = get("cookies");
 
 // construct the conversations from undecipherable data
 function parseResponse(payload) {
@@ -53,18 +51,25 @@ function parseResponse(payload) {
 // get the initial conversations
 async function getCursor(cid, dtsg) {
   const response = await apiCall(cid, dtsg);
-  const { cursor } = parseResponse(
+  const parsed = parseResponse(
     response.data.data.lightspeed_web_request_for_igd.payload
   );
-  return cursor;
+  console.log('getCursor', parsed)
+  messages.push(...parsed.newMessages);
+  messages = messages.filter(
+    (v, i, a) => a.findIndex((t) => t.messageId === v.messageId) === i
+  ).sort((a, b) => a.sentTs - b.sentTs)
+  return parsed.cursor;
 }
 
-const { clientId, dtsg, userId: myUserId } = await getClientId();
+const { clientId, dtsg } = await getClientId();
 
 let cursor = await getCursor(clientId, dtsg);
 console.log(cursor);
 
 ws.on("message", function incoming(data) {
+  console.log('on msg from getMessages', data)
+
   if (data.toString("hex") == "42020001") {
     // get messages
     ws.send(
@@ -155,6 +160,7 @@ ws.on("message", function incoming(data) {
           const { newMessages } = parseResponse(payload.payload);
           console.log(JSON.stringify(newMessages, null, 2));
           messages.push(...newMessages);
+          console.log('messages', messages)
           ws.send(
             mqtt.generate({
               cmd: "publish",
@@ -200,6 +206,6 @@ ws.on("message", function incoming(data) {
 });
 
 ws.on("close", function close() {
-  console.log("disconnected");
+  console.log("disconnected", messages);
   set(`messages.${threadId}`, messages);
 });

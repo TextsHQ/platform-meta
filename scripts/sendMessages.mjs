@@ -123,6 +123,7 @@ const t4 = mqtt.generate({
   messageId: 4,
   payload: hmm,
 });
+
 const ws = new WebSocket(
   `wss://edge-chat.instagram.com/chat?sid=${mqtt_sid}&cid=${client_id}`,
   {
@@ -132,6 +133,7 @@ const ws = new WebSocket(
     },
   }
 );
+
 ws.on("error", function incoming(data) {
   // print the binary data received from the websocket server
   console.log("Error", data);
