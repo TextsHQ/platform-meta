@@ -68,7 +68,7 @@ export default class InstagramAPI {
       // transformRequest: [
       //   (data, headers) => {
 
-      //   headers["cookie"] = this.jar.getCookieStringSync(INSTAGRAM_BASE_URL);
+      //   headers["cookie"] = this.jar.getCookies();
       //   return data;
       //   },
       //   ...(Array.isArray(axios.defaults.transformRequest)
@@ -79,7 +79,7 @@ export default class InstagramAPI {
 
     this.axios.interceptors.request.use (
       async (config) => {
-        config.headers.set('cookie', this.jar.getCookieStringSync(INSTAGRAM_BASE_URL))
+        config.headers.set('cookie', this.getCookies())
         return config;
       },
       (error) => {
@@ -143,7 +143,7 @@ export default class InstagramAPI {
     return { clientId, dtsg, fbid, config };
   }
 
-  get cookies() {
+  getCookies() {
     // @TODO:use our http client for requests
     return this.jar.getCookieStringSync(INSTAGRAM_BASE_URL);
   }
@@ -227,7 +227,7 @@ export default class InstagramAPI {
         "x-ig-app-id": "936619743392459",
         "x-ig-www-claim": "hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU",
         "x-requested-with": "XMLHttpRequest",
-        "cookie": this.jar.getCookieStringSync(INSTAGRAM_BASE_URL),
+        "cookie": this.getCookies(),
         "Referer": `https://www.instagram.com/${username}/`,
         "Referrer-Policy": "strict-origin-when-cross-origin"
       },
@@ -252,7 +252,7 @@ export default class InstagramAPI {
         headers: {
           authority: 'www.instagram.com',
           'content-type': 'application/x-www-form-urlencoded',
-          cookie: this.jar.getCookieStringSync(INSTAGRAM_BASE_URL),
+          cookie: this.getCookies(),
         },
         method: 'POST',
       }
@@ -297,62 +297,6 @@ export default class InstagramAPI {
     const user = await this.getUserByUsername(username)
     return user
   }
-
-  // private async call<ResultType = any>(url, jsonBody?: any, optOverrides?: Partial<FetchOptions>, attempt?: number): Promise<ResultType> {
-  //   const opts: FetchOptions = {
-  //     body: jsonBody ? JSON.stringify(jsonBody) : undefined,
-  //     headers: {
-  //       ...this.headers,
-  //       Referer: 'https://www.instagram.com/',
-  //     },
-  //     cookieJar: this.jar,
-  //     ...optOverrides,
-  //   }
-  //   const url = `${ENDPOINT}${pathname}`
-  //   const res = await this.http.requestAsString(url, opts)
-  //   if (res.statusCode === 429) throw new RateLimitError()
-  //   if (res.body[0] === '<') {
-  //     if (res.statusCode === 403 && !attempt) {
-  //       await this.cfChallenge()
-  //       return this.call<ResultType>(pathname, jsonBody, optOverrides, (attempt || 0) + 1)
-  //     }
-  //     if (res.statusCode >= 400) throw Error(`${url} returned status code ${res.statusCode}`)
-  //     console.log(res.statusCode, url, res.body)
-  //     throw new ExpectedJSONGotHTMLError(res.statusCode, res.body)
-  //   } else if (res.body.startsWith('Internal')) {
-  //     console.log(res.statusCode, url, res.body)
-  //     throw Error(res.body)
-  //   } else if (!res.body) {
-  //     throw Error('falsey body')
-  //   }
-  //   const json = JSON.parse(res.body)
-  //   if (json?.detail) { // potential error
-  //     texts.error(url, json.detail)
-  //   }
-  //   return json as ResultType
-  // }
-
-  // private async call<ResultType = any>(pathname: string, jsonBody?: any, optOverrides?: Partial<FetchOptions>, attempt?: number): Promise<ResultType> {
-  //  const opts: FetchOptions = {
-  //     body: jsonBody ? JSON.stringify(jsonBody) : undefined,
-  //     headers: {
-  //       // ...(isBackendAPI && { Authorization: `Bearer ${this.accessToken}` }),
-  //       ...(jsonBody && { 'Content-Type': 'application/json' }),
-  //       ...this.headers,
-  //       Referer: 'https://chat.openai.com/',
-  //     },
-  //     cookieJar: this.jar,
-  //     ...optOverrides,
-  //   }
-  //   const url = `${INSTAGRAM_BASE_URL}${pathname}`
-  //   const res = await this.http.requestAsString(url, opts)
-  //   if (res.statusCode === 429) throw new RateLimitError()
-  //   if (!res.body) {
-  //     throw Error('falsey body')
-  //   }
-  //   const json = JSON.parse(res.body)
-  //   return json as ResultType
-  // }
 
   getCSRFToken() {
     return this.jar.getCookiesSync(INSTAGRAM_BASE_URL).find(c => c.key === 'csrftoken')?.value

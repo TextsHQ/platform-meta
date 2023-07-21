@@ -1,10 +1,14 @@
 import WebSocket from "ws";
+import mqtt from "mqtt-packet";
 import type InstagramAPI from "./ig-api";
+import { texts } from "@textshq/platform-sdk";
+import { getTimeValues } from "./util";
 
 const INSTAGRAM_BASE_URL = "https://www.instagram.com/";
 
 export default class InstagramWebSocket {
-  ws: WebSocket
+  ws: WebSocket;
+
   private mqttSid = parseInt(Math.random().toFixed(16).split(".")[1]);
 
   constructor(private readonly igApi: InstagramAPI) {
@@ -23,18 +27,76 @@ export default class InstagramWebSocket {
           "Accept-Encoding": "gzip, deflate, br",
           "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
           "User-Agent": this.igApi.ua,
-          Cookie: this.igApi.jar.getCookieStringSync(INSTAGRAM_BASE_URL),
+          Cookie: this.igApi.getCookies(),
         },
       }
     );
     this.ws.on("error", (err) => this.onError(err));
+    this.ws.on("open", () => this.onOpen());
+    this.ws.on("close", () => this.onClose());
     process.on("SIGINT", () => {
       this.ws.close();
     });
   }
 
   private onError(event: Error) {
-    console.log('onError', event);
+    console.log("onError", event);
+  }
+
+  private onOpen() {
+    texts.log("Connected to Instagram WebSocket");
+    // initiate connection
+    this.ws.send(
+      mqtt.generate({
+        cmd: "connect",
+        protocolId: "MQIsdp",
+        clientId: "mqttwsclient",
+        protocolVersion: 3,
+        clean: true,
+        keepalive: 10,
+        username: JSON.stringify({
+          u: "userid", // doesnt seem to matter
+          s: this.mqttSid,
+          cp: 3,
+          ecp: 10,
+          chat_on: true,
+          fg: false,
+          d: this.igApi.session.clientId,
+          ct: "cookie_auth",
+          mqtt_sid: "",
+          aid: 936619743392459, // app id
+          st: [],
+          pm: [],
+          dc: "",
+          no_auto_fg: true,
+          gas: null,
+          pack: [],
+          php_override: "",
+          p: null,
+          a: this.igApi.ua,
+          aids: null,
+        }),
+      })
+    );
+
+    // send app settings
+    // need to wait for the ack before sending the subscribe
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 1,
+        qos: 1,
+        topic: "/ls_app_settings",
+        payload: JSON.stringify({
+          ls_fdid: "",
+          ls_sv: "9477666248971112", // version id
+        }),
+      })
+    );
+  }
+
+  private onClose() {
+    texts.log("Disconnected from Instagram WebSocket");
   }
 
   private getMessages() {
@@ -116,6 +178,121 @@ export default class InstagramWebSocket {
           request_id: 6,
           type: 3,
         }),
+      })
+    );
+  }
+
+  connect() {
+    this.ws.send(
+      mqtt.generate({
+        cmd: "connect",
+        protocolId: "MQIsdp",
+        clientId: "mqttwsclient",
+        protocolVersion: 3,
+        clean: true,
+        keepalive: 10,
+        username: JSON.stringify({
+          u: "17841418030588216",
+          s: this.mqttSid,
+          cp: 3,
+          ecp: 10,
+          chat_on: true,
+          fg: false,
+          d: this.igApi.session.clientId,
+          ct: "cookie_auth",
+          mqtt_sid: "",
+          aid: 936619743392459,
+          st: [],
+          pm: [],
+          dc: "",
+          no_auto_fg: true,
+          gas: null,
+          pack: [],
+          php_override: "",
+          p: null,
+          a: this.igApi.ua,
+          aids: null,
+        }),
+      })
+    );
+  }
+
+  sendTypingIndicator(threadID: string) {
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 9,
+        topic: "/ls_req",
+        payload: JSON.stringify({
+          app_id: "936619743392459",
+          payload: JSON.stringify({
+            label: "3",
+            payload: JSON.stringify({
+              thread_key: threadID,
+              is_group_thread: 0,
+              is_typing: 1,
+              attribution: 0,
+            }),
+            version: "6243569662359088",
+          }),
+          request_id: 45,
+          type: 4,
+        }),
+      } as any)
+    ); // @TODO: fix mqtt-packet types
+  }
+
+  publishMessage(threadID: string, text: string) {
+    const { epoch_id, otid, timestamp } = getTimeValues();
+    const hmm = JSON.stringify({
+      app_id: "936619743392459",
+      payload: JSON.stringify({
+        tasks: [
+          {
+            label: "46",
+            payload: JSON.stringify({
+              thread_id: threadID,
+              otid: otid.toString(),
+              source: 0,
+              send_type: 1,
+              sync_group: 1,
+              text,
+              initiating_source: 1,
+              skip_url_preview_gen: 0,
+              text_has_links: 0,
+            }),
+            queue_name: threadID.toString(),
+            task_id: 0,
+            failure_count: null,
+          },
+          {
+            label: "21",
+            payload: JSON.stringify({
+              thread_id: threadID,
+              last_read_watermark_ts: Number(timestamp),
+              sync_group: 1,
+            }),
+            queue_name: threadID.toString(),
+            task_id: 1,
+            failure_count: null,
+          },
+        ],
+        epoch_id: Number(epoch_id),
+        version_id: "6243569662359088",
+      }),
+      request_id: 4,
+      type: 3,
+    });
+
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        dup: false,
+        qos: 1,
+        retain: false,
+        topic: "/ls_req",
+        messageId: 4,
+        payload: hmm,
       })
     );
   }

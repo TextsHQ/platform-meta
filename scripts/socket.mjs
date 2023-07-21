@@ -3,17 +3,13 @@ import mqtt from "mqtt-packet";
 import { get } from './settings.mjs'
 import { getClientId, apiCall, mqttSid } from './utils.mjs'
 
-const threads = get('threads')
-const threadId = Object.keys(threads)[0]
-
-let messages = [threads[threadId].lastMessageDetails];
-
 const cookies = get('cookies');
 
 let isConnectedPromiseResolve
 export const isConnectedPromise = new Promise((resolve, reject) => {
   isConnectedPromiseResolve = resolve
 })
+
 // construct the conversations from undecipherable data
 function parseGetCursorResponse(payload) {
   const j = JSON.parse(payload);
@@ -196,10 +192,8 @@ ws.on("message", function incoming(data) {
   } else if (data[0] != 0x42) {
     // @TODO
     console.log("data", data);
-
   } else {
     console.log("data", data);
-
   }
 });
 
