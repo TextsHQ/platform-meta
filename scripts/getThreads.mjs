@@ -1,9 +1,8 @@
-import WebSocket from "ws";
 import mqtt from "mqtt-packet";
-import { getClientId, apiCall, parseMqttPacket } from './utils.mjs'
+import { getClientId, apiCall, parseMqttPacket } from "./utils.mjs";
+import { ws } from "./socket.mjs";
 
-import { get, set } from './settings.mjs'
-const cookies = get('cookies');
+import { set } from "./settings.mjs";
 
 // construct the conversations from undecipherable data
 function parseResponse(payload) {
@@ -108,138 +107,15 @@ async function initialConnection(cid, dtsg) {
   return { newConversations, cursor };
 }
 
-
 const { clientId, dtsg, userId: myUserId } = await getClientId();
 console.log(clientId, dtsg, myUserId);
 let { cursor, newConversations: conversations } = await initialConnection(
   clientId,
   dtsg
 );
-const mqttSid = parseInt(Math.random().toFixed(16).split(".")[1]);
-
-const ws = new WebSocket(
-  `wss://edge-chat.instagram.com/chat?sid=${mqttSid}&cid=${clientId}`,
-  {
-    origin: "https://www.instagram.com",
-    headers: {
-      Host: "edge-chat.instagram.com",
-      Connection: "Upgrade",
-      Pragma: "no-cache",
-      "Cache-Control": "no-cache",
-      Upgrade: "websocket",
-      Origin: "https://www.instagram.com",
-      "Sec-WebSocket-Version": "13",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-      Cookie: cookies,
-    },
-  }
-);
-ws.on("error", function incoming(data) {
-  console.log("Error", data);
-});
-
-ws.on("open", function open() {
-  console.log("connected");
-
-  // initiate connection
-  ws.send(
-    mqtt.generate({
-      cmd: "connect",
-      protocolId: "MQIsdp",
-      clientId: "mqttwsclient",
-      protocolVersion: 3,
-      clean: true,
-      keepalive: 10,
-      username: JSON.stringify({
-        u: "userid", // doesnt seem to matter
-        s: mqttSid,
-        cp: 3,
-        ecp: 10,
-        chat_on: true,
-        fg: false,
-        d: clientId,
-        ct: "cookie_auth",
-        mqtt_sid: "",
-        aid: 936619743392459, // app id
-        st: [],
-        pm: [],
-        dc: "",
-        no_auto_fg: true,
-        gas: null,
-        pack: [],
-        php_override: "",
-        p: null,
-        a: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
-        aids: null,
-      }),
-    })
-  );
-
-  // send app settings
-  // need to wait for the ack before sending the subscribe
-  ws.send(
-    mqtt.generate({
-      cmd: "publish",
-      messageId: 1,
-      qos: 1,
-      topic: "/ls_app_settings",
-      payload: JSON.stringify({
-        ls_fdid: "",
-        ls_sv: "9477666248971112", // version id
-      }),
-    })
-  );
-});
 
 ws.on("message", function incoming(data) {
   if (data.toString("hex") == "42020001") {
-    // ack for app settings
-
-    // subscribe to /ls_resp
-    ws.send(
-      mqtt.generate({
-        cmd: "subscribe",
-        qos: 1,
-        subscriptions: [
-          {
-            topic: "/ls_resp",
-            qos: 0,
-          },
-        ],
-        messageId: 3,
-      })
-    );
-
-    // not sure exactly what this does but it's required.
-    // my guess is it "subscribes to database 1"?
-    // may need similar code to get messages.
-    ws.send(
-      mqtt.generate({
-        cmd: "publish",
-        messageId: 5,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: "/ls_req",
-        payload: JSON.stringify({
-          app_id: "936619743392459",
-          payload: JSON.stringify({
-            database: 1,
-            epoch_id: Number(BigInt(Date.now()) << BigInt(22)),
-            failure_count: null,
-            last_applied_cursor: cursor,
-            sync_params: null,
-            version: 9477666248971112,
-          }),
-          request_id: 5,
-          type: 2,
-        }),
-      })
-    );
-
     // get threads
     ws.send(
       mqtt.generate({
@@ -362,9 +238,5 @@ ws.on("close", function close() {
     conversation;
     obj[conversation.threadId] = conversation;
   }
-  set('threads', obj)
-});
-
-process.on("SIGINT", () => {
-  ws.close();
+  set("threads", obj);
 });
