@@ -36,10 +36,11 @@ export class ChatMemoryStore {
   }
 
   public addMessage(message: Message) {
-    this.messages.set(message.threadID, [
+    const messages = [
       ...(this.messages.get(message.threadID) || []),
       message,
-    ]);
+    ].sort((a, b) => a.timestamp?.getTime() - b.timestamp?.getTime())
+    this.messages.set(message.threadID, messages);
   }
 
   public addMessages(messages: Message[] = []) {

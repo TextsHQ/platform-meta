@@ -367,23 +367,20 @@ export default class InstagramWebSocket {
     );
   }
 
-  getMessages(threadId: string) {
-    const { newMessages, cursor } = this.papi.api.cursorCache ?? {};
-    const lastMessageInCursor = newMessages?.[newMessages.length - 1];
-
+  getMessages(threadID: string) {
+    const messages = this.papi.api.db.getMessages(threadID)
+    const lastMessage = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null;
     this.publishTask({
       label: "228",
       payload: JSON.stringify({
-        thread_key: Number(threadId),
+        thread_key: Number(threadID),
         direction: 0,
-        reference_timestamp_ms: Number(
-          lastMessageInCursor.sentTs
-        ),
-        reference_message_id: lastMessageInCursor.messageId,
+        reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
+        reference_message_id: lastMessage.id,
         sync_group: 1,
-        cursor: cursor,
+        cursor: this.papi.api.cursor,
       }),
-      queue_name: `mrq.${threadId}`,
+      queue_name: `mrq.${threadID}`,
       task_id: 1,
       failure_count: null,
     });
