@@ -99,18 +99,18 @@ export default class InstagramWebSocket {
     texts.log("Disconnected from Instagram WebSocket");
   }
 
-  private getMessages() {
+  private getMessages(threadId: string) {
     this.publishTask({
       label: "228",
       payload: JSON.stringify({
         thread_key: Number(threadId),
-        direction: 0,
-        reference_timestamp_ms: Number(
-          messages[messages.length - 1].sentTs
-        ),
-        reference_message_id: messages[messages.length - 1].messageId,
+        // direction: 0,
+        // reference_timestamp_ms: Number(
+        //   messages[messages.length - 1].sentTs
+        // ),
+        // reference_message_id: messages[messages.length - 1].messageId,
         sync_group: 1,
-        cursor: cursor,
+        // cursor: cursor,
       }),
       queue_name: `mrq.${threadId}`,
       task_id: 1,
@@ -124,13 +124,13 @@ export default class InstagramWebSocket {
       payload: JSON.stringify({
         is_after: 0,
         parent_thread_key: 0,
-        reference_thread_key: Number(
-          conversations[conversations.length - 1].threadId
-        ),
-        reference_activity_timestamp:
-          conversations[conversations.length - 1].lastSentTime,
+        // reference_thread_key: Number(
+        //   conversations[conversations.length - 1].threadId
+        // ),
+        // reference_activity_timestamp:
+          // conversations[conversations.length - 1].lastSentTime,
         additional_pages_to_fetch: 0,
-        cursor: cursor,
+        // cursor: cursor,
         messaging_tag: null,
         sync_group: 1,
       }),
@@ -147,16 +147,16 @@ export default class InstagramWebSocket {
       requestPayload: JSON.stringify({
         database: 1,
         epoch_id: 0,
-        last_applied_cursor: cursor,
+        // last_applied_cursor: cursor,
         sync_params: JSON.stringify({}),
         version: 9477666248971112,
       }),
       requestType: 1,
     });
-    const { newConversations, cursor } = parseResponse(
-      response.data.data.lightspeed_web_request_for_igd.payload
-    );
-    return { newConversations, cursor };
+    // const { newConversations, cursor } = parseResponse(
+      // response.data.data.lightspeed_web_request_for_igd.payload
+    // );
+    // return { newConversations, cursor };
   }
 
   connect() {

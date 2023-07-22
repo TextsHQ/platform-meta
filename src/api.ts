@@ -9,10 +9,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
   private loginEventCallback: (data: any) => void
   private api = new InstagramAPI(this)
+  private pushEvent: OnServerEventCallback
 
   // init = async (session: SerializedSession, _: ClientContext, prefs: Record<keyof typeof PlatformInfo['prefs'], string | boolean>) => {
   //   this.accountInfo = accountInfo
   // }
+
+  constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, _: ClientContext) => {
     if (!session) return
@@ -64,7 +67,9 @@ export default class PlatformInstagram implements PlatformAPI {
     authMethod: this.api.authMethod ?? 'login-window',
   })
 
-  subscribeToEvents: (onEvent: OnServerEventCallback) => Awaitable<void>
+  subscribeToEvents = (onEvent: OnServerEventCallback) => {
+    this.pushEvent = onEvent
+  }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
     this.loginEventCallback = onEvent
@@ -158,7 +163,9 @@ export default class PlatformInstagram implements PlatformAPI {
 
   forwardMessage?: (threadID: string, messageID: string, threadIDs?: string[], userIDs?: string[]) => Promise<void>
 
-  sendActivityIndicator: (type: ActivityType, threadID?: string) => Awaitable<void>
+  sendActivityIndicator = (threadID: string) => {
+    this.api.socket.sendTypingIndicator(threadID)
+  }
 
   deleteMessage?: (threadID: string, messageID: string, forEveryone?: boolean) => Awaitable<void>
 

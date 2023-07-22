@@ -56,7 +56,7 @@ export default class InstagramAPI {
 
   viewerConfig: InstagramParsedViewerConfig
 
-  private socket: InstagramWebSocket
+  socket: InstagramWebSocket
   private http = texts.createHttpClient()
 
   constructor(private readonly papi: Instagram) {
