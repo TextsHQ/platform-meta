@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
-    "@types/ws": "^8.5.5",
     "axios": "1.4.0",
     "bufferutil": "^4.0.7",
+    "http-cookie-agent": "5.0.4",
     "mqtt-packet": "^8.2.0",
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
@@ -24,6 +24,7 @@
     "@types/eslint": "^8.21.3",
     "@types/node": "^18.15.8",
     "@types/tough-cookie": "^4.0.2",
+    "@types/ws": "^8.5.5",
     "eslint": "^8.36.0",
     "typescript": "^5.0.2"
   },

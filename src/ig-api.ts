@@ -1,17 +1,11 @@
 import { CookieJar } from "tough-cookie";
 import axios, { type AxiosInstance } from "axios";
+import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
+import { type User, texts } from "@textshq/platform-sdk";
+
 import type Instagram from "./api";
-import {
-  FetchOptions,
-  RateLimitError,
-  User,
-  texts,
-} from "@textshq/platform-sdk";
 import InstagramWebSocket from "./ig-socket";
 import { parseGetCursorResponse } from "./parsers";
-
-const USER_AGENT_TEMPORARY =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
 
 const INSTAGRAM_BASE_URL = "https://www.instagram.com/" as const;
 
@@ -69,54 +63,40 @@ const commonHeaders = {
 } as const;
 
 export default class InstagramAPI {
-  // @TODO: move to `this.http`
-  private axios: AxiosInstance;
-
   session: Session;
 
   viewerConfig: InstagramParsedViewerConfig;
 
   socket: InstagramWebSocket;
-  private http = texts.createHttpClient();
 
-  constructor(private readonly papi: Instagram) {
-    this.axios = axios.create({
+  constructor(private readonly papi: Instagram) {}
+
+  authMethod: "login-window" | "extension" = "login-window";
+
+  jar: CookieJar;
+
+  ua = texts.constants.USER_AGENT;
+
+  currentUser: InstagramParsedViewerConfig;
+
+  cursor: Awaited<ReturnType<typeof this.getCursor>>['cursor'] = null
+
+  private _axios: AxiosInstance;
+
+  get axios () {
+    if (this._axios) return this._axios
+    this._axios = axios.create({
       baseURL: "https://www.instagram.com/",
       headers: {
         ...commonHeaders,
       },
-      // transformRequest: [
-      //   (data, headers) => {
-
-      //   headers["cookie"] = this.jar.getCookies();
-      //   return data;
-      //   },
-      //   ...(Array.isArray(axios.defaults.transformRequest)
-      //     ? axios.defaults.transformRequest
-      //     : [axios.defaults.transformRequest]),
-      // ],
+      httpAgent: new HttpCookieAgent({ cookies: { jar: this.jar } }),
+      httpsAgent: new HttpsCookieAgent({ cookies: { jar: this.jar } }),
     });
 
-    this.axios.interceptors.response.use(
-      (response) => {
-        // @TODO: update the jar
-        // response.headers['set-cookie']?.forEach((cookie) => {
-        //   this.jar.setCookieSync(cookie, INSTAGRAM_BASE_URL);
-        // });
-
-        return response;
-      },
-      (error) => {
-        if (error.response?.status === 429) {
-          throw new RateLimitError();
-        }
-        return Promise.reject(error);
-      }
-    );
-    this.axios.interceptors.request.use(
+    this._axios.interceptors.request.use(
       async (config) => {
         config.headers.set("user-agent", this.ua);
-        config.headers.set("cookie", this.getCookies());
         return config;
       },
       (error) => {
@@ -124,18 +104,8 @@ export default class InstagramAPI {
       }
     );
 
-    // this.init();
+    return this._axios
   }
-
-  authMethod: "login-window" | "extension" = "login-window";
-
-  jar: CookieJar;
-
-  ua = USER_AGENT_TEMPORARY || texts.constants.USER_AGENT;
-
-  currentUser: InstagramParsedViewerConfig;
-
-  cursor: Awaited<ReturnType<typeof this.getCursor>>['cursor'] = null
 
   async init() {
     const { clientId, dtsg, fbid, config } = await this.getClientId();
@@ -233,7 +203,6 @@ export default class InstagramAPI {
           "x-ig-www-claim":
             "hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU",
           "x-requested-with": "XMLHttpRequest",
-          cookie: this.getCookies(),
           Referer: `https://www.instagram.com/${username}/`,
           "Referrer-Policy": "strict-origin-when-cross-origin",
         },
@@ -261,7 +230,6 @@ export default class InstagramAPI {
         headers: {
           authority: "www.instagram.com",
           "content-type": "application/x-www-form-urlencoded",
-          cookie: this.getCookies(),
         },
         method: "POST",
       }

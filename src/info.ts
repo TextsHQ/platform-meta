@@ -3,12 +3,12 @@ import icon from './icon'
 import { genClientContext } from './util'
 
 const info: PlatformInfo = {
-  name: 'instagram-web',
+  name: 'instagram',
   version: '3.0.0',
-  displayName: 'Instagram v3',
-  tags: ['Beta'],
+  displayName: 'Instagram',
+  tags: ['Unstable'],
   icon,
-  loginMode: ['browser', 'browser-extension'],
+  loginMode: ['browser-extension'],
   deletionMode: MessageDeletionMode.UNSUPPORTED,
   attributes: new Set([
   ]),

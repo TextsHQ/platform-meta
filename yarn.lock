@@ -1768,6 +1768,7 @@ __metadata:
     axios: 1.4.0
     bufferutil: ^4.0.7
     eslint: ^8.36.0
+    http-cookie-agent: 5.0.4
     mqtt-packet: ^8.2.0
     react: "https://github.com/TextsHQ/react-global-shim"
     tough-cookie: ^4.1.2
@@ -2032,6 +2033,15 @@ __metadata:
   dependencies:
     debug: 4
   checksum: f52b6872cc96fd5f622071b71ef200e01c7c4c454ee68bc9accca90c98cfb39f2810e3e9aa330435835eedc8c23f4f8a15267f67c6e245d2b33757575bdac49d
+  languageName: node
+  linkType: hard
+
+"agent-base@npm:^7.1.0":
+  version: 7.1.0
+  resolution: "agent-base@npm:7.1.0"
+  dependencies:
+    debug: ^4.3.4
+  checksum: f7828f991470a0cc22cb579c86a18cbae83d8a3cbed39992ab34fc7217c4d126017f1c74d0ab66be87f71455318a8ea3e757d6a37881b8d0f2a2c6aa55e5418f
   languageName: node
   linkType: hard
 
@@ -3834,6 +3844,24 @@ __metadata:
   version: 4.1.1
   resolution: "http-cache-semantics@npm:4.1.1"
   checksum: 83ac0bc60b17a3a36f9953e7be55e5c8f41acc61b22583060e8dedc9dd5e3607c823a88d0926f9150e571f90946835c7fe150732801010845c72cd8bbff1a236
+  languageName: node
+  linkType: hard
+
+"http-cookie-agent@npm:5.0.4":
+  version: 5.0.4
+  resolution: "http-cookie-agent@npm:5.0.4"
+  dependencies:
+    agent-base: ^7.1.0
+  peerDependencies:
+    deasync: ^0.1.26
+    tough-cookie: ^4.0.0
+    undici: ^5.11.0
+  peerDependenciesMeta:
+    deasync:
+      optional: true
+    undici:
+      optional: true
+  checksum: c136529cc402d0d7b8d3ae644a41f6ebc986951e0add60efbb7faf6cee74bf0895a25f8827fc362e4dc9238f937bb64d0c144e0236fd5af6cbb48849bbf327cc
   languageName: node
   linkType: hard
 
