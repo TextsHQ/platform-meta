@@ -4,8 +4,6 @@ import type InstagramAPI from "./ig-api";
 import { texts } from "@textshq/platform-sdk";
 import { getTimeValues } from "./util";
 
-const INSTAGRAM_BASE_URL = "https://www.instagram.com/";
-
 export default class InstagramWebSocket {
   ws: WebSocket;
 
@@ -100,6 +98,8 @@ export default class InstagramWebSocket {
   }
 
   private getMessages(threadId: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+
     this.publishTask({
       label: "228",
       payload: JSON.stringify({
@@ -115,11 +115,13 @@ export default class InstagramWebSocket {
       queue_name: `mrq.${threadId}`,
       task_id: 1,
       failure_count: null,
-    })
+    });
   }
 
   private getThreads() {
-    this.publishTask(              {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+
+    this.publishTask({
       label: "145",
       payload: JSON.stringify({
         is_after: 0,
@@ -128,7 +130,7 @@ export default class InstagramWebSocket {
         //   conversations[conversations.length - 1].threadId
         // ),
         // reference_activity_timestamp:
-          // conversations[conversations.length - 1].lastSentTime,
+        // conversations[conversations.length - 1].lastSentTime,
         additional_pages_to_fetch: 0,
         // cursor: cursor,
         messaging_tag: null,
@@ -137,29 +139,13 @@ export default class InstagramWebSocket {
       queue_name: "trq",
       task_id: 1,
       failure_count: null,
-    })
-  }
-
-  async initialConnection() {
-    const response = await this.igApi.apiCall("6195354443842040", {
-      deviceId: this.igApi.session.clientId,
-      requestId: 0,
-      requestPayload: JSON.stringify({
-        database: 1,
-        epoch_id: 0,
-        // last_applied_cursor: cursor,
-        sync_params: JSON.stringify({}),
-        version: 9477666248971112,
-      }),
-      requestType: 1,
     });
-    // const { newConversations, cursor } = parseResponse(
-      // response.data.data.lightspeed_web_request_for_igd.payload
-    // );
-    // return { newConversations, cursor };
   }
 
   connect() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN)
+      throw new Error("WebSocket is not open");
+
     this.ws.send(
       mqtt.generate({
         cmd: "connect",

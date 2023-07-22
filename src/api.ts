@@ -11,10 +11,6 @@ export default class PlatformInstagram implements PlatformAPI {
   private api = new InstagramAPI(this)
   private pushEvent: OnServerEventCallback
 
-  // init = async (session: SerializedSession, _: ClientContext, prefs: Record<keyof typeof PlatformInfo['prefs'], string | boolean>) => {
-  //   this.accountInfo = accountInfo
-  // }
-
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, _: ClientContext) => {
@@ -31,18 +27,6 @@ export default class PlatformInstagram implements PlatformAPI {
   currentUser: CurrentUser
 
   getCurrentUser = () => this.currentUser
-
-  // getCurrentUser = async (): Promise<CurrentUser> => {
-  //   texts.log(`instagram getting current user ${this.api.viewerConfig}`)
-  //   const user = this.api.viewerConfig
-  //   if (!user) throw new Error('User not found')
-  //   return {
-  //     id: user.id,
-  //     fullName: user.full_name,
-  //     imgURL: user.profile_pic_url,
-  //     username: user.username,
-  //   }
-  // }
 
   login = async (creds: LoginCreds): Promise<LoginResult> => {
     const cookieJarJSON = 'cookieJarJSON' in creds && creds.cookieJarJSON
@@ -89,13 +73,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
-  // getThreads: (folderName: string, pagination?: PaginationArg) => Awaitable<Paginated<Thread>>
-
   getThreads = async (folderName: string, pagination?: PaginationArg) => {
-    const conversations = await this.api.fetchInitialConversations()
-    texts.log('instagram got conversations', JSON.stringify(conversations, null, 2))
+    const cursorResult = await this.api.getCursor()
+    texts.log('instagram got cursor', JSON.stringify(cursorResult, null, 2))
 
-    const items: Thread[] = conversations?.newConversations.map((thread) => ({
+    const items: Thread[] = cursorResult?.newConversations.map((thread) => ({
       _original: JSON.stringify(thread),
       id: thread.threadId,
       // folderName: thread.pending ? 'requests' : 'normal',
@@ -138,8 +120,6 @@ export default class PlatformInstagram implements PlatformAPI {
   getThread?: (threadID: string) => Awaitable<Thread>
 
   getMessage?: (messageID: string) => Awaitable<Message>
-
-  // getUser?: (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => Awaitable<User>
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username

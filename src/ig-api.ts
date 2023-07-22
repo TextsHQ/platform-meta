@@ -1,22 +1,28 @@
 import { CookieJar } from "tough-cookie";
-import axios, { type AxiosInstance } from 'axios'
+import axios, { type AxiosInstance } from "axios";
 import type Instagram from "./api";
-import { FetchOptions, RateLimitError, User, texts } from "@textshq/platform-sdk";
+import {
+  FetchOptions,
+  RateLimitError,
+  User,
+  texts,
+} from "@textshq/platform-sdk";
 import InstagramWebSocket from "./ig-socket";
 import parseConversationsResponse from "./parsers/conversations";
 
 const USER_AGENT_TEMPORARY =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
 
-const INSTAGRAM_BASE_URL = "https://www.instagram.com/" as const
+const INSTAGRAM_BASE_URL = "https://www.instagram.com/" as const;
 
-const fixUrl = (url: string) => url && decodeURIComponent(url.replace(/\\u0026/g, "&"));
+const fixUrl = (url: string) =>
+  url && decodeURIComponent(url.replace(/\\u0026/g, "&"));
 
 type Session = {
   clientId: string;
   dtsg: string;
   fbid: string;
-}
+};
 
 interface InstagramParsedViewerConfig {
   biography: string;
@@ -48,22 +54,36 @@ interface InstagramParsedViewerConfig {
   username: string;
 }
 
+const commonHeaders = {
+  authority: "www.instagram.com",
+  "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+  "sec-ch-prefers-color-scheme": "light",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"macOS"',
+  "sec-ch-ua-platform-version": '"13.2.1"',
+  "sec-ch-ua":
+    '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+  "sec-fetch-site": "same-origin",
+  "sec-ch-ua-full-version-list":
+    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+} as const;
+
 export default class InstagramAPI {
   // @TODO: move to `this.http`
-  private axios: AxiosInstance
+  private axios: AxiosInstance;
 
-  session: Session
+  session: Session;
 
-  viewerConfig: InstagramParsedViewerConfig
+  viewerConfig: InstagramParsedViewerConfig;
 
-  socket: InstagramWebSocket
-  private http = texts.createHttpClient()
+  socket: InstagramWebSocket;
+  private http = texts.createHttpClient();
 
   constructor(private readonly papi: Instagram) {
     this.axios = axios.create({
       baseURL: "https://www.instagram.com/",
       headers: {
-        ...this.headers,
+        ...commonHeaders,
       },
       // transformRequest: [
       //   (data, headers) => {
@@ -75,22 +95,39 @@ export default class InstagramAPI {
       //     ? axios.defaults.transformRequest
       //     : [axios.defaults.transformRequest]),
       // ],
-    })
+    });
 
-    this.axios.interceptors.request.use (
+    this.axios.interceptors.response.use(
+      (response) => {
+        // @TODO: update the jar
+        // response.headers['set-cookie']?.forEach((cookie) => {
+        //   this.jar.setCookieSync(cookie, INSTAGRAM_BASE_URL);
+        // });
+
+        return response;
+      },
+      (error) => {
+        if (error.response?.status === 429) {
+          throw new RateLimitError();
+        }
+        return Promise.reject(error);
+      }
+    );
+    this.axios.interceptors.request.use(
       async (config) => {
-        config.headers.set('cookie', this.getCookies())
+        config.headers.set("user-agent", this.ua);
+        config.headers.set("cookie", this.getCookies());
         return config;
       },
       (error) => {
-        return Promise.reject (error);
+        return Promise.reject(error);
       }
     );
 
     // this.init();
   }
 
-  authMethod: 'login-window' | 'extension' = 'login-window'
+  authMethod: "login-window" | "extension" = "login-window";
 
   jar: CookieJar;
 
@@ -100,15 +137,16 @@ export default class InstagramAPI {
 
   async init() {
     texts.log("Initializing Instagram API...");
-    const { clientId, dtsg, fbid, config } = await this.getClientID();
-    this.session = { clientId, dtsg, fbid  };
+    const { clientId, dtsg, fbid, config } = await this.getClientId();
+    this.session = { clientId, dtsg, fbid };
     this.papi.currentUser = {
       id: config.id,
       fullName: config.full_name,
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
-    }
+    };
     texts.log(`Session: ${JSON.stringify(this.session)}`);
+    this.getCursor()
     this.socket = new InstagramWebSocket(this);
     try {
       const me = await this.getMe();
@@ -118,28 +156,51 @@ export default class InstagramAPI {
     }
 
     try {
-      const user = await this.getUserByUsername('texts_hq')
-      texts.log(`getUserByUsername ${'texts_hq'} response: ${JSON.stringify(user, null, 2)}`)
+      const user = await this.getUserByUsername("texts_hq");
+      texts.log(
+        `getUserByUsername ${"texts_hq"} response: ${JSON.stringify(
+          user,
+          null,
+          2
+        )}`
+      );
     } catch (e) {
       texts.error(e);
     }
   }
 
-  async getClientID() {
-    const response = await this.axios.get("https://www.instagram.com/direct/");
+  async getClientId() {
+    const response = await this.axios.get("https://www.instagram.com/direct/", {
+      headers: {
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "cache-control": "max-age=0",
+        "sec-ch-ua":
+          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        "viewport-width": "558",
+      },
+    });
     const resp = response.data;
     const clientId = resp.slice(resp.indexOf('{"clientID":')).split('"')[3];
     const dtsg = resp.slice(resp.indexOf("DTSGInitialData")).split('"')[4];
     const fbid = resp.match(/"IG_USER_EIMU":"([^"]+)"/)?.[1]; // fbid
     const sharedData = resp.match(/"XIGSharedData",\[\],({.*?})/s)[1];
     // @TODO: this is disgusting
-    const config: InstagramParsedViewerConfig = JSON.parse(`${sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]}}`.replace(/\\\"/g, '"'))
+    const config: InstagramParsedViewerConfig = JSON.parse(
+      `${
+        sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
+      }}`.replace(/\\\"/g, '"')
+    );
     console.log({
       clientId,
       dtsg,
       fbid,
       config,
-    })
+    });
     return { clientId, dtsg, fbid, config };
   }
 
@@ -148,36 +209,11 @@ export default class InstagramAPI {
     return this.jar.getCookieStringSync(INSTAGRAM_BASE_URL);
   }
 
-  get headers() {
-    return {
-      authority: "www.instagram.com",
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-      "cache-control": "max-age=0",
-      "sec-ch-prefers-color-scheme": "light",
-      "sec-ch-ua":
-        '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-      "sec-ch-ua-full-version-list":
-        '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
-      "sec-ch-ua-platform-version": '"13.2.1"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      "user-agent": this.ua,
-      "viewport-width": "558",
-    };
-  }
-
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
-    texts.log(`getUserByUsername ${username}`)
-    const csrf = this.getCSRFToken()
-    texts.log(`getUserByUsername ${username} csrf: ${csrf}`)
+    texts.log(`getUserByUsername ${username}`);
+    const csrf = this.getCSRFToken();
+    texts.log(`getUserByUsername ${username} csrf: ${csrf}`);
     // const req = await this.http.requestAsString(
     //   `${INSTAGRAM_BASE_URL}api/v1/users/web_profile_info/?username=${username}`,
     //   {
@@ -208,40 +244,47 @@ export default class InstagramAPI {
     //     cookieJar: this.jar,
     //   }
     // )
-    const response = await this.axios.get(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`, {
-      "headers": {
-        "accept": "*/*",
-        "accept-language": "en-US,en;q=0.9",
-        "sec-ch-prefers-color-scheme": "dark",
-        "sec-ch-ua": "\"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\"",
-        "sec-ch-ua-full-version-list": "\"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"114.0.5735.198\"",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"macOS\"",
-        "sec-ch-ua-platform-version": "\"13.5.0\"",
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "viewport-width": "881",
-        "x-asbd-id": "129477",
-        "x-csrftoken": "u3QVKfG9QNxZqEVLK2YcLKvuAYt87vSv",
-        "x-ig-app-id": "936619743392459",
-        "x-ig-www-claim": "hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU",
-        "x-requested-with": "XMLHttpRequest",
-        "cookie": this.getCookies(),
-        "Referer": `https://www.instagram.com/${username}/`,
-        "Referrer-Policy": "strict-origin-when-cross-origin"
-      },
-    });
+    const response = await this.axios.get(
+      `https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`,
+      {
+        headers: {
+          accept: "*/*",
+          "accept-language": "en-US,en;q=0.9",
+          "sec-ch-prefers-color-scheme": "dark",
+          "sec-ch-ua": '"Not.A/Brand";v="8", "Chromium";v="114"',
+          "sec-ch-ua-full-version-list":
+            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"macOS"',
+          "sec-ch-ua-platform-version": '"13.5.0"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          "viewport-width": "881",
+          "x-asbd-id": "129477",
+          "x-csrftoken": this.getCSRFToken(),
+          "x-ig-app-id": "936619743392459",
+          "x-ig-www-claim":
+            "hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU",
+          "x-requested-with": "XMLHttpRequest",
+          cookie: this.getCookies(),
+          Referer: `https://www.instagram.com/${username}/`,
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+      }
+    );
     // const json = JSON.parse(req.body)
-    const data = await response.data
-    const userInfo = data?.data?.user
+    const data = await response.data;
+    const userInfo = data?.data?.user;
     const user: User = {
       id: userInfo?.id,
-      fullName:  userInfo?.full_name,
+      fullName: userInfo?.full_name,
       username: userInfo?.username,
-    }
-    texts.log(`getUserByUsername ${username} response: ${JSON.stringify(user, null, 2)}`)
-    return user
+    };
+    texts.log(
+      `getUserByUsername ${username} response: ${JSON.stringify(user, null, 2)}`
+    );
+    return user;
   }
 
   async apiCall<T extends {}>(doc_id: string, variables: T) {
@@ -250,108 +293,75 @@ export default class InstagramAPI {
       `fb_dtsg=${this.session.dtsg}&variables=${JSON.stringify(variables)}&doc_id=${doc_id}`,
       {
         headers: {
-          authority: 'www.instagram.com',
-          'content-type': 'application/x-www-form-urlencoded',
+          authority: "www.instagram.com",
+          "content-type": "application/x-www-form-urlencoded",
           cookie: this.getCookies(),
         },
-        method: 'POST',
+        method: "POST",
       }
     );
-    texts.log(`apiCall ${doc_id} response: ${JSON.stringify(response.data, null, 2)}`)
+    texts.log(
+      `apiCall ${doc_id} response: ${JSON.stringify(response.data, null, 2)}`
+    );
     return response;
   }
 
   // get username from here
   async getUserById(userID: string) {
-    texts.log(`getUser ${userID}`)
-    const response = await this.apiCall('6083412141754133', {
+    texts.log(`getUser ${userID}`);
+    const response = await this.apiCall("6083412141754133", {
       userID,
     });
-    texts.log(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
+    texts.log(`getUser ${userID} response: ${JSON.stringify(response.data)}`);
     const data = response.data as {
       data: {
         userInfo: {
           user: {
-            username: string
-            show_ig_app_switcher_badge: boolean
-            id: string
-          }
-        }
-      }
+            username: string;
+            show_ig_app_switcher_badge: boolean;
+            id: string;
+          };
+        };
+      };
       extensions: {
-        is_final: boolean
-      }
-    }
+        is_final: boolean;
+      };
+    };
     return {
       id: data?.data?.userInfo?.user?.id,
       username: data?.data?.userInfo?.user?.username,
       fullName: data?.data?.userInfo?.user?.username, //@TODO
-    }
+    };
   }
 
   async getMe() {
-    if (!this.viewerConfig) return
-    const data = await this.getUserById(this.viewerConfig.id)
-    const username = data.username
-    if (!username) return
-    const user = await this.getUserByUsername(username)
-    return user
+    if (!this.viewerConfig) return;
+    const data = await this.getUserById(this.viewerConfig.id);
+    const username = data.username;
+    if (!username) return;
+    const user = await this.getUserByUsername(username);
+    return user;
   }
 
   getCSRFToken() {
-    return this.jar.getCookiesSync(INSTAGRAM_BASE_URL).find(c => c.key === 'csrftoken')?.value
+    return this.jar
+      .getCookiesSync(INSTAGRAM_BASE_URL)
+      .find((c) => c.key === "csrftoken")?.value;
   }
 
-  async apiCallForConversations(cursor = null) {
-    const response = await this.axios.post(
-      "https://www.instagram.com/api/graphql/",
-      new URLSearchParams({
-        fb_dtsg: this.session.dtsg,
-        variables: JSON.stringify({
-          deviceId: this.session.clientId,
-          requestId: 0,
-          requestPayload: JSON.stringify({
-            database: 1,
-            epoch_id: 0,
-            last_applied_cursor: cursor,
-            sync_params: JSON.stringify({}),
-            version: 9477666248971112,
-          }),
-          requestType: 1,
-        }),
-        doc_id: "6195354443842040",
+  async getCursor(last_applied_cursor = null) {
+    const response = await this.apiCall("6195354443842040", {
+      deviceId: this.session.clientId,
+      requestId: 0,
+      requestPayload: JSON.stringify({
+        database: 1,
+        epoch_id: 0,
+        last_applied_cursor,
+        sync_params: JSON.stringify({}),
+        version: 9477666248971112,
       }),
-      {
-        headers: {
-          authority: "www.instagram.com",
-          accept: "*/*",
-          "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-          "cache-control": "no-cache",
-          origin: "https://www.instagram.com",
-          pragma: "no-cache",
-          referer: "https://www.instagram.com/",
-          "sec-ch-prefers-color-scheme": "dark",
-          "sec-ch-ua":
-            '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-          "sec-ch-ua-full-version-list":
-            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"macOS"',
-          "sec-ch-ua-platform-version": '"13.2.1"',
-          "sec-fetch-dest": "empty",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-site": "same-origin",
-          "user-agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-          "x-ig-app-id": "936619743392459",
-        },
-      }
-    );
-    return response;
-  }
-
-  async fetchInitialConversations() {
-    const response = await this.apiCallForConversations();
+      requestType: 1,
+    });
     const { newConversations, cursor } = parseConversationsResponse(
       this.session.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload
