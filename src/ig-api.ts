@@ -234,9 +234,9 @@ export default class InstagramAPI {
         method: "POST",
       }
     );
-    texts.log(
-      `apiCall ${doc_id} response: ${JSON.stringify(response.data, null, 2)}`
-    );
+    // texts.log(
+    //   `apiCall ${doc_id} response: ${JSON.stringify(response.data, null, 2)}`
+    // );
     return response;
   }
 
