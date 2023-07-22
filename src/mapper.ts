@@ -1,24 +1,47 @@
-// export function mapThread(thread: IGThread, currentUserIG: IGUser): Thread {
-//   const messages = mapMessages(thread, currentUserIG.pk)
-//   const currentUserLastSeen = thread.last_seen_at?.[currentUserIG.pk]
-//   return {
-//     _original: JSON.stringify(thread),
-//     id: thread.thread_id,
-//     folderName: thread.pending ? InboxName.REQUESTS : InboxName.NORMAL,
-//     isUnread: BigInt(thread.items[0]?.timestamp || 0) > BigInt(currentUserLastSeen?.timestamp || 0),
-//     lastReadMessageID: currentUserLastSeen?.item_id,
-//     mutedUntil: thread.muted ? 'forever' : undefined,
-//     isReadOnly: thread.input_mode !== 0,
-//     messages: {
-//       items: messages,
-//       hasMore: thread.has_older,
-//     },
-//     timestamp: messages[messages.length - 1]?.timestamp,
-//     type: thread.is_group ? 'group' : 'single',
-//     title: thread.is_group ? thread.thread_title : undefined,
-//     participants: {
-//       items: mapParticipants(thread, currentUserIG),
-//       hasMore: false,
-//     },
-//   }
-// }
+import type { Message, Thread } from "@textshq/platform-sdk";
+
+export function mapThread(thread: any): Thread {
+  return {
+    _original: JSON.stringify(thread),
+    id: thread.threadId,
+    // folderName: thread.pending ? 'requests' : 'normal',
+    isUnread: thread.unread,
+    isReadOnly: false,
+    type: 'single',
+    title: thread.groupName,
+    messages: {
+      items: [],
+      hasMore: false,
+      oldestCursor: '',
+      newestCursor: ''
+    },
+    timestamp: new Date(Number(thread.lastSentTime)),
+    participants: {
+      items: thread?.participants?.map((participant) => ({
+        id: participant.userId,
+        username: participant.username,
+        fullName: participant.name,
+      })),
+      hasMore: false,
+      oldestCursor: '',
+      newestCursor: ''
+    },
+    lastReadMessageID: thread?.lastMessageDetails?.messageId,
+    partialLastMessage: {
+      id: thread?.lastMessageDetails?.messageId,
+      senderID: thread?.lastMessageDetails?.authorId,
+      text: thread?.lastMessageDetails?.message,
+    }
+  }
+}
+
+export function mapMessage(currentUserId: string, message: any): Message {
+  return {
+    _original: JSON.stringify(message),
+    id: message.messageId,
+    senderID: message.authorId,
+    text: message.message,
+    timestamp: new Date(Number(message.sentTs)),
+    isSender: message.authorId === currentUserId,
+  }
+}

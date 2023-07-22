@@ -1,15 +1,17 @@
-import { ActivityType, Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, texts, Thread, User } from '@textshq/platform-sdk'
+import { texts } from '@textshq/platform-sdk'
+import type { ActivityType, Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
 import type { Readable } from 'stream'
 import type PlatformInfo from './info'
 import InstagramAPI from './ig-api'
 import { CookieJar } from 'tough-cookie'
+import { mapThread } from './mapper'
+import InstagramWebSocket from './ig-socket'
 
 export default class PlatformInstagram implements PlatformAPI {
-  // private accountInfo: AccountInfo
 
   private loginEventCallback: (data: any) => void
-  private api = new InstagramAPI(this)
-  private pushEvent: OnServerEventCallback
+  api = new InstagramAPI(this)
+  onEvent: OnServerEventCallback
 
   constructor(readonly accountID: string) {}
 
@@ -51,8 +53,9 @@ export default class PlatformInstagram implements PlatformAPI {
     authMethod: this.api.authMethod ?? 'login-window',
   })
 
-  subscribeToEvents = (onEvent: OnServerEventCallback) => {
-    this.pushEvent = onEvent
+  subscribeToEvents = async (onEvent: OnServerEventCallback) => {
+    this.onEvent = onEvent
+    this.api.socket = new InstagramWebSocket(this);
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
@@ -77,39 +80,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const cursorResult = await this.api.getCursor()
     texts.log('instagram got cursor', JSON.stringify(cursorResult, null, 2))
 
-    const items: Thread[] = cursorResult?.newConversations.map((thread) => ({
-      _original: JSON.stringify(thread),
-      id: thread.threadId,
-      // folderName: thread.pending ? 'requests' : 'normal',
-      isUnread: thread.unread,
-      isReadOnly: false,
-      type: 'single',
-      title: thread.groupName,
-      messages: {
-        items: [],
-        hasMore: false,
-        oldestCursor: '',
-        newestCursor: ''
-      },
-      timestamp: new Date(Number(thread.lastSentTime)),
-      participants: {
-        items: thread?.participants?.map((participant) => ({
-          id: participant.userId,
-          username: participant.username,
-          fullName: participant.name,
-        })),
-        hasMore: false,
-        oldestCursor: '',
-        newestCursor: ''
-      },
-      lastReadMessageID: thread?.lastMessageDetails?.messageId,
-      partialLastMessage: {
-        id: thread?.lastMessageDetails?.messageId,
-        senderID: thread?.lastMessageDetails?.authorId,
-        text: thread?.lastMessageDetails?.message,
-      }
-    }))
-
+    const items = cursorResult?.newConversations.map((thread) => mapThread(thread))
     return { items, hasMore: false }
   }
 

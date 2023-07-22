@@ -1,11 +1,12 @@
 import { CookieJar } from "tough-cookie";
 import axios, { type AxiosInstance } from "axios";
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http';
-import { type User, texts } from "@textshq/platform-sdk";
+import { texts, type User, type Thread, type Message, ServerEventType } from "@textshq/platform-sdk";
 
 import type Instagram from "./api";
-import InstagramWebSocket from "./ig-socket";
+import type InstagramWebSocket from "./ig-socket";
 import { parseGetCursorResponse } from "./parsers";
+import { mapMessage } from "./mapper";
 
 const INSTAGRAM_BASE_URL = "https://www.instagram.com/" as const;
 
@@ -85,6 +86,36 @@ export default class InstagramAPI {
 
   cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
 
+  debug_threadsCache = new Map<string, Thread>()
+
+  debug_upsertThreads = (threads: any[]) => {
+    texts.log(`debug_upsertThreads ${threads.length}: ${JSON.stringify(threads, null, 2)}`)
+    // update threads cache
+    for (const thread of threads) {
+      this.debug_threadsCache.set(thread.threadId, thread)
+    }
+    return this.debug_threadsCache
+  }
+
+  debug_messagesCache = new Map<string, Message>()
+
+  debug_upsertMessages = (newMessages: any[]) => {
+    texts.log(`debug_upsertMessages ${newMessages.length}: ${JSON.stringify(newMessages, null, 2)}`)
+    // update messages cache
+
+    for (const message of newMessages) {
+      this.papi.onEvent?.({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadId },
+        mutationType: 'upsert',
+        entries: [mapMessage(this.session.fbid, message)],
+      })
+      this.debug_messagesCache.set(message.messageId, message)
+    }
+    return this.debug_messagesCache
+  }
+
   private _axios: AxiosInstance;
 
   get axios () {
@@ -121,7 +152,6 @@ export default class InstagramAPI {
       username: config.username,
     };
     await this.getCursor()
-    this.socket = new InstagramWebSocket(this);
     // try {
     //   const me = await this.getMe();
     // } catch (e) {
@@ -168,12 +198,6 @@ export default class InstagramAPI {
         sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
       }}`.replace(/\\\"/g, '"')
     );
-    console.log({
-      clientId,
-      dtsg,
-      fbid,
-      config,
-    });
     return { clientId, dtsg, fbid, config };
   }
 
@@ -305,6 +329,8 @@ export default class InstagramAPI {
       response.data.data.lightspeed_web_request_for_igd.payload
     );
     this.cursorCache = cursorResponse
+    this.debug_upsertMessages(cursorResponse.newMessages)
+    this.debug_upsertThreads(cursorResponse.newConversations)
     return cursorResponse
   }
 }

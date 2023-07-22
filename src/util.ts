@@ -14,7 +14,7 @@ export const getTimeValues = () => {
   const timestamp = BigInt(Date.now());
   const epoch_id = timestamp << BigInt(22);
   const otid = epoch_id + BigInt(Math.floor(Math.random() * 2 ** 22));
-  return { timestamp, epoch_id, otid } as const
+  return { timestamp, epoch_id: Number(epoch_id), otid } as const
 }
 
 // parse mqtt packet

@@ -59,12 +59,14 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       messageId,
       sentTs,
       authorId,
+      threadId,
     });
     lastMessageLookup[threadId] = {
       message,
       sentTs,
       messageId,
       authorId,
+      threadId,
     };
   }
 

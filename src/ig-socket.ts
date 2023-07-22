@@ -1,18 +1,21 @@
 import WebSocket from "ws";
 import mqtt from "mqtt-packet";
 import { texts } from "@textshq/platform-sdk";
-import type InstagramAPI from "./ig-api";
+
 import { getMqttSid, getTimeValues, parseMqttPacket } from "./util";
 import { parseMessagePayload } from "./parsers";
+import type PlatformInstagram from "./api";
 
 export default class InstagramWebSocket {
   ws: WebSocket;
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly igApi: InstagramAPI) {
+  constructor(private readonly papi: PlatformInstagram) {
+    if (!this.papi.api?.cursor) throw new Error("ig socket: cursor is required");
+
     this.ws = new WebSocket(
-      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.igApi.session.clientId}`,
+      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
       {
         origin: "https://www.instagram.com",
         headers: {
@@ -25,23 +28,15 @@ export default class InstagramWebSocket {
           "Sec-WebSocket-Version": "13",
           "Accept-Encoding": "gzip, deflate, br",
           "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-          "User-Agent": this.igApi.ua,
-          Cookie: this.igApi.getCookies(),
+          "User-Agent": this.papi.api.ua,
+          Cookie: this.papi.api.getCookies(),
         },
       }
     );
     this.ws.on("error", (err) => this.onError(err));
     this.ws.on("open", () => this.onOpen());
     this.ws.on("close", () => this.onClose());
-    this.ws.on("message", (data) => {
-      texts.log("ig socket: message", data);
-
-      if (data.toString("hex") == "42020001") {
-        this.getThreads()
-      } else if (data[0] != 0x42) {
-
-      }
-    });
+    this.ws.on("message", (data) => this.onMessage(data));
     process.on("SIGINT", () => {
       this.ws.close();
     });
@@ -54,15 +49,98 @@ export default class InstagramWebSocket {
   private onOpen() {
     texts.log("ig socket: open");
     this.connect();
-    this.maybeSubscribeToDatabaseOne();
     this.sendAppSettings();
+  }
+
+  // initiate connection
+  private connect() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+
+    this.ws.send(
+      mqtt.generate({
+        cmd: "connect",
+        protocolId: "MQIsdp",
+        clientId: "mqttwsclient",
+        protocolVersion: 3,
+        clean: true,
+        keepalive: 10,
+        username: JSON.stringify({
+          // u: "17841418030588216", // doesnt seem to matter
+          u: this.papi.api.session.fbid,
+          s: this.mqttSid,
+          cp: 3,
+          ecp: 10,
+          chat_on: true,
+          fg: false,
+          d: this.papi.api.session.clientId, // client id
+          ct: "cookie_auth",
+          mqtt_sid: "", // @TODO: should we use the one from the cookie?
+          aid: 936619743392459, // app id
+          st: [],
+          pm: [],
+          dc: "",
+          no_auto_fg: true,
+          gas: null,
+          pack: [],
+          php_override: "",
+          p: null,
+          a: this.papi.api.ua, // user agent
+          aids: null,
+        }),
+      })
+    );
+  }
+
+  private sendAppSettings() {
+    // send app settings
+    // need to wait for the ack before sending the subscribe
+    this.ws.send(
+      mqtt.generate({
+        cmd: "publish",
+        messageId: 1,
+        qos: 1,
+        topic: "/ls_app_settings",
+        payload: JSON.stringify({
+          ls_fdid: "",
+          ls_sv: "9477666248971112", // version id
+        }),
+      } as any) // @TODO: fix mqtt-packet types
+    );
   }
 
   private onClose() {
     texts.log("ig socket: close");
   }
 
-  private async parseNon0x42Data(data: Buffer) {
+  private onMessage(data: WebSocket.RawData) {
+    texts.log("ig socket: message", data);
+
+    if (data.toString("hex") == "42020001") {
+      // ack for app settings
+
+      // subscribe to /ls_resp
+      this.ws.send(
+        mqtt.generate({
+          cmd: "subscribe",
+          qos: 1,
+          subscriptions: [
+            {
+              topic: "/ls_resp",
+              qos: 0,
+            },
+          ],
+          messageId: 3,
+        } as any) // @TODO: fix mqtt-packet types
+      );
+
+      this.maybeSubscribeToDatabaseOne();
+      this.getThreads();
+    } else if (data[0] != 0x42) {
+      this.parseNon0x42Data(data);
+    }
+  }
+
+  private async parseNon0x42Data(data: any) {
     // for some reason fb sends wrongly formatted packets for PUBACK.
     // this causes mqtt-packet to throw an error.
     // this is a hacky way to fix it.
@@ -80,17 +158,18 @@ export default class InstagramWebSocket {
     if (payload.request_id !== null) return;
     if (payload.payload.includes("upsertMessage")) {
       // @TODO: we need thread id here
-      // this.processUpsertMessage(data);
+      // await this.processUpsertMessage(data);
     } else if (payload.payload.includes("deleteThenInsertThread")) {
-      this.processDeleteThenInsertThread(data);
+      await this.processDeleteThenInsertThread(data);
     }
   }
 
   private async processDeleteThenInsertThread(data: any) {
     const payload = (await parseMqttPacket(data)) as any;
-    const { newConversations } = parseMessagePayload(this.igApi.session.fbid, payload.payload);
+    const { newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
     console.log(JSON.stringify(newConversations, null, 2));
     // conversations.push(...newConversations);
+    this.papi.api.debug_upsertThreads(newConversations);
     const { epoch_id } = getTimeValues();
     this.ws.send(
       mqtt.generate({
@@ -127,7 +206,6 @@ export default class InstagramWebSocket {
         }),
       })
     );
-
   }
 
   private async processUpsertMessage(threadId: string, data: any) {
@@ -137,7 +215,7 @@ export default class InstagramWebSocket {
 
     const j = JSON.parse(payload.payload);
     console.log(JSON.stringify(j, null, 2));
-    const { newMessages } = parseMessagePayload(this.igApi.session.fbid, payload.payload);
+    const { newMessages } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
     console.log(JSON.stringify(newMessages, null, 2));
     // messages.push(...newMessages);
     // console.log('messages', messages)
@@ -150,67 +228,12 @@ export default class InstagramWebSocket {
         reference_timestamp_ms: Number(lastMessage.sentTs),
         reference_message_id: lastMessage.messageId,
         sync_group: 1,
-        cursor: this.igApi.cursor,
+        cursor: this.papi.api.cursor,
       }),
       queue_name: `mrq.${threadId}`,
       task_id: 1,
       failure_count: null,
     });
-  }
-
-  // initiate connection
-  private connect() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
-
-    this.ws.send(
-      mqtt.generate({
-        cmd: "connect",
-        protocolId: "MQIsdp",
-        clientId: "mqttwsclient",
-        protocolVersion: 3,
-        clean: true,
-        keepalive: 10,
-        username: JSON.stringify({
-          u: "17841418030588216", // doesnt seem to matter
-          s: this.mqttSid,
-          cp: 3,
-          ecp: 10,
-          chat_on: true,
-          fg: false,
-          d: this.igApi.session.clientId, // client id
-          ct: "cookie_auth",
-          mqtt_sid: "", // @TODO: should we use the one from the cookie?
-          aid: 936619743392459, // app id
-          st: [],
-          pm: [],
-          dc: "",
-          no_auto_fg: true,
-          gas: null,
-          pack: [],
-          php_override: "",
-          p: null,
-          a: this.igApi.ua, // user agent
-          aids: null,
-        }),
-      })
-    );
-  }
-
-  private sendAppSettings() {
-    // send app settings
-    // need to wait for the ack before sending the subscribe
-    this.ws.send(
-      mqtt.generate({
-        cmd: "publish",
-        messageId: 1,
-        qos: 1,
-        topic: "/ls_app_settings",
-        payload: JSON.stringify({
-          ls_fdid: "",
-          ls_sv: "9477666248971112", // version id
-        }),
-      } as any)
-    );
   }
 
   sendTypingIndicator(threadID: string) {
@@ -296,9 +319,9 @@ export default class InstagramWebSocket {
   // used for get messages and get threads
   publishTask(_tasks: any) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
-
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks];
     const { epoch_id } = getTimeValues();
+
     this.ws.send(
       mqtt.generate({
         cmd: "publish",
@@ -322,7 +345,7 @@ export default class InstagramWebSocket {
   }
 
   private getMessages(threadId: string) {
-    const { newMessages, cursor } = this.igApi.cursorCache ?? {};
+    const { newMessages, cursor } = this.papi.api.cursorCache ?? {};
     const lastMessageInCursor = newMessages?.[newMessages.length - 1];
 
     this.publishTask({
@@ -360,15 +383,14 @@ export default class InstagramWebSocket {
     });
   }
 
-  private getLastThreadReference(conversations: any[] = this.igApi.cursorCache?.newConversations ?? []) {
+  private getLastThreadReference(conversations: any[] = this.papi.api.cursorCache?.newConversations ?? []) {
     const lastConversationInCursor = conversations?.[conversations.length - 1];
     return {
       reference_thread_key: Number(lastConversationInCursor.threadId),
       reference_activity_timestamp: lastConversationInCursor.lastSentTime,
-      cursor: this.igApi.cursor,
+      cursor: this.papi.api.cursor,
     };
   }
-
 
   // not sure exactly what this does but it's required.
   // my guess is it "subscribes to database 1"?
@@ -389,7 +411,7 @@ export default class InstagramWebSocket {
             database: 1,
             epoch_id,
             failure_count: null,
-            last_applied_cursor: this.igApi.cursor,
+            last_applied_cursor: this.papi.api.cursor,
             sync_params: null,
             version: 9477666248971112,
           }),
