@@ -180,42 +180,20 @@ export default class InstagramWebSocket {
     console.log(JSON.stringify(newConversations, null, 2));
     // conversations.push(...newConversations);
     this.papi.api.debug_upsertThreads(newConversations);
-    const { epoch_id } = getTimeValues();
-    this.ws.send(
-      mqtt.generate({
-        cmd: "publish",
-        messageId: 6,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: "/ls_req",
-        payload: JSON.stringify({
-          app_id: "936619743392459",
-          payload: JSON.stringify({
-            tasks: [
-              {
-                label: "145",
-                payload: JSON.stringify({
-                  ...this.getLastThreadReference(newConversations),
-                  is_after: 0,
-                  parent_thread_key: 0,
-                  additional_pages_to_fetch: 0,
-                  messaging_tag: null,
-                  sync_group: 1,
-                }),
-                queue_name: "trq",
-                task_id: 1,
-                failure_count: null,
-              },
-            ],
-            epoch_id,
-            version_id: "9477666248971112",
-          }),
-          request_id: 6,
-          type: 3,
-        }),
-      })
-    );
+    this.publishTask({
+      label: "145",
+      payload: JSON.stringify({
+        ...this.getLastThreadReference(newConversations),
+        is_after: 0,
+        parent_thread_key: 0,
+        additional_pages_to_fetch: 0,
+        messaging_tag: null,
+        sync_group: 1,
+      }),
+      queue_name: "trq",
+      task_id: 1,
+      failure_count: null,
+    })
   }
 
   private async processUpsertMessage(threadId: string, data: any) {

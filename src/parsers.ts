@@ -74,7 +74,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
   for (const item of lsCalls.deleteThenInsertThread) {
     const lastSentTime = item[0][1];
     const lastReadTime = item[1][1];
-    let groupName;
+    let groupName: string;
     if (Array.isArray(item[3])) {
       groupName = null;
     } else {
