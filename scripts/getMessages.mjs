@@ -4,7 +4,13 @@ import { getClientId, apiCall, parseMqttPacket } from "./utils.mjs";
 import { ws } from "./socket.mjs";
 
 const threads = get("threads");
-const threadId = Object.keys(threads)[2];
+const threadIds = Object.keys(threads);
+
+let threadId = get('selectedThread');
+if (!threadId) {
+  threadId = threadIds[Math.floor(Math.random() * threadIds.length)]
+  set('selectedThread', threadId)
+}
 
 let messages = [threads[threadId].lastMessageDetails];
 

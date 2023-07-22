@@ -5,14 +5,14 @@ import { mqttSid, getClientId } from "./utils.mjs"
 
 const cookies = get('cookies');
 const threads = get('threads')
-const threadIDs = Object.keys(threads)
-// const randomThreadID = threadIDs[Math.floor(Math.random() * threadIDs.length)]
+const threadIds = Object.keys(threads)
 
-// const parser = mqtt.parser({
-//   protocolVersion: 3,
-// });
+let threadId = get('selectedThread');
+if (!threadId) {
+  threadId = threadIds[Math.floor(Math.random() * threadIds.length)]
+  set('selectedThread', threadId)
+}
 
-const threadID = get('selectedThread');
 const mqtt_sid = mqttSid;
 const client_id = await getClientId()
 
@@ -56,7 +56,7 @@ const typing = mqtt.generate({
     payload: JSON.stringify({
       label: "3",
       payload: JSON.stringify({
-        thread_key: threadID,
+        thread_key: threadId,
         is_group_thread: 0,
         is_typing: 1,
         attribution: 0,
@@ -81,7 +81,7 @@ const hmm = JSON.stringify({
       {
         label: "46",
         payload: JSON.stringify({
-          thread_id: threadID,
+          thread_id: threadId,
           otid: otid.toString(),
           source: 0,
           send_type: 1,
@@ -91,18 +91,18 @@ const hmm = JSON.stringify({
           skip_url_preview_gen: 0,
           text_has_links: 0,
         }),
-        queue_name: threadID.toString(),
+        queue_name: threadId.toString(),
         task_id: 0,
         failure_count: null,
       },
       {
         label: "21",
         payload: JSON.stringify({
-          thread_id: threadID,
+          thread_id: threadId,
           last_read_watermark_ts: Number(timestamp),
           sync_group: 1,
         }),
-        queue_name: threadID.toString(),
+        queue_name: threadId.toString(),
         task_id: 1,
         failure_count: null,
       },
