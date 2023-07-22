@@ -4,7 +4,7 @@ import type { Readable } from 'stream'
 import type PlatformInfo from './info'
 import InstagramAPI from './ig-api'
 import { CookieJar } from 'tough-cookie'
-import { mapThread } from './mapper'
+import { mapMessage, mapThread } from './mapper'
 import InstagramWebSocket from './ig-socket'
 
 export default class PlatformInstagram implements PlatformAPI {
@@ -54,7 +54,10 @@ export default class PlatformInstagram implements PlatformAPI {
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
-    this.onEvent = onEvent
+    this.onEvent = (data) => {
+      onEvent(data)
+      texts.log('instagram got server event', JSON.stringify(data, null, 2))
+    }
     this.api.socket = new InstagramWebSocket(this);
   }
 
@@ -84,7 +87,19 @@ export default class PlatformInstagram implements PlatformAPI {
     return { items, hasMore: false }
   }
 
-  getMessages: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Message>>
+  getMessages = async (threadID: string, pagination: PaginationArg): Promise<Paginated<Message>> => {
+    const items = []
+    this.api.debug_messagesCache.forEach((message) => {
+      if (message.threadId === threadID) {
+        items.push(mapMessage(this.api.session.fbid, message))
+      }
+    })
+    this.api.socket.getMessages(threadID)
+    return {
+      items,
+      hasMore: false,
+    }
+  }
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 

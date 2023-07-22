@@ -6,7 +6,7 @@ import { texts, type User, type Thread, type Message, ServerEventType } from "@t
 import type Instagram from "./api";
 import type InstagramWebSocket from "./ig-socket";
 import { parseGetCursorResponse } from "./parsers";
-import { mapMessage } from "./mapper";
+import { mapMessage, mapThread } from "./mapper";
 
 const INSTAGRAM_BASE_URL = "https://www.instagram.com/" as const;
 
@@ -86,31 +86,38 @@ export default class InstagramAPI {
 
   cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
 
-  debug_threadsCache = new Map<string, Thread>()
+  debug_threadsCache = new Map<string, any>()
 
   debug_upsertThreads = (threads: any[]) => {
-    texts.log(`debug_upsertThreads ${threads.length}: ${JSON.stringify(threads, null, 2)}`)
+    // texts.log(`debug_upsertThreads ${threads.length}: ${JSON.stringify(threads, null, 2)}`)
     // update threads cache
     for (const thread of threads) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: [mapThread(thread)],
+      }])
       this.debug_threadsCache.set(thread.threadId, thread)
     }
     return this.debug_threadsCache
   }
 
-  debug_messagesCache = new Map<string, Message>()
+  debug_messagesCache = new Map<string, any>()
 
   debug_upsertMessages = (newMessages: any[]) => {
-    texts.log(`debug_upsertMessages ${newMessages.length}: ${JSON.stringify(newMessages, null, 2)}`)
+    // texts.log(`debug_upsertMessages ${newMessages.length}: ${JSON.stringify(newMessages, null, 2)}`)
     // update messages cache
 
     for (const message of newMessages) {
-      this.papi.onEvent?.({
+      this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'message',
         objectIDs: { threadID: message.threadId },
         mutationType: 'upsert',
         entries: [mapMessage(this.session.fbid, message)],
-      })
+      }])
       this.debug_messagesCache.set(message.messageId, message)
     }
     return this.debug_messagesCache

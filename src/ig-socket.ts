@@ -113,7 +113,6 @@ export default class InstagramWebSocket {
   }
 
   private onMessage(data: WebSocket.RawData) {
-    texts.log("ig socket: message", data);
 
     if (data.toString("hex") == "42020001") {
       // ack for app settings
@@ -137,6 +136,8 @@ export default class InstagramWebSocket {
       this.getThreads();
     } else if (data[0] != 0x42) {
       this.parseNon0x42Data(data);
+    } else {
+      texts.log("ig socket: unhandled message (1)", data);
     }
   }
 
@@ -145,7 +146,10 @@ export default class InstagramWebSocket {
     // this causes mqtt-packet to throw an error.
     // this is a hacky way to fix it.
     const payload = (await parseMqttPacket(data)) as any;
-    if (!payload) return;
+    if (!payload) {
+      texts.log("ig socket: empty message (1.1)", data);
+      return;
+    }
 
     // the broker sends 4 responses to the get messages command (request_id = 6)
     // 1. ack
@@ -155,16 +159,22 @@ export default class InstagramWebSocket {
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
-    if (payload.request_id !== null) return;
+    if (payload.request_id !== null) {
+      texts.log("ig socket: request_id is not null", payload);
+      return;
+    }
     if (payload.payload.includes("upsertMessage")) {
       // @TODO: we need thread id here
-      // await this.processUpsertMessage(data);
+      await this.processUpsertMessage('', data);
     } else if (payload.payload.includes("deleteThenInsertThread")) {
       await this.processDeleteThenInsertThread(data);
+    } else {
+      texts.log("ig socket: unhandled message (2)", data);
     }
   }
 
   private async processDeleteThenInsertThread(data: any) {
+    texts.log("ig socket: deleteThenInsertThread");
     const payload = (await parseMqttPacket(data)) as any;
     const { newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
     console.log(JSON.stringify(newConversations, null, 2));
@@ -209,17 +219,25 @@ export default class InstagramWebSocket {
   }
 
   private async processUpsertMessage(threadId: string, data: any) {
-    console.log("got messages");
+    texts.log("ig socket: upsertMessage", threadId);
 
     const payload = (await parseMqttPacket(data)) as any;
+    if (!payload) {
+      texts.log("ig socket: empty message (2.1)", data);
+      return;
+    }
 
     const j = JSON.parse(payload.payload);
-    console.log(JSON.stringify(j, null, 2));
+    texts.log("ig socket:", "upsertMessage", JSON.stringify(j, null, 2));
     const { newMessages } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
-    console.log(JSON.stringify(newMessages, null, 2));
+    texts.log("ig socket:", "upsertMessage", JSON.stringify(newMessages, null, 2));
     // messages.push(...newMessages);
     // console.log('messages', messages)
-    const lastMessage = newMessages[newMessages.length - 1];
+    this.papi.api.debug_upsertMessages(newMessages);
+  }
+
+  loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
+    if (!threadId || !lastMessage) throw new Error("threadId, lastMessage is required");
     this.publishTask({
       label: "228",
       payload: JSON.stringify({
@@ -344,7 +362,7 @@ export default class InstagramWebSocket {
     );
   }
 
-  private getMessages(threadId: string) {
+  getMessages(threadId: string) {
     const { newMessages, cursor } = this.papi.api.cursorCache ?? {};
     const lastMessageInCursor = newMessages?.[newMessages.length - 1];
 
