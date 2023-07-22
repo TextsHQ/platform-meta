@@ -8,6 +8,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     addParticipantIdToGroupThread: [],
     deleteThenInsertThread: [],
     upsertMessage: [],
+    upsertSyncGroupThreadsRange: [],
   };
 
   let userLookup = {};
@@ -104,7 +105,12 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     });
   }
 
-  return { newMessages, newConversations: conversations, cursor: j.step[2][1][3][5] };
+  return {
+    newMessages,
+    newConversations: conversations,
+    cursor: j.step[2][1][3][5],
+    hasMore: lsCalls.upsertSyncGroupThreadsRange[0][3],
+  };
 }
 
 export function parseMessagePayload(myUserId: string, payload: string) {
