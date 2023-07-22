@@ -2,12 +2,12 @@ import WebSocket from "ws";
 import mqtt from "mqtt-packet";
 import type InstagramAPI from "./ig-api";
 import { texts } from "@textshq/platform-sdk";
-import { getTimeValues } from "./util";
+import { getMqttSid, getTimeValues } from "./util";
 
 export default class InstagramWebSocket {
   ws: WebSocket;
 
-  private mqttSid = parseInt(Math.random().toFixed(16).split(".")[1]);
+  private mqttSid = getMqttSid()
 
   constructor(private readonly igApi: InstagramAPI) {
     this.ws = new WebSocket(
@@ -98,8 +98,6 @@ export default class InstagramWebSocket {
   }
 
   private getMessages(threadId: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
-
     this.publishTask({
       label: "228",
       payload: JSON.stringify({
@@ -119,8 +117,6 @@ export default class InstagramWebSocket {
   }
 
   private getThreads() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
-
     this.publishTask({
       label: "145",
       payload: JSON.stringify({
@@ -143,8 +139,7 @@ export default class InstagramWebSocket {
   }
 
   connect() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN)
-      throw new Error("WebSocket is not open");
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
 
     this.ws.send(
       mqtt.generate({
@@ -261,6 +256,8 @@ export default class InstagramWebSocket {
   }
 
   publishTask(_tasks: any) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks];
     const { epoch_id } = getTimeValues();
     this.ws.send(
