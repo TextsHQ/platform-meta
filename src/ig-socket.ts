@@ -32,17 +32,20 @@ export default class InstagramWebSocket {
     this.ws.on("error", (err) => this.onError(err));
     this.ws.on("open", () => this.onOpen());
     this.ws.on("close", () => this.onClose());
+    this.ws.on("message", (data) => {
+      texts.log("ig socket: message", data);
+    });
     process.on("SIGINT", () => {
       this.ws.close();
     });
   }
 
   private onError(event: Error) {
-    console.log("onError", event);
+    texts.log("ig socket: error", event);
   }
 
   private onOpen() {
-    texts.log("Connected to Instagram WebSocket");
+    texts.log("ig socket: open");
     // initiate connection
     this.ws.send(
       mqtt.generate({
@@ -94,7 +97,7 @@ export default class InstagramWebSocket {
   }
 
   private onClose() {
-    texts.log("Disconnected from Instagram WebSocket");
+    texts.log("ig socket: close");
   }
 
   private getMessages(threadId: string) {

@@ -1,5 +1,7 @@
-export default function parseConversationsResponse(myUserID: string, payload: any) {
+// construct the conversations from undecipherable data
+export function parseGetCursorResponse(myUserId: string, payload: string) {
   const j = JSON.parse(payload);
+
   // tasks we are interested in
   let lsCalls = {
     verifyContactRowExists: [],
@@ -7,6 +9,7 @@ export default function parseConversationsResponse(myUserID: string, payload: an
     deleteThenInsertThread: [],
     upsertMessage: [],
   };
+
   let userLookup = {};
   let lastMessageLookup = {};
   let conversationParticipants = {};
@@ -31,6 +34,7 @@ export default function parseConversationsResponse(myUserID: string, payload: an
     const username = item[item.length - 1];
     userLookup[userId] = { name, username, userId };
   }
+
   for (const item of lsCalls.addParticipantIdToGroupThread) {
     const threadId = item[0][1]; // in DMs is also the other user id
     const userId = item[1][1]; // userId
@@ -41,6 +45,8 @@ export default function parseConversationsResponse(myUserID: string, payload: an
     }
     conversationParticipants[threadId].add(userLookup[userId]);
   }
+
+  let newMessages = [];
   for (const item of lsCalls.upsertMessage) {
     const message = item[0];
     const threadId = item[3][1];
@@ -48,6 +54,12 @@ export default function parseConversationsResponse(myUserID: string, payload: an
     const messageId = item[8];
     const authorId = item[10][1];
 
+    newMessages.push({
+      message,
+      messageId,
+      sentTs,
+      authorId,
+    });
     lastMessageLookup[threadId] = {
       message,
       sentTs,
@@ -55,6 +67,7 @@ export default function parseConversationsResponse(myUserID: string, payload: an
       authorId,
     };
   }
+
   for (const item of lsCalls.deleteThenInsertThread) {
     const lastSentTime = item[0][1];
     const lastReadTime = item[1][1];
@@ -73,7 +86,7 @@ export default function parseConversationsResponse(myUserID: string, payload: an
     // if groupName is null then set it to all the participants names
     if (groupName === null) {
       groupName = Array.from(conversationParticipants[threadId])
-        .filter((x) => (x as any).userId !== myUserID)
+        .filter((x) => (x as any).userId !== myUserId)
         .map((x) => (x as any).name)
         .join(", ");
     }
@@ -88,5 +101,6 @@ export default function parseConversationsResponse(myUserID: string, payload: an
       lastMessageDetails: lastMessageLookup[threadId],
     });
   }
-  return { newConversations: conversations, cursor: j.step[2][1][3][5] };
+
+  return { newMessages, newConversations: conversations, cursor: j.step[2][1][3][5] };
 }
