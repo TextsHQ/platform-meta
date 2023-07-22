@@ -90,6 +90,13 @@ export default class InstagramWebSocket {
         }),
       })
     );
+    setInterval(() => {
+      this.ws.send(
+        mqtt.generate({
+          cmd: "pingreq",
+        })
+      );
+    }, 10000);
   }
 
   private sendAppSettings() {

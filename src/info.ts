@@ -8,7 +8,12 @@ const info: PlatformInfo = {
   displayName: 'Instagram',
   tags: ['Unstable'],
   icon,
-  loginMode: ['browser-extension'],
+  loginMode: ["browser-extension", "browser"],
+  browserLogin: {
+    url: "https://instagram.com",
+    authCookieName: "sessionid",
+
+  },
   deletionMode: MessageDeletionMode.UNSUPPORTED,
   attributes: new Set([
   ]),

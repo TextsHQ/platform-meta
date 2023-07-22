@@ -1768,7 +1768,7 @@ __metadata:
     axios: 1.4.0
     bufferutil: ^4.0.7
     eslint: ^8.36.0
-    http-cookie-agent: 5.0.4
+    http-cookie-agent: ^5.0.4
     mqtt-packet: ^8.2.0
     react: "https://github.com/TextsHQ/react-global-shim"
     tough-cookie: ^4.1.2
@@ -3847,7 +3847,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"http-cookie-agent@npm:5.0.4":
+"http-cookie-agent@npm:^5.0.4":
   version: 5.0.4
   resolution: "http-cookie-agent@npm:5.0.4"
   dependencies:
