@@ -79,7 +79,11 @@ export default class InstagramAPI {
 
   currentUser: InstagramParsedViewerConfig;
 
-  cursor: Awaited<ReturnType<typeof this.getCursor>>['cursor'] = null
+  get cursor() {
+    return this.cursorCache?.cursor
+  }
+
+  cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
 
   private _axios: AxiosInstance;
 
@@ -116,7 +120,7 @@ export default class InstagramAPI {
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
     };
-    this.getCursor()
+    await this.getCursor()
     this.socket = new InstagramWebSocket(this);
     // try {
     //   const me = await this.getMe();
@@ -296,11 +300,11 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     });
-    const { newConversations, newMessages, cursor } = parseGetCursorResponse(
+    const cursorResponse = parseGetCursorResponse(
       this.session.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload
     );
-    this.cursor = cursor
-    return { newConversations, newMessages, cursor };
+    this.cursorCache = cursorResponse
+    return cursorResponse
   }
 }

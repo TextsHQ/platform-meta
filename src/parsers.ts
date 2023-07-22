@@ -104,3 +104,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
 
   return { newMessages, newConversations: conversations, cursor: j.step[2][1][3][5] };
 }
+
+export function parseMessagePayload(myUserId: string, payload: string) {
+  return parseGetCursorResponse(myUserId, payload);
+}

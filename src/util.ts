@@ -1,4 +1,5 @@
 import mqtt from "mqtt-packet";
+import type WebSocket from "ws";
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -18,7 +19,7 @@ export const getTimeValues = () => {
 
 // parse mqtt packet
 // promisifies the mqtt parser to make it easier to use
-export function parseMqttPacket(data: Buffer) {
+export function parseMqttPacket(data: WebSocket.RawData) {
   const parser = mqtt.parser({
     protocolVersion: 3,
   });
@@ -33,7 +34,8 @@ export function parseMqttPacket(data: Buffer) {
       reject(error);
     });
 
-    parser.parse(data);
+    // @TODO:FIX TYPES FOR THIS
+    parser.parse(data as Buffer);
   });
 }
 
