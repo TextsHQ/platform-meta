@@ -9,10 +9,12 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     deleteThenInsertThread: [],
     upsertMessage: [],
     upsertSyncGroupThreadsRange: [],
+    upsertReaction: [],
   };
 
   let userLookup = {};
   let lastMessageLookup = {};
+  let reactionLookup = {};
   let conversationParticipants = {};
   let conversations = [];
 
@@ -46,6 +48,21 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     }
     conversationParticipants[threadId].add(userLookup[userId]);
   }
+  for (const item of lsCalls.upsertReaction) {
+    const reactionSentTs = item[1][1];
+    const messageId = item[2][1];
+    const reactorId = item[3][1];
+    const reaction = item[4][1];
+
+    if (!(messageId in reactionLookup)) {
+      reactionLookup[messageId] = new Set();
+    }
+    reactionLookup[messageId].add({
+      reactionSentTs: reactionSentTs,
+      reactorId,
+      reaction,
+    });
+  }
 
   let newMessages = [];
   for (const item of lsCalls.upsertMessage) {
@@ -61,6 +78,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       sentTs,
       authorId,
       threadId,
+      reaction: Array.from(reactionLookup[messageId]),
     });
     lastMessageLookup[threadId] = {
       message,
@@ -68,6 +86,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       messageId,
       authorId,
       threadId,
+      reaction: Array.from(reactionLookup[messageId]),
     };
   }
 

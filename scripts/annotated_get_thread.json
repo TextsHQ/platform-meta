@@ -2832,11 +2832,11 @@
             [
               5,
               "upsertReaction",
-              [19, "110551740341963"],
-              [19, "1687701322534"],
-              "mid.$cAAA_3R8Oy2qPJBvDJmI8tZ5Q1UDQ",
-              [19, "110551740341963"],
-              "❤️",
+              [19, "110551740341963"], // thread id 0
+              [19, "1687701322534"], // ts in ms 1
+              "mid.$cAAA_3R8Oy2qPJBvDJmI8tZ5Q1UDQ", //message id 2
+              [19, "110551740341963"], // reactor id 3
+              "❤️", // reaction 5
               [19, "80"]
             ]
           ],
