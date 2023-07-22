@@ -137,7 +137,18 @@ export default class PlatformInstagram implements PlatformAPI {
 
   reportThread?: (type: 'spam', threadID: string, firstMessageID?: string) => Awaitable<boolean>
 
-  sendMessage?: (threadID: string, content: MessageContent, options?: MessageSendOptions) => Promise<boolean | Message[]>
+  sendMessage = async (threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+    if (!text && !threadID) return false
+    const userMessage: Message = {
+      id: pendingMessageID,
+      timestamp: new Date(),
+      text,
+      senderID: this.currentUser.id,
+      isSender: true,
+    }
+    this.api.socket.sendMessage(threadID, text)
+    return [userMessage]
+  }
 
   editMessage?: (threadID: string, messageID: string, content: MessageContent, options?: MessageSendOptions) => Promise<boolean | Message[]>
 

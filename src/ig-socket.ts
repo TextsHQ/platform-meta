@@ -200,7 +200,7 @@ export default class InstagramWebSocket {
     ); // @TODO: fix mqtt-packet types
   }
 
-  publishMessage(threadID: string, text: string) {
+  sendMessage(threadID: string, text: string) {
     const { epoch_id, otid, timestamp } = getTimeValues();
     const hmm = JSON.stringify({
       app_id: "936619743392459",
