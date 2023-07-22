@@ -2,7 +2,7 @@ import type { Message, Thread } from "@textshq/platform-sdk";
 
 export function mapThread(thread: any): Thread {
   return {
-    _original: JSON.stringify(thread),
+    _original: `${JSON.stringify({ ...thread })}`,
     id: thread.threadId,
     // folderName: thread.pending ? 'requests' : 'normal',
     isUnread: thread.unread,
@@ -37,7 +37,7 @@ export function mapThread(thread: any): Thread {
 
 export function mapMessage(currentUserId: string, message: any): Message {
   return {
-    _original: JSON.stringify(message),
+    _original: `${JSON.stringify({ ...message })}`,
     id: message.messageId,
     senderID: message.authorId,
     threadID: message.threadId,
