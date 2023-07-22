@@ -51,13 +51,15 @@ export default class InstagramWebSocket {
     texts.log("ig socket: open");
     this.connect();
     this.sendAppSettings();
+    this.startPing();
   }
 
   // initiate connection
   private connect() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+    const ws = this.getWS()
+    if (!ws) return;
 
-    this.ws.send(
+    ws.send(
       mqtt.generate({
         cmd: "connect",
         protocolId: "MQIsdp",
@@ -90,13 +92,20 @@ export default class InstagramWebSocket {
         }),
       })
     );
-    setInterval(() => {
-      this.ws.send(
-        mqtt.generate({
-          cmd: "pingreq",
-        })
-      );
-    }, 10000);
+  }
+
+  private pingInterval: NodeJS.Timeout;
+
+  private startPing() {
+    this.pingInterval = setInterval(() => this.sendPing(), 5000);
+  }
+
+  private sendPing() {
+    this.ws?.send(
+      mqtt.generate({
+        cmd: "pingreq",
+      })
+    );
   }
 
   private sendAppSettings() {
@@ -117,6 +126,8 @@ export default class InstagramWebSocket {
   }
 
   private onClose() {
+    clearInterval(this.pingInterval)
+    this.pingInterval = null
     texts.log("ig socket: close");
   }
 
@@ -339,13 +350,34 @@ export default class InstagramWebSocket {
     );
   }
 
+  private getWS() {
+    if (!this.ws) throw new Error("WebSocket not initialized")
+    switch (this.ws.readyState) {
+      case WebSocket.CLOSING:
+      case WebSocket.CLOSED: {
+        throw new Error("WebSocket is closing or closed")
+      }
+      case WebSocket.CONNECTING: {
+        throw new Error("WebSocket is connecting")
+      }
+      case WebSocket.OPEN:
+        return this.ws
+      default: {
+        texts.log(`ig socket: unknown readyState ${this.ws.readyState}`)
+        return null
+      }
+    }
+  }
+
   // used for get messages and get threads
   publishTask(_tasks: any) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) throw new Error("WebSocket is not open");
+    const ws = this.getWS()
+    if (!ws) return;
+
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks];
     const { epoch_id } = getTimeValues();
 
-    this.ws.send(
+    ws.send(
       mqtt.generate({
         cmd: "publish",
         messageId: 6,
