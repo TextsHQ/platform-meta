@@ -1,9 +1,16 @@
+type IGReaction = {
+  reactionSentTs: string;
+  reactorId: string;
+  reaction: string;
+  messageId: string;
+};
+
 // construct the conversations from undecipherable data
 export function parseGetCursorResponse(myUserId: string, payload: string) {
   const j = JSON.parse(payload);
 
   // tasks we are interested in
-  let lsCalls = {
+  const lsCalls = {
     verifyContactRowExists: [],
     addParticipantIdToGroupThread: [],
     deleteThenInsertThread: [],
@@ -12,11 +19,11 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     upsertReaction: [],
   };
 
-  let userLookup = {};
-  let lastMessageLookup = {};
-  let reactionLookup = {};
-  let conversationParticipants = {};
-  let conversations = [];
+  const userLookup = {};
+  const lastMessageLookup = {};
+  const reactionLookup: Record<string, Set<IGReaction>> = {};
+  const conversationParticipants = {};
+  const conversations = [];
 
   // loop through the tasks
   for (const item of j.step[2][2][2].slice(1)) {
@@ -50,21 +57,22 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
   }
   for (const item of lsCalls.upsertReaction) {
     const reactionSentTs = item[1][1];
-    const messageId = item[2][1];
-    const reactorId = item[3][1];
+    const messageId = item[2][1] as string;
+    const reactorId = item[3][1] as string;
     const reaction = item[4][1];
 
     if (!(messageId in reactionLookup)) {
       reactionLookup[messageId] = new Set();
     }
     reactionLookup[messageId].add({
+      messageId,
       reactionSentTs: reactionSentTs,
       reactorId,
       reaction,
     });
   }
 
-  let newMessages = [];
+  const newMessages = [];
   for (const item of lsCalls.upsertMessage) {
     const message = item[0];
     const threadId = item[3][1];
@@ -72,13 +80,15 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     const messageId = item[8];
     const authorId = item[10][1];
 
+    const _r = reactionLookup[messageId]
+    const reaction = _r ? Array.from(_r) : null;
     newMessages.push({
       message,
       messageId,
       sentTs,
       authorId,
       threadId,
-      reaction: Array.from(reactionLookup[messageId]),
+      reaction,
     });
     lastMessageLookup[threadId] = {
       message,
@@ -86,7 +96,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       messageId,
       authorId,
       threadId,
-      reaction: Array.from(reactionLookup[messageId]),
+      reaction,
     };
   }
 
@@ -127,6 +137,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
   return {
     newMessages,
     newConversations: conversations,
+    newReactions: reactionLookup,
     cursor: j.step[2][1][3][5],
     hasMore: lsCalls.upsertSyncGroupThreadsRange?.[0]?.[3],
   };

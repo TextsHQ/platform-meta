@@ -183,19 +183,18 @@ export default class InstagramWebSocket {
       return;
     }
     if (payload.payload.includes("upsertMessage")) {
-      // @TODO: we need thread id here
-      await this.processUpsertMessage('', data);
+      await this.processUpsertMessage(data);
     } else if (payload.payload.includes("deleteThenInsertThread")) {
       await this.processDeleteThenInsertThread(data);
     } else {
-      texts.log("ig socket: unhandled message (2)", data);
+      texts.log("ig socket: unhandled message (2)", data, JSON.stringify(payload, null, 2));
     }
   }
 
   private async processDeleteThenInsertThread(data: any) {
     texts.log("ig socket: deleteThenInsertThread");
     const payload = (await parseMqttPacket(data)) as any;
-    const { newConversations, newMessages } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
+    const { newConversations, newMessages, newReactions } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
     texts.log("ig socket: deleteThenInsertThread, newConversations", JSON.stringify(newConversations, null, 2));
 
     const mappedNewConversations = newConversations.map(mapThread);
@@ -207,6 +206,8 @@ export default class InstagramWebSocket {
       mutationType: 'upsert',
       entries: mappedNewConversations,
     }])
+
+    texts.log(`ig socket: got reactions ${JSON.stringify(newReactions, null, 2)}`)
 
     this.publishTask({
       label: "145",
@@ -224,8 +225,8 @@ export default class InstagramWebSocket {
     })
   }
 
-  private async processUpsertMessage(threadId: string, data: any) {
-    texts.log("ig socket: upsertMessage", threadId);
+  private async processUpsertMessage(data: any) {
+    texts.log("ig socket: upsertMessage");
 
     const payload = (await parseMqttPacket(data)) as any;
     if (!payload) {
@@ -233,14 +234,12 @@ export default class InstagramWebSocket {
       return;
     }
 
-    const j = JSON.parse(payload.payload);
-    texts.log("ig socket:", "upsertMessage", JSON.stringify(j, null, 2));
-    const { newMessages } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
-    texts.log("ig socket:", "upsertMessage", JSON.stringify(newMessages, null, 2));
-    // messages.push(...newMessages);
-    // console.log('messages', messages)
+    const { newMessages, newReactions, newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
+    texts.log("ig socket:", "upsertMessage", JSON.stringify({ newMessages, newReactions, newConversations }, null, 2));
+
     const mappedMessages = newMessages.map((m) => this.papi.api.mapMessage(m))
     this.papi.api.db.addMessages(mappedMessages)
+
     for (const message of mappedMessages) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,

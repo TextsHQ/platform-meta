@@ -1,4 +1,4 @@
-import type { Message, Thread } from "@textshq/platform-sdk";
+import type { Message, Thread, MessageReaction } from "@textshq/platform-sdk";
 
 export function mapThread(thread: any): Thread {
   return {
@@ -36,6 +36,15 @@ export function mapThread(thread: any): Thread {
 }
 
 export function mapMessage(currentUserId: string, message: any): Message {
+  const reactions: MessageReaction[] = []
+  message.reaction?.forEach((reaction: any) => {
+    reactions.push({
+      id: `${reaction.reactorId}${reaction.reaction}`,
+      participantID: reaction.reactorId,
+      reactionKey: reaction.reaction,
+    })
+  })
+
   return {
     _original: `${JSON.stringify({ ...message })}`,
     id: message.messageId,
@@ -44,5 +53,6 @@ export function mapMessage(currentUserId: string, message: any): Message {
     text: message.message,
     timestamp: new Date(Number(message.sentTs)),
     isSender: message.authorId === currentUserId,
+    reactions,
   }
 }
