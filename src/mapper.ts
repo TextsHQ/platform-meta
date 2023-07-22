@@ -40,6 +40,7 @@ export function mapMessage(currentUserId: string, message: any): Message {
     _original: JSON.stringify(message),
     id: message.messageId,
     senderID: message.authorId,
+    threadID: message.threadId,
     text: message.message,
     timestamp: new Date(Number(message.sentTs)),
     isSender: message.authorId === currentUserId,

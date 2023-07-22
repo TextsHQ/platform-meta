@@ -80,30 +80,27 @@ export default class PlatformInstagram implements PlatformAPI {
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
   getThreads = async (folderName: string, pagination?: PaginationArg) => {
-    const cursorResult = await this.api.getCursor()
-    texts.log('instagram got cursor', JSON.stringify(cursorResult, null, 2))
-
-    const items = cursorResult?.newConversations.map((thread) => mapThread(thread))
-    return { items, hasMore: false }
+    this.api.socket?.getThreads?.()
+    return {
+      items: this.api.db.getThreads(),
+      hasMore: false,
+    }
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): Promise<Paginated<Message>> => {
-    const items = []
-    this.api.debug_messagesCache.forEach((message) => {
-      if (message.threadId === threadID) {
-        items.push(mapMessage(this.api.session.fbid, message))
-      }
-    })
-    this.api.socket.getMessages(threadID)
+    this.api.socket?.getMessages?.(threadID)
     return {
-      items,
+      items: this.api.db.getMessages(threadID),
       hasMore: false,
     }
   }
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread?: (threadID: string) => Awaitable<Thread>
+  getThread = (threadID: string) => {
+    // @TODO: get thread
+    return this.api.db.getThread(threadID)
+  }
 
   getMessage?: (messageID: string) => Awaitable<Message>
 

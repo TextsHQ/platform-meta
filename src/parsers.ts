@@ -109,7 +109,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     newMessages,
     newConversations: conversations,
     cursor: j.step[2][1][3][5],
-    hasMore: lsCalls.upsertSyncGroupThreadsRange[0][3],
+    hasMore: lsCalls.upsertSyncGroupThreadsRange?.[0]?.[3],
   };
 }
 

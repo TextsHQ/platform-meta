@@ -1,10 +1,11 @@
 import WebSocket from "ws";
 import mqtt from "mqtt-packet";
-import { texts } from "@textshq/platform-sdk";
+import { ServerEventType, texts } from "@textshq/platform-sdk";
 
 import { getMqttSid, getTimeValues, parseMqttPacket } from "./util";
 import { parseMessagePayload } from "./parsers";
 import type PlatformInstagram from "./api";
+import { mapMessage, mapThread } from "./mapper";
 
 export default class InstagramWebSocket {
   ws: WebSocket;
@@ -176,10 +177,19 @@ export default class InstagramWebSocket {
   private async processDeleteThenInsertThread(data: any) {
     texts.log("ig socket: deleteThenInsertThread");
     const payload = (await parseMqttPacket(data)) as any;
-    const { newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
-    console.log(JSON.stringify(newConversations, null, 2));
-    // conversations.push(...newConversations);
-    this.papi.api.debug_upsertThreads(newConversations);
+    const { newConversations, newMessages } = parseMessagePayload(this.papi.api.session.fbid, payload.payload);
+    texts.log("ig socket: deleteThenInsertThread, newConversations", JSON.stringify(newConversations, null, 2));
+
+    const mappedNewConversations = newConversations.map(mapThread);
+    this.papi.api.db.addThreads(mappedNewConversations)
+    this.papi.onEvent?.([{
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'thread',
+      objectIDs: {},
+      mutationType: 'upsert',
+      entries: mappedNewConversations,
+    }])
+
     this.publishTask({
       label: "145",
       payload: JSON.stringify({
@@ -211,7 +221,17 @@ export default class InstagramWebSocket {
     texts.log("ig socket:", "upsertMessage", JSON.stringify(newMessages, null, 2));
     // messages.push(...newMessages);
     // console.log('messages', messages)
-    this.papi.api.debug_upsertMessages(newMessages);
+    const mappedMessages = newMessages.map((m) => this.papi.api.mapMessage(m))
+    this.papi.api.db.addMessages(mappedMessages)
+    for (const message of mappedMessages) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadID },
+        mutationType: 'upsert',
+        entries: [message],
+      }])
+    }
   }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
@@ -362,7 +382,7 @@ export default class InstagramWebSocket {
     });
   }
 
-  private getThreads() {
+  getThreads() {
     this.publishTask({
       label: "145",
       payload: JSON.stringify({
