@@ -1,12 +1,21 @@
 import { texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
-import type { Readable } from 'stream'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
+import path from 'path'
 import { CookieJar } from 'tough-cookie'
+import type { Logger } from 'pino'
+
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
+import { generateInstanceId, getLogger } from './util'
 
 export default class PlatformInstagram implements PlatformAPI {
   private loginEventCallback: (data: any) => void
+
+  private dataDirPath: string
+
+  private nativeArchiveSync: boolean | undefined
+
+  logger: Logger
 
   api = new InstagramAPI(this)
 
@@ -15,8 +24,20 @@ export default class PlatformInstagram implements PlatformAPI {
   constructor(readonly accountID: string) {}
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  init = async (session: SerializedSession, _: ClientContext) => {
+  init = async (session: SerializedSession, { nativeArchiveSync, dataDirPath }: ClientContext) => {
     if (!session) return
+    this.dataDirPath = dataDirPath
+    this.nativeArchiveSync = nativeArchiveSync
+
+    const logPath = path.join(dataDirPath, 'platform-instagram.log')
+    if (texts.isLoggingEnabled) texts.log('ig log path', logPath) // @TODO: remove
+
+    this.logger = getLogger(logPath)
+      .child({
+        stream: 'pi-' + this.accountID,
+        instance: generateInstanceId(),
+      })
+
     const { jar, ua, authMethod } = session
     this.api.jar = CookieJar.fromJSON(jar)
     this.api.ua = ua
@@ -31,6 +52,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getCurrentUser = () => this.currentUser
 
+  initPromise: Promise<void>
+
   login = async (creds: LoginCreds): Promise<LoginResult> => {
     const cookieJarJSON = 'cookieJarJSON' in creds && creds.cookieJarJSON
     if (!cookieJarJSON) return { type: 'error', errorMessage: 'Cookies not found' }
@@ -40,7 +63,8 @@ export default class PlatformInstagram implements PlatformAPI {
       this.api.authMethod = authMethod || 'login-window'
     }
     this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
-    await this.api.init()
+    this.initPromise = this.api.init()
+    await this.initPromise
     return { type: 'success' }
   }
 
@@ -101,11 +125,16 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread = (threadID: string) =>
+  getThread = (threadID: string) => {
+    this.logger.info('getThread', threadID)
     // @TODO: get thread
-    this.api.db.getThread(threadID)
+    return this.api.db.getThread(threadID)
+  }
 
-  getMessage?: (messageID: string) => Awaitable<Message>
+  getMessage = (messageID: string) => {
+    this.logger.info('getMessage', messageID)
+    return null
+  }
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
@@ -117,11 +146,18 @@ export default class PlatformInstagram implements PlatformAPI {
 
   createThread: (userIDs: string[], title?: string, messageText?: string) => Awaitable<boolean | Thread>
 
-  updateThread?: (threadID: string, updates: Partial<Thread>) => Awaitable<void>
+  updateThread = async (threadID: string, updates: Partial<Thread>) => {
+    this.logger.info('updateThread', threadID, updates)
+  }
 
-  deleteThread?: (threadID: string) => Awaitable<void>
+  deleteThread = async (threadID: string) => {
+    this.logger.info('deleteThread', threadID)
+  }
 
-  reportThread?: (type: 'spam', threadID: string, firstMessageID?: string) => Awaitable<boolean>
+  reportThread = async (type: 'spam', threadID: string, firstMessageID?: string) => {
+    this.logger.info('reportThread', type, threadID, firstMessageID)
+    return true
+  }
 
   sendMessage = async (threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text && !threadID) return false
@@ -136,49 +172,100 @@ export default class PlatformInstagram implements PlatformAPI {
     return [userMessage]
   }
 
-  editMessage?: (threadID: string, messageID: string, content: MessageContent, options?: MessageSendOptions) => Promise<boolean | Message[]>
-
-  forwardMessage?: (threadID: string, messageID: string, threadIDs?: string[], userIDs?: string[]) => Promise<void>
-
   sendActivityIndicator = (threadID: string) => {
     this.api.socket.sendTypingIndicator(threadID)
   }
 
-  deleteMessage?: (threadID: string, messageID: string, forEveryone?: boolean) => Awaitable<void>
+  deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {
+    this.logger.info('deleteMessage', { threadID, messageID, forEveryone })
+    return null
+  }
 
-  sendReadReceipt: (threadID: string, messageID: string, messageCursor?: string) => Awaitable<void>
+  sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
+    this.logger.info('sendReadReceipt', { threadID, messageID, messageCursor })
+    return null
+  }
 
-  addReaction?: (threadID: string, messageID: string, reactionKey: string) => Awaitable<void>
+  addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
+    this.logger.info('addReaction', { threadID, messageID, reactionKey })
+    return null
+  }
 
-  removeReaction?: (threadID: string, messageID: string, reactionKey: string) => Awaitable<void>
+  removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
+    this.logger.info('removeReaction', { threadID, messageID, reactionKey })
+    return null
+  }
 
-  getLinkPreview?: (link: string) => Awaitable<MessageLink>
+  getLinkPreview = async (link: string): Promise<MessageLink> => {
+    this.logger.info('getLinkPreview', { link })
+    return { url: link, title: '' }
+  }
 
-  addParticipant?: (threadID: string, participantID: string) => Awaitable<void>
+  addParticipant = async (threadID: string, participantID: string) => {
+    this.logger.info('addParticipant', { threadID, participantID })
+    return null
+  }
 
-  removeParticipant?: (threadID: string, participantID: string) => Awaitable<void>
+  removeParticipant = async (threadID: string, participantID: string) => {
+    this.logger.info('removeParticipant', { threadID, participantID })
+    return null
+  }
 
-  changeParticipantRole?: (threadID: string, participantID: string, role: string) => Awaitable<void>
+  changeParticipantRole = async (threadID: string, participantID: string, role: string) => {
+    this.logger.info('changeParticipantRole', { threadID, participantID, role })
+    return null
+  }
 
-  changeThreadImage?: (threadID: string, imageBuffer: Buffer, mimeType: string) => Awaitable<void>
+  changeThreadImage = async (threadID: string, imageBuffer: Buffer, mimeType: string) => {
+    this.logger.info('changeThreadImage', { threadID, mimeType })
+    return null
+  }
 
-  markAsUnread?: (threadID: string, messageID?: string) => Awaitable<void>
+  markAsUnread = async (threadID: string, messageID?: string) => {
+    this.logger.info('markAsUnread', { threadID, messageID })
+    return null
+  }
 
-  archiveThread?: (threadID: string, archived: boolean) => Awaitable<void>
+  archiveThread = async (threadID: string, archived: boolean) => {
+    this.logger.info('archiveThread', { threadID, archived })
+    return null
+  }
 
-  pinThread?: (threadID: string, pinned: boolean) => Awaitable<void>
+  pinThread = async (threadID: string, pinned: boolean) => {
+    this.logger.info('pinThread', { threadID, pinned })
+    return null
+  }
 
-  notifyAnyway?: (threadID: string) => Awaitable<void>
+  notifyAnyway = async (threadID: string) => {
+    this.logger.info('notifyAnyway', { threadID })
+    return null
+  }
 
-  onThreadSelected?: (threadID: string) => Awaitable<void>
+  onThreadSelected = async (threadID: string) => {
+    this.logger.info('onThreadSelected', { threadID })
+    return null
+  }
 
-  loadDynamicMessage?: (message: Message) => Awaitable<Partial<Message>>
+  loadDynamicMessage = async (message: Message) => {
+    this.logger.info('loadDynamicMessage', { message })
+    return {}
+  }
 
-  getAsset?: (_, ...args: string[]) => Awaitable<string | Buffer | FetchInfo | Readable>
+  getAsset = async (_, ...args: string[]) => {
+    this.logger.info('getAsset', { args })
+    return null
+  }
 
-  getOriginalObject?: (objName: 'thread' | 'message', objectID: string) => Awaitable<string>
+  getOriginalObject = async (objName: 'thread' | 'message', objectID: string) => {
+    this.logger.info('getOriginalObject', { objName, objectID })
+    return ''
+  }
 
-  handleDeepLink?: (link: string) => void
+  handleDeepLink = (link: string) => {
+    this.logger.info('handleDeepLink', { link })
+  }
 
-  onResumeFromSleep?: () => void
+  onResumeFromSleep = () => {
+    this.logger.info('onResumeFromSleep')
+  }
 }

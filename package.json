@@ -4,8 +4,9 @@
   "main": "dist/index.js",
   "scripts": {
     "prepack": "tsc",
-    "build": "yarn tsc",
+    "build": "tsc",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
+    "lint:fix": "yarn lint --fix",
     "watch": "yarn tsc --watch"
   },
   "dependencies": {
@@ -14,6 +15,7 @@
     "bufferutil": "^4.0.7",
     "http-cookie-agent": "^5.0.4",
     "mqtt-packet": "^8.2.0",
+    "pino": "^8.14.1",
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
     "utf-8-validate": "^6.0.3",
@@ -23,6 +25,7 @@
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
     "@types/eslint": "^8.21.3",
     "@types/node": "^18.15.8",
+    "@types/pino": "^7.0.5",
     "@types/tough-cookie": "^4.0.2",
     "@types/ws": "^8.5.5",
     "eslint": "^8.36.0",
