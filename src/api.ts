@@ -1,20 +1,20 @@
 import { texts } from '@textshq/platform-sdk'
-import type { ActivityType, Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, FetchInfo, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
 import type { Readable } from 'stream'
-import type PlatformInfo from './info'
-import InstagramAPI from './ig-api'
 import { CookieJar } from 'tough-cookie'
-import { mapMessage, mapThread } from './mapper'
+import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
 
 export default class PlatformInstagram implements PlatformAPI {
-
   private loginEventCallback: (data: any) => void
+
   api = new InstagramAPI(this)
+
   onEvent: OnServerEventCallback
 
   constructor(readonly accountID: string) {}
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   init = async (session: SerializedSession, _: ClientContext) => {
     if (!session) return
     const { jar, ua, authMethod } = session
@@ -24,6 +24,7 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.api.init()
   }
 
+  // eslint-disable-next-line class-methods-use-this
   dispose = () => {}
 
   currentUser: CurrentUser
@@ -43,6 +44,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return { type: 'success' }
   }
 
+  // eslint-disable-next-line class-methods-use-this
   logout = async () => {
     // @TODO: logout
   }
@@ -54,11 +56,11 @@ export default class PlatformInstagram implements PlatformAPI {
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
-    this.onEvent = (data) => {
+    this.onEvent = data => {
       onEvent(data)
       texts.log('instagram got server event', JSON.stringify(data, null, 2))
     }
-    this.api.socket = new InstagramWebSocket(this);
+    this.api.socket = new InstagramWebSocket(this)
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
@@ -79,7 +81,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
-  getThreads = async (folderName: string, pagination?: PaginationArg) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getThreads = async (_folderName: string, pagination?: PaginationArg) => {
     this.api.socket?.getThreads?.()
     return {
       items: this.api.db.getThreads(),
@@ -87,7 +90,8 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  getMessages = async (threadID: string, pagination: PaginationArg): Promise<Paginated<Message>> => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getMessages = async (threadID: string, _pagination: PaginationArg): Promise<Paginated<Message>> => {
     this.api.socket?.getMessages?.(threadID)
     return {
       items: this.api.db.getMessages(threadID),
@@ -97,10 +101,9 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread = (threadID: string) => {
+  getThread = (threadID: string) =>
     // @TODO: get thread
-    return this.api.db.getThread(threadID)
-  }
+    this.api.db.getThread(threadID)
 
   getMessage?: (messageID: string) => Awaitable<Message>
 

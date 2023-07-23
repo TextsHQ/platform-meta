@@ -1,4 +1,4 @@
-import { PlatformInfo, MessageDeletionMode, texts } from '@textshq/platform-sdk'
+import { type PlatformInfo, MessageDeletionMode } from '@textshq/platform-sdk'
 import icon from './icon'
 import { genClientContext } from './util'
 
@@ -8,10 +8,10 @@ const info: PlatformInfo = {
   displayName: 'Instagram',
   tags: ['Unstable'],
   icon,
-  loginMode: ["browser-extension", "browser"],
+  loginMode: ['browser-extension', 'browser'],
   browserLogin: {
-    url: "https://instagram.com",
-    authCookieName: "sessionid",
+    url: 'https://instagram.com',
+    authCookieName: 'sessionid',
 
   },
   deletionMode: MessageDeletionMode.UNSUPPORTED,

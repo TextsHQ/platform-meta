@@ -1,4 +1,5 @@
-import { texts, Platform } from '@textshq/platform-sdk'
+/* eslint-disable global-require */
+import type { Platform } from '@textshq/platform-sdk'
 
 export default {
   get info() {

@@ -1,4 +1,4 @@
-import type { Message, Thread, MessageReaction } from "@textshq/platform-sdk";
+import type { Message, Thread, MessageReaction } from '@textshq/platform-sdk'
 
 export function mapThread(thread: any): Thread {
   return {
@@ -13,25 +13,25 @@ export function mapThread(thread: any): Thread {
       items: [],
       hasMore: false,
       oldestCursor: '',
-      newestCursor: ''
+      newestCursor: '',
     },
     timestamp: new Date(Number(thread.lastSentTime)),
     participants: {
-      items: thread?.participants?.map((participant) => ({
+      items: thread?.participants?.map(participant => ({
         id: participant.userId,
         username: participant.username,
         fullName: participant.name,
       })),
       hasMore: false,
       oldestCursor: '',
-      newestCursor: ''
+      newestCursor: '',
     },
     lastReadMessageID: thread?.lastMessageDetails?.messageId,
     partialLastMessage: {
       id: thread?.lastMessageDetails?.messageId,
       senderID: thread?.lastMessageDetails?.authorId,
       text: thread?.lastMessageDetails?.message,
-    }
+    },
   }
 }
 
