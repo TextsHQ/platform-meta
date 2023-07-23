@@ -17,11 +17,13 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     upsertMessage: [],
     upsertSyncGroupThreadsRange: [],
     upsertReaction: [],
+    insertBlobAttachment: [],
   }
 
   const userLookup = {}
   const lastMessageLookup = {}
   const reactionLookup: Record<string, Set<IGReaction>> = {}
+  const imageLookup: Record<string, { imageId: string, imageUrl: string }[]> = {}
   const conversationParticipants = {}
   const conversations = []
 
@@ -57,9 +59,11 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
   }
   for (const item of lsCalls.upsertReaction) {
     const reactionSentTs = item[1][1]
-    const messageId = item[2][1] as string
+    const messageId = item[2] as string
+    // const messageId = item[2][1] as string
     const reactorId = item[3][1] as string
-    const reaction = item[4][1]
+    // const reaction = item[4][1]
+    const reaction = item[4]
 
     if (!(messageId in reactionLookup)) {
       reactionLookup[messageId] = new Set()
@@ -69,6 +73,19 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       reactionSentTs,
       reactorId,
       reaction,
+    })
+  }
+
+  for (const item of lsCalls.insertBlobAttachment) {
+    const imageUrl = item[8]
+    const messageId = item[32]
+    const imageId = item[0]
+    if (!(messageId in imageLookup)) {
+      imageLookup[messageId] = []
+    }
+    imageLookup[messageId].push({
+      imageId,
+      imageUrl,
     })
   }
 
@@ -82,6 +99,8 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
 
     const _r = reactionLookup[messageId]
     const reaction = _r ? Array.from(_r) : null
+    const images = imageLookup[messageId]
+
     newMessages.push({
       message,
       messageId,
@@ -89,6 +108,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       authorId,
       threadId,
       reaction,
+      images,
     })
     lastMessageLookup[threadId] = {
       message,
@@ -97,6 +117,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
       authorId,
       threadId,
       reaction,
+      images,
     }
   }
 

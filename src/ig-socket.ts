@@ -209,20 +209,20 @@ export default class InstagramWebSocket {
 
     texts.log(`ig socket: got reactions ${JSON.stringify(newReactions, null, 2)}`)
 
-    this.publishTask({
-      label: '145',
-      payload: JSON.stringify({
-        ...this.getLastThreadReference(newConversations),
-        is_after: 0,
-        parent_thread_key: 0,
-        additional_pages_to_fetch: 0,
-        messaging_tag: null,
-        sync_group: 1,
-      }),
-      queue_name: 'trq',
-      task_id: 1,
-      failure_count: null,
-    })
+    // this.publishTask({
+    //   label: '145',
+    //   payload: JSON.stringify({
+    //     ...this.getLastThreadReference(newConversations),
+    //     is_after: 0,
+    //     parent_thread_key: 0,
+    //     additional_pages_to_fetch: 0,
+    //     messaging_tag: null,
+    //     sync_group: 1,
+    //   }),
+    //   queue_name: 'trq',
+    //   task_id: 1,
+    //   failure_count: null,
+    // })
   }
 
   private async processUpsertMessage(data: any) {

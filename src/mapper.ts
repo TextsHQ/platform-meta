@@ -1,4 +1,4 @@
-import type { Message, Thread, MessageReaction } from '@textshq/platform-sdk'
+import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
 
 export function mapThread(thread: any): Thread {
   return {
@@ -37,11 +37,21 @@ export function mapThread(thread: any): Thread {
 
 export function mapMessage(currentUserId: string, message: any): Message {
   const reactions: MessageReaction[] = []
+  const attachments: AttachmentWithURL[] = []
+
   message.reaction?.forEach((reaction: any) => {
     reactions.push({
       id: `${reaction.reactorId}${reaction.reaction}`,
       participantID: reaction.reactorId,
       reactionKey: reaction.reaction,
+    })
+  })
+
+  message.images?.forEach((image: any) => {
+    attachments.push({
+      id: image.imageId,
+      type: AttachmentType.IMG,
+      srcURL: image.imageUrl,
     })
   })
 
@@ -54,5 +64,6 @@ export function mapMessage(currentUserId: string, message: any): Message {
     timestamp: new Date(Number(message.sentTs)),
     isSender: message.authorId === currentUserId,
     reactions,
+    attachments,
   }
 }
