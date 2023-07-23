@@ -1,3 +1,4 @@
+// sends a reaction to the last message on selected thread
 import WebSocket from "ws";
 import mqtt from "mqtt-packet";
 import { get, set } from "./settings.mjs";
@@ -13,10 +14,9 @@ if (!threadId) {
   set("selectedThread", threadId);
 }
 console.log(threads[threadId].lastMessageDetails.messageId);
-process.exit(0);
 const mqtt_sid = mqttSid;
-const client_id = await getClientId();
-
+const { clientId, dtsg, userId } = await getClientId();
+console.log(userId);
 const t = mqtt.generate({
   cmd: "connect",
   protocolId: "MQIsdp",
@@ -31,7 +31,7 @@ const t = mqtt.generate({
     ecp: 10,
     chat_on: true,
     fg: false,
-    d: client_id,
+    d: clientId,
     ct: "cookie_auth",
     mqtt_sid: "",
     aid: 936619743392459,
@@ -45,27 +45,6 @@ const t = mqtt.generate({
     p: null,
     a: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
     aids: null,
-  }),
-});
-
-const typing = mqtt.generate({
-  cmd: "publish",
-  messageId: 9,
-  topic: "/ls_req",
-  payload: JSON.stringify({
-    app_id: "936619743392459",
-    payload: JSON.stringify({
-      label: "3",
-      payload: JSON.stringify({
-        thread_key: threadId,
-        is_group_thread: 0,
-        is_typing: 1,
-        attribution: 0,
-      }),
-      version: "6243569662359088",
-    }),
-    request_id: 45,
-    type: 4,
   }),
 });
 
@@ -84,30 +63,27 @@ const hmm = JSON.stringify({
         payload: JSON.stringify({
           thread_key: threadId,
           timestamp_ms: Number(timestamp),
-          message_id: "",
-        }),
-        queue_name: threadId.toString(),
-        task_id: 0,
-        failure_count: null,
-      },
-      {
-        label: "21",
-        payload: JSON.stringify({
-          thread_id: threadId,
-          last_read_watermark_ts: Number(timestamp),
+          message_id: threads[threadId].lastMessageDetails.messageId,
+          actor_id: userId,
+          reaction: "❤️",
+          reacion_style: null,
           sync_group: 1,
         }),
-        queue_name: threadId.toString(),
-        task_id: 1,
+        queue_name: JSON.stringify([
+          "reaction",
+          threads[threadId].lastMessageDetails.messageId,
+        ]),
+        task_id: 0,
         failure_count: null,
       },
     ],
     epoch_id: Number(epoch_id),
-    version_id: "6243569662359088",
+    version_id: "5945819592184983",
   }),
   request_id: 4,
   type: 3,
 });
+console.log(hmm);
 
 const t4 = mqtt.generate({
   cmd: "publish",
@@ -120,7 +96,7 @@ const t4 = mqtt.generate({
 });
 
 const ws = new WebSocket(
-  `wss://edge-chat.instagram.com/chat?sid=${mqtt_sid}&cid=${client_id}`,
+  `wss://edge-chat.instagram.com/chat?sid=${mqtt_sid}&cid=${clientId}`,
   {
     origin: "https://www.instagram.com",
     headers: {
@@ -137,15 +113,7 @@ ws.on("error", function incoming(data) {
 ws.on("open", function open() {
   console.log("connected");
   ws.send(t);
-  // send typing indicator
-  ws.send(typing);
-  //wait 5 seconds
-  setTimeout(() => {
-    // send message
-    ws.send(t4);
-  }, 5000);
-
-  // ws.send(t4);
+  ws.send(t4);
 });
 
 ws.on("message", function incoming(data) {
