@@ -79,3 +79,5 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
   hasThreads: hasData(db, threads),
   hasMessages: hasData(db, messages),
 })
+
+export const FOREVER = 4117219200000 // 2100-06-21T00:00:00.000Z

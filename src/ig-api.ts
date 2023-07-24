@@ -1,13 +1,15 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
+import { texts, type User, ServerEventType, Thread, Message } from '@textshq/platform-sdk'
+import { desc, eq, type InferModel } from 'drizzle-orm'
 
+import * as schema from './store/schema'
 import type Instagram from './api'
 import type InstagramWebSocket from './ig-socket'
 import { parseGetCursorResponse } from './parsers'
 import { mapMessage, mapThread } from './mapper'
-import { ChatMemoryStore } from './store'
+import { FOREVER } from './util'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -301,7 +303,7 @@ export default class InstagramAPI {
     const { newConversations, newMessages } = cursorResponse
     const mappedNewConversations = newConversations?.map(mapThread)
     const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
-    this.db.addThreads(mappedNewConversations)
+    this.upsertThreads(mappedNewConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -309,7 +311,7 @@ export default class InstagramAPI {
       mutationType: 'upsert',
       entries: mappedNewConversations,
     }])
-    this.db.addMessages(mappedNewMessages)
+    this.upsertMessages(mappedNewMessages)
     for (const message of mappedNewMessages) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -324,5 +326,75 @@ export default class InstagramAPI {
 
   mapMessage(message: any) {
     return mapMessage(this.session.fbid, message)
+  }
+
+  private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
+    return this.papi.db.insert(schema.threads).values(thread).returning().get()
+  }
+
+  private upsertThread(thread: Thread) {
+    const threads = thread.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, thread.id)).all() : []
+    if (threads.length === 0) {
+      return this.addThread({
+        ...thread,
+        mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+      })
+    }
+
+    return this.papi.db.update(schema.threads).set({
+      ...thread,
+      mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+    }).where(eq(schema.threads.id, thread.id)).returning().get()
+  }
+
+  upsertThreads(threads: Thread[]) {
+    return threads.map(thread => this.upsertThread(thread))
+  }
+
+  private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
+    return this.papi.db.insert(schema.messages).values({
+      ...message,
+      threadID,
+    }).returning().get()
+  }
+
+  private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+    return messages.map(message => this.upsertMessage(threadID, {
+      ...message,
+      action: null,
+    }))
+  }
+
+  private upsertMessage(threadID: string, message: Message) {
+    const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
+    if (messages.length === 0) {
+      return this.addMessage(threadID, {
+        ...message,
+        threadID,
+        seen: new Date(),
+        action: null,
+        sortKey: null,
+      })
+    }
+
+    return this.papi.db.update(schema.messages).set({
+      ...message,
+      threadID,
+      seen: new Date(),
+      action: null,
+      sortKey: null,
+    }).where(eq(schema.messages.id, message.id)).returning().get()
+  }
+
+  upsertMessages(messages: Message[]) {
+    return messages.map(message => this.upsertMessage(message.threadID, message))
+  }
+
+  getLastMessage(threadID: string) {
+    return this.papi.db.select({
+      threadID: schema.messages.threadID,
+      id: schema.messages.id,
+      timestamp: schema.messages.timestamp,
+    }).from(schema.messages).limit(1).where(eq(schema.messages.threadID, threadID)).orderBy(desc(schema.messages.timestamp)).get()
   }
 }

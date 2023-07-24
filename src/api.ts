@@ -105,7 +105,7 @@ export default class PlatformInstagram implements PlatformAPI {
       onEvent(data)
       texts.log('instagram got server event', JSON.stringify(data, null, 2))
     }
-    this.api.socket = new InstagramWebSocket(this)
+    this.api.socket = new InstagramWebSocket(this, this.api)
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
@@ -127,7 +127,7 @@ export default class PlatformInstagram implements PlatformAPI {
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getThreads = async (_folderName: string, pagination?: PaginationArg): Promise<PAPIReturn<'getThreads'>> => {
+  getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     this.api.socket?.getThreads?.()
     const threads = this.db.select().from(schema.threads).all().map(thread => ({
       ...thread,
@@ -140,8 +140,9 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getMessages = async (threadID: string, _pagination: PaginationArg): Promise<PAPIReturn<'getMessages'>> => {
+  getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+    this.logger.info('getMessages', threadID, pagination)
+
     this.api.socket?.getMessages?.(threadID)
     const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadID, threadID)).all()
     return {
@@ -155,13 +156,21 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread = (threadID: string) => {
+  getThread = async (threadID: string): PAPIReturn<'getThread'> => {
     const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
-    return Promise.resolve({
-      ...thread,
-      messages: null,
-      participants: null,
+    if (!thread) return null
+
+    // @TODO: this could be a join and also needs to be paginated
+    const messages = await this.getMessages(threadID, {
+      cursor: null,
+      direction: 'after',
     })
+
+    return {
+      ...thread,
+      messages,
+      participants: null,
+    }
   }
 
   getMessage = (threadID: ThreadID, messageID: MessageID) => {

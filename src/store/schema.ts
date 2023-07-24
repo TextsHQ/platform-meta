@@ -40,7 +40,7 @@ export const messages = sqliteTable('messages', {
   textHeading: text('textHeading'),
   textFooter: text('textFooter'),
   iframeURL: text('iframeURL'),
-  seen: integer('seen', { mode: 'boolean' }),
+  seen: integer('seen', { mode: 'timestamp' }),
   isDelivered: integer('isDelivered', { mode: 'boolean' }),
   isHidden: integer('isHidden', { mode: 'boolean' }),
   isSender: integer('isSender', { mode: 'boolean' }),
@@ -63,6 +63,7 @@ export const messages = sqliteTable('messages', {
 
 export const participants = sqliteTable('participants', {
   original: blob('original', { mode: 'json' }).$type<IGParticipant>(),
+  threadID: text('threadID').notNull().references(() => threads.id),
   id: text('id').notNull().primaryKey(),
   name: text('name'),
 })

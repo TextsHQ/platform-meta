@@ -7,6 +7,7 @@ import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
 import { mapThread } from './mapper'
+import type InstagramAPI from './ig-api'
 
 const MAX_RETRY_ATTEMPTS = 12
 
@@ -22,7 +23,7 @@ export default class InstagramWebSocket {
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly papi: PlatformInstagram) {
+  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {
     if (!this.papi.api?.cursor) throw new Error('ig socket: cursor is required to start')
   }
 
@@ -262,7 +263,7 @@ export default class InstagramWebSocket {
     texts.log('ig socket: deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
 
     const mappedNewConversations = newConversations.map(mapThread)
-    this.papi.api.db.addThreads(mappedNewConversations)
+    this.igApi.upsertThreads(mappedNewConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -302,7 +303,7 @@ export default class InstagramWebSocket {
     texts.log('ig socket:', 'upsertMessage', JSON.stringify({ newMessages, newReactions, newConversations }, null, 2))
 
     const mappedMessages = newMessages.map(m => this.papi.api.mapMessage(m))
-    this.papi.api.db.addMessages(mappedMessages)
+    this.igApi.upsertMessages(mappedMessages)
 
     for (const message of mappedMessages) {
       this.papi.onEvent?.([{
@@ -463,8 +464,8 @@ export default class InstagramWebSocket {
   }
 
   getMessages(threadID: string) {
-    const messages = this.papi.db.getMessages(threadID)
-    const lastMessage = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null
+    const lastMessage = this.igApi.getLastMessage(threadID)
+    this.papi.logger.info('ig socket: getMessages', { threadID, lastMessage })
     this.publishTask({
       label: '228',
       payload: JSON.stringify({
