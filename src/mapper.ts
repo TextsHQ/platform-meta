@@ -41,7 +41,7 @@ export function mapMessage(currentUserId: string, message: any): Message {
 
   message.reaction?.forEach((reaction: any) => {
     reactions.push({
-      id: `${reaction.reactorId}${reaction.reaction}`,
+      id: `${reaction.reactorId}`,
       participantID: reaction.reactorId,
       reactionKey: reaction.reaction,
     })
@@ -65,5 +65,12 @@ export function mapMessage(currentUserId: string, message: any): Message {
     isSender: message.authorId === currentUserId,
     reactions,
     attachments,
+  }
+}
+export function mapReactions(reaction: any): MessageReaction {
+  return {
+    id: `${reaction.reactorId}`,
+    participantID: reaction.reactorId,
+    reactionKey: reaction.reaction,
   }
 }

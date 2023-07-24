@@ -6,7 +6,7 @@ type IGReaction = {
 }
 
 // construct the conversations from undecipherable data
-export function parseGetCursorResponse(myUserId: string, payload: string) {
+export function parsePayload(myUserId: string, payload: string) {
   const j = JSON.parse(payload)
 
   // tasks we are interested in
@@ -22,7 +22,7 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
 
   const userLookup = {}
   const lastMessageLookup = {}
-  const reactionLookup: Record<string, Set<IGReaction>> = {}
+  const reactionLookup: Record<string, IGReaction[]> = {}
   const imageLookup: Record<string, { imageId: string, imageUrl: string }[]> = {}
   const conversationParticipants = {}
   const conversations = []
@@ -66,9 +66,9 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
     const reaction = item[4]
 
     if (!(messageId in reactionLookup)) {
-      reactionLookup[messageId] = new Set()
+      reactionLookup[messageId] = []
     }
-    reactionLookup[messageId].add({
+    reactionLookup[messageId].push({
       messageId,
       reactionSentTs,
       reactorId,
@@ -157,14 +157,15 @@ export function parseGetCursorResponse(myUserId: string, payload: string) {
   }
 
   return {
-    newMessages,
-    newConversations: conversations,
-    newReactions: reactionLookup,
+    newMessages: newMessages.length ? newMessages : null,
+    newConversations: conversations.length ? conversations : null,
+    // return newreactions as an array if it exists and remove the set
+    newReactions: Object.keys(reactionLookup).length ? Object.values(reactionLookup).flat() : null,
     cursor: j.step[2][1][3][5],
     hasMore: lsCalls.upsertSyncGroupThreadsRange?.[0]?.[3],
   }
 }
 
-export function parseMessagePayload(myUserId: string, payload: string) {
-  return parseGetCursorResponse(myUserId, payload)
-}
+// export function parseMessagePayload(myUserId: string, payload: string) {
+//   return parseGetCursorResponse(myUserId, payload)
+// }

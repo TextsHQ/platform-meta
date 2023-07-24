@@ -27,6 +27,7 @@ const info: PlatformInfo = {
       '👍': { title: '👍', render: '👍' },
     },
     canReactWithAllEmojis: true,
+    allowsMultipleReactionsToSingleMessage: false,
   },
   typingDurationMs: 10_000,
   generateUniqueMessageID: () => genClientContext().toString(),

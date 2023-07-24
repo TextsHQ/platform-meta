@@ -5,7 +5,7 @@ import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
 
 import type Instagram from './api'
 import type InstagramWebSocket from './ig-socket'
-import { parseGetCursorResponse } from './parsers'
+import { parsePayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { ChatMemoryStore } from './store'
 
@@ -293,7 +293,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    const cursorResponse = parseGetCursorResponse(
+    const cursorResponse = parsePayload(
       this.session.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
