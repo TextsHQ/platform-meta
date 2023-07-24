@@ -53,6 +53,10 @@ export class ChatMemoryStore {
     return this.messages.get(threadID) || []
   }
 
+  public getMessage(threadID: string, messageID: string) {
+    return this.messages.get(threadID)?.find(message => message.id === messageID)
+  }
+
   public getAllMessages() {
     return Array.from(this.messages.values()).flat()
   }

@@ -21,7 +21,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   onEvent: OnServerEventCallback
 
-  constructor(readonly accountID: string) {}
+  constructor(readonly accountID: string) { }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   init = async (session: SerializedSession, { nativeArchiveSync, dataDirPath }: ClientContext) => {
@@ -46,7 +46,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  dispose = () => {}
+  dispose = () => { }
 
   currentUser: CurrentUser
 
@@ -188,6 +188,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
+    this.api.socket?.addReaction?.(threadID, messageID, reactionKey)
     return null
   }
 

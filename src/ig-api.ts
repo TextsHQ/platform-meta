@@ -71,7 +71,7 @@ export default class InstagramAPI {
 
   socket: InstagramWebSocket
 
-  constructor(private readonly papi: Instagram) {}
+  constructor(private readonly papi: Instagram) { }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -165,9 +165,7 @@ export default class InstagramAPI {
     const sharedData = resp.match(/"XIGSharedData",\[\],({.*?})/s)[1]
     // @TODO: this is disgusting
     const config: InstagramParsedViewerConfig = JSON.parse(
-      `${
-        sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
-      }}`.replace(/\\\"/g, '"'),
+      `${sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]}}`.replace(/\\"/g, '"'),
     )
     return { clientId, dtsg, fbid, config }
   }
