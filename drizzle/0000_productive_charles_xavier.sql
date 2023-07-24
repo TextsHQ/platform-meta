@@ -1,0 +1,60 @@
+CREATE TABLE `messages` (
+	`_original` blob,
+	`id` text PRIMARY KEY NOT NULL,
+	`timestamp` integer NOT NULL,
+	`editedTimestamp` integer,
+	`expiresInSeconds` integer,
+	`forwardedCount` integer,
+	`forwardedFromText` text,
+	`forwardedFromThreadID` integer,
+	`forwardedFromUserID` integer,
+	`senderID` text NOT NULL,
+	`threadID` text NOT NULL,
+	`text` text,
+	`textAttributes` blob,
+	`textHeading` text,
+	`textFooter` text,
+	`iframeURL` text,
+	`seen` integer,
+	`isDelivered` integer,
+	`isHidden` integer,
+	`isSender` integer,
+	`isAction` integer,
+	`isDeleted` integer,
+	`isErrored` integer,
+	`parseTemplate` integer,
+	`linkedMessageThreadID` text,
+	`linkedMessageID` text,
+	`action` text,
+	`cursor` text,
+	`behavior` text DEFAULT null,
+	`accountID` text,
+	`sortKey` text,
+	FOREIGN KEY (`threadID`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `participants` (
+	`original` blob,
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text
+);
+--> statement-breakpoint
+CREATE TABLE `threads` (
+	`_original` blob,
+	`id` text PRIMARY KEY NOT NULL,
+	`folderName` text,
+	`title` text,
+	`isUnread` integer,
+	`lastReadMessageID` text,
+	`isReadOnly` integer,
+	`isArchived` integer,
+	`isPinned` integer,
+	`mutedUntil` integer,
+	`type` text DEFAULT 'single' NOT NULL,
+	`timestamp` integer,
+	`imgURL` text,
+	`createdAt` integer,
+	`description` text,
+	`partialLastMessage` blob,
+	`messageExpirySeconds` integer
+);
