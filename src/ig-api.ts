@@ -3,6 +3,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType, Thread, Message } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
+import type { Logger } from 'pino'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
@@ -73,7 +74,11 @@ export default class InstagramAPI {
 
   socket: InstagramWebSocket
 
-  constructor(private readonly papi: Instagram) {}
+  private logger: Logger
+
+  constructor(private readonly papi: Instagram) {
+    this.logger = papi.logger.child({ name: 'igApi' })
+  }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -215,7 +220,7 @@ export default class InstagramAPI {
       fullName: userInfo?.full_name,
       username: userInfo?.username,
     }
-    texts.log(
+    this.logger.info(
       `getUserByUsername ${username} response: ${JSON.stringify(user, null, 2)}`,
     )
     return user
@@ -241,11 +246,11 @@ export default class InstagramAPI {
 
   // get username from here
   async getUserById(userID: string) {
-    texts.log(`getUser ${userID}`)
+    this.logger.info(`getUser ${userID}`)
     const response = await this.apiCall('6083412141754133', {
       userID,
     })
-    texts.log(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
+    this.logger.info(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
     const data = response.data as {
       data: {
         userInfo: {

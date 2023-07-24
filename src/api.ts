@@ -103,7 +103,7 @@ export default class PlatformInstagram implements PlatformAPI {
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
     this.onEvent = data => {
       onEvent(data)
-      texts.log('instagram got server event', JSON.stringify(data, null, 2))
+      this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
     }
     this.api.socket = new InstagramWebSocket(this, this.api)
   }
@@ -188,7 +188,7 @@ export default class PlatformInstagram implements PlatformAPI {
     // type check username
     const username = 'username' in ids && ids.username
     const user: User = await this.api.getUserByUsername(username)
-    texts.log('instagram got user', user)
+    this.logger.info('instagram got user', user)
     return user
   }
 

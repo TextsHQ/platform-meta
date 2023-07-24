@@ -1,7 +1,8 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import { ServerEventType, texts } from '@textshq/platform-sdk'
+import type { Logger } from 'pino'
+import { ServerEventType } from '@textshq/platform-sdk'
 
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { parseMessagePayload } from './parsers'
@@ -21,18 +22,21 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
+  private logger: Logger
+
   private mqttSid = getMqttSid()
 
   constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {
-    if (!this.papi.api?.cursor) throw new Error('ig socket: cursor is required to start')
+    if (!this.papi.api?.cursor) throw new Error('cursor is required to start')
+    this.logger = papi.logger.child({ name: 'ig-socket' })
   }
 
   readonly connect = () => {
-    console.log('connecting to ws')
+    this.logger.info('connecting to ws')
     try {
       this.ws?.close()
     } catch (err) {
-      console.error('ws transport: connect', err)
+      this.logger.error('ws transport: connect', err)
     }
     this.ws = new WebSocket(
       `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
@@ -75,38 +79,43 @@ export default class InstagramWebSocket {
     }, 25)
 
     this.ws.onopen = () => {
-      this.papi.logger.info('ws transport: connected', this.retryAttempt)
+      this.logger.info('ws: onopen', {
+        retryAttempt: this.retryAttempt,
+      })
       if (this.retryAttempt) this.onReconnected()
       this.retryAttempt = 0
       this.onOpen()
     }
 
     this.ws.onerror = ev => {
-      this.papi.logger.error('ws error', ev)
+      this.logger.error('ws: onerror', ev)
       if (!this.stop) retry()
     }
 
     this.ws.onclose = ev => {
-      this.papi.logger.info('ws close', ev)
+      this.logger.info('ws: onclose', ev)
+      clearInterval(this.pingInterval)
+      this.pingInterval = null
       if (!this.stop) retry()
     }
   }
 
   private dispose() {
+    this.logger.info('ws: disposing')
     this.stop = true
     this.ws?.close()
     clearTimeout(this.connectTimeout)
   }
 
   private onReconnected() {
-    this.papi.logger.info('ws transport: reconnected')
+    this.logger.info('ws: reconnected')
   }
 
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (data: any) => {
     while (this.ws?.readyState !== this.ws.OPEN) {
-      this.papi.logger.info('ig socket: waiting 5ms to send')
+      this.logger.info('waiting 5ms to send')
       await sleep(5)
     }
     this.send(data)
@@ -191,12 +200,6 @@ export default class InstagramWebSocket {
     )
   }
 
-  private onClose() {
-    clearInterval(this.pingInterval)
-    this.pingInterval = null
-    texts.log('ig socket: close')
-  }
-
   private onMessage(data: WebSocket.RawData) {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
@@ -221,7 +224,7 @@ export default class InstagramWebSocket {
     } else if (data[0] !== 0x42) {
       this.parseNon0x42Data(data)
     } else {
-      texts.log('ig socket: unhandled message (1)', data)
+      this.logger.info('unhandled message (1)', data)
     }
   }
 
@@ -231,7 +234,7 @@ export default class InstagramWebSocket {
     // this is a hacky way to fix it.
     const payload = (await parseMqttPacket(data)) as any
     if (!payload) {
-      texts.log('ig socket: empty message (1.1)', data)
+      this.logger.info('empty message (1.1)', data)
       return
     }
 
@@ -244,7 +247,7 @@ export default class InstagramWebSocket {
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
     if (payload.request_id !== null) {
-      texts.log('ig socket: request_id is not null', payload)
+      this.logger.info('request_id is not null', payload)
       return
     }
     if (payload.payload.includes('upsertMessage')) {
@@ -252,15 +255,15 @@ export default class InstagramWebSocket {
     } else if (payload.payload.includes('deleteThenInsertThread')) {
       await this.processDeleteThenInsertThread(data)
     } else {
-      texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
+      this.logger.info('unhandled message (2)', data, JSON.stringify(payload, null, 2))
     }
   }
 
   private async processDeleteThenInsertThread(data: any) {
-    texts.log('ig socket: deleteThenInsertThread')
+    this.logger.info('processing deleteThenInsertThread')
     const payload = (await parseMqttPacket(data)) as any
     const { newConversations, newReactions } = parseMessagePayload(this.papi.api.session.fbid, payload.payload)
-    texts.log('ig socket: deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
+    this.logger.info('deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
 
     const mappedNewConversations = newConversations.map(mapThread)
     this.igApi.upsertThreads(mappedNewConversations)
@@ -272,7 +275,7 @@ export default class InstagramWebSocket {
       entries: mappedNewConversations,
     }])
 
-    texts.log(`ig socket: got reactions ${JSON.stringify(newReactions, null, 2)}`)
+    this.logger.info(`got reactions ${JSON.stringify(newReactions, null, 2)}`)
 
     // this.publishTask({
     //   label: '145',
@@ -291,16 +294,16 @@ export default class InstagramWebSocket {
   }
 
   private async processUpsertMessage(data: any) {
-    texts.log('ig socket: upsertMessage')
+    this.logger.info('upsertMessage')
 
     const payload = (await parseMqttPacket(data)) as any
     if (!payload) {
-      texts.log('ig socket: empty message (2.1)', data)
+      this.logger.info('empty message (2.1)', data)
       return
     }
 
     const { newMessages, newReactions, newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload)
-    texts.log('ig socket:', 'upsertMessage', JSON.stringify({ newMessages, newReactions, newConversations }, null, 2))
+    this.logger.info('ig socket:', 'upsertMessage', JSON.stringify({ newMessages, newReactions, newConversations }, null, 2))
 
     const mappedMessages = newMessages.map(m => this.papi.api.mapMessage(m))
     this.igApi.upsertMessages(mappedMessages)
@@ -427,7 +430,7 @@ export default class InstagramWebSocket {
       case WebSocket.OPEN:
         return this.ws
       default: {
-        texts.log(`ig socket: unknown readyState ${this.ws.readyState}`)
+        this.logger.info(`unknown readyState ${this.ws.readyState}`)
         return null
       }
     }
@@ -465,7 +468,7 @@ export default class InstagramWebSocket {
 
   getMessages(threadID: string) {
     const lastMessage = this.igApi.getLastMessage(threadID)
-    this.papi.logger.info('ig socket: getMessages', { threadID, lastMessage })
+    this.logger.info('getMessages', { threadID, lastMessage })
     this.publishTask({
       label: '228',
       payload: JSON.stringify({
