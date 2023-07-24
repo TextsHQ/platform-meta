@@ -16,3 +16,8 @@ export interface ChatStoreInterface {
 export type MethodReturnType<T, K extends keyof T> = T[K] extends (...args: any[]) => infer R ? R : never
 
 export type PAPIReturn<K extends keyof PlatformAPI> = Awaited<MethodReturnType<PlatformAPI, K>>
+
+// @TODO: replace with responses from IG API
+export type IGThread = Record<string, any>
+export type IGMessage = Record<string, any>
+export type IGParticipant = Record<string, any>

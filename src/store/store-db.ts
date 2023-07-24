@@ -43,9 +43,9 @@ export class ChatDBStore implements ChatStoreInterface {
     return Promise.resolve(threads);
   }
 
-  public async getThread(threadID: string): Promise<Thread> {
-    const thread = await this.db.run(sql`SELECT * FROM threads WHERE id = ${threadID}`;
-    return thread[0]; // Assume the id is unique and can only return 1 row
+  getThread(threadID: string): Promise<Thread> {
+    const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).fin
+    return Promise.resolve(thread)
   }
 
   public async addMessage(message: Message) {
