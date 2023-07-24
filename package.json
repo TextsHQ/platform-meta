@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "main": "dist/index.js",
   "scripts": {
+    "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
     "build": "tsc",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
@@ -12,8 +13,11 @@
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
     "axios": "1.4.0",
+    "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
+    "drizzle-orm": "^0.27.2",
     "http-cookie-agent": "^5.0.4",
+    "lodash": "4.17.21",
     "mqtt-packet": "^8.2.0",
     "pino": "^8.14.1",
     "react": "https://github.com/TextsHQ/react-global-shim",
@@ -28,6 +32,7 @@
     "@types/pino": "^7.0.5",
     "@types/tough-cookie": "^4.0.2",
     "@types/ws": "^8.5.5",
+    "drizzle-kit": "^0.19.10",
     "eslint": "^8.36.0",
     "typescript": "^5.0.2"
   },

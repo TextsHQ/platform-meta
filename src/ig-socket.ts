@@ -1,20 +1,38 @@
 import WebSocket from 'ws'
+import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
 import { ServerEventType, texts } from '@textshq/platform-sdk'
 
-import { getMqttSid, getTimeValues, parseMqttPacket } from './util'
+import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
 import { mapThread } from './mapper'
 
+const MAX_RETRY_ATTEMPTS = 12
+
+const getRetryTimeout = (attempt: number) =>
+  Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
+
 export default class InstagramWebSocket {
-  ws: WebSocket
+  private retryAttempt = 0
+
+  private stop = false
+
+  private ws: WebSocket
 
   private mqttSid = getMqttSid()
 
   constructor(private readonly papi: PlatformInstagram) {
-    if (!this.papi.api?.cursor) throw new Error('ig socket: cursor is required')
+    if (!this.papi.api?.cursor) throw new Error('ig socket: cursor is required to start')
+  }
 
+  readonly connect = () => {
+    console.log('connecting to ws')
+    try {
+      this.ws?.close()
+    } catch (err) {
+      console.error('ws transport: connect', err)
+    }
     this.ws = new WebSocket(
       `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
       {
@@ -34,33 +52,79 @@ export default class InstagramWebSocket {
         },
       },
     )
-    this.ws.on('error', err => this.onError(err))
-    this.ws.on('open', () => this.onOpen())
-    this.ws.on('close', () => this.onClose())
+
     this.ws.on('message', data => this.onMessage(data))
+
     process.on('SIGINT', () => {
-      this.ws.close()
+      this.dispose()
     })
+
+    const retry = debounce(() => {
+      if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
+        clearTimeout(this.connectTimeout)
+        this.connectTimeout = setTimeout(this.connect, getRetryTimeout(this.retryAttempt))
+      } else {
+        this.stop = true
+        // trackEvent('error', {
+        //   context: 'ws-error',
+        //   message: 'Lost connection',
+        // })
+        // Sentry.captureMessage('Lost connection')
+      }
+    }, 25)
+
+    this.ws.onopen = () => {
+      this.papi.logger.info('ws transport: connected', this.retryAttempt)
+      if (this.retryAttempt) this.onReconnected()
+      this.retryAttempt = 0
+      this.onOpen()
+    }
+
+    this.ws.onerror = ev => {
+      this.papi.logger.error('ws error', ev)
+      if (!this.stop) retry()
+    }
+
+    this.ws.onclose = ev => {
+      this.papi.logger.info('ws close', ev)
+      if (!this.stop) retry()
+    }
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  private onError(event: Error) {
-    texts.log('ig socket: error', event)
+  private dispose() {
+    this.stop = true
+    this.ws?.close()
+    clearTimeout(this.connectTimeout)
+  }
+
+  private onReconnected() {
+    this.papi.logger.info('ws transport: reconnected')
+  }
+
+  private connectTimeout: ReturnType<typeof setTimeout>
+
+  private readonly waitAndSend = async (data: any) => {
+    while (this.ws?.readyState !== this.ws.OPEN) {
+      this.papi.logger.info('ig socket: waiting 5ms to send')
+      await sleep(5)
+    }
+    this.send(data)
+  }
+
+  readonly send = (data: ArrayBufferLike) => {
+    if (this.ws?.readyState !== this.ws.OPEN) return this.waitAndSend(data)
+    this.ws.send(data)
   }
 
   private onOpen() {
-    texts.log('ig socket: open')
-    this.connect()
+    this.afterConnect()
     this.sendAppSettings()
     this.startPing()
   }
 
   // initiate connection
-  private connect() {
-    const ws = this.getWS()
-    if (!ws) return
-
-    ws.send(
+  private afterConnect() {
+    this.send(
       mqtt.generate({
         cmd: 'connect',
         protocolId: 'MQIsdp',
@@ -102,7 +166,7 @@ export default class InstagramWebSocket {
   }
 
   private sendPing() {
-    this.ws?.send(
+    this.send(
       mqtt.generate({
         cmd: 'pingreq',
       }),
@@ -112,7 +176,7 @@ export default class InstagramWebSocket {
   private sendAppSettings() {
     // send app settings
     // need to wait for the ack before sending the subscribe
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 1,
@@ -137,7 +201,7 @@ export default class InstagramWebSocket {
       // ack for app settings
 
       // subscribe to /ls_resp
-      this.ws.send(
+      this.send(
         mqtt.generate({
           cmd: 'subscribe',
           qos: 1,
@@ -270,7 +334,7 @@ export default class InstagramWebSocket {
   }
 
   sendTypingIndicator(threadID: string) {
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 9,
@@ -336,7 +400,7 @@ export default class InstagramWebSocket {
       type: 3,
     })
 
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         dup: false,
@@ -399,7 +463,7 @@ export default class InstagramWebSocket {
   }
 
   getMessages(threadID: string) {
-    const messages = this.papi.api.db.getMessages(threadID)
+    const messages = this.papi.db.getMessages(threadID)
     const lastMessage = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null
     this.publishTask({
       label: '228',
@@ -448,7 +512,7 @@ export default class InstagramWebSocket {
   // may need similar code to get messages.
   private maybeSubscribeToDatabaseOne() {
     const { epoch_id } = getTimeValues()
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 5,

@@ -1,9 +1,14 @@
 import { texts } from '@textshq/platform-sdk'
 import { randomBytes } from 'crypto'
+import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
 import { createWriteStream } from 'fs'
 import P, { multistream } from 'pino'
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
+
+import { DrizzleDB } from './store/db'
+import { messages, threads } from './store/schema'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -65,3 +70,12 @@ export const getLogger = (filename: string | undefined) => {
 export function generateInstanceId() {
   return randomBytes(2).toString('hex')
 }
+
+export const sleep = (ms: number) => new Promise(resolve => { setTimeout(resolve, ms) })
+
+const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
+
+export const hasSomeCachedData = async (db: DrizzleDB) => ({
+  hasThreads: hasData(db, threads),
+  hasMessages: hasData(db, messages),
+})

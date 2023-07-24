@@ -87,8 +87,6 @@ export default class InstagramAPI {
 
   cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
 
-  db = new ChatMemoryStore()
-
   private _axios: AxiosInstance
 
   get axios() {
