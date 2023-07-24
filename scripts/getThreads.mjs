@@ -129,6 +129,23 @@ ws.on("message", function incoming(data) {
           app_id: "936619743392459",
           payload: JSON.stringify({
             tasks: [
+              // gets threads in the pending box
+              {
+                label: "145",
+                payload: JSON.stringify({
+                  is_after: 0,
+                  parent_thread_key: -1,
+                  reference_thread_key: 0,
+                  reference_activity_timestamp: 9999999999999,
+                  additional_pages_to_fetch: 0,
+                  cursor: cursor,
+                  messaging_tag: null,
+                  sync_group: 1,
+                }),
+                queue_name: "trq",
+                task_id: 2,
+                failure_count: null,
+              },
               {
                 label: "145",
                 payload: JSON.stringify({
