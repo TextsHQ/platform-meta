@@ -1,6 +1,5 @@
 import { sqliteTable, integer, text, blob } from 'drizzle-orm/sqlite-core'
-import type { IGMessage, IGParticipant, IGThread } from '../types'
-import { InferModel } from 'drizzle-orm'
+import type { InferModel } from 'drizzle-orm'
 
 export const messages = sqliteTable('messages', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
@@ -49,7 +48,7 @@ export const typingIndicators = sqliteTable('typing_indicators', {
   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
 })
 
-export const threads9 = sqliteTable('threads', {
+export const threads = sqliteTable('threads', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   lastReadWatermarkTimestampMs: integer('lastReadWatermarkTimestampMs', { mode: 'timestamp' }),
   folderName: text('folderName'),
@@ -79,3 +78,53 @@ export const threads9 = sqliteTable('threads', {
   themeFbid: text('themeFbid'),
   nullstateDescriptionText1: text('nullstateDescriptionText1'),
 })
+
+export const attachments = sqliteTable('attachments', {
+  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  threadKey: text('threadKey').notNull().references(() => threads.id),
+  messageId: text('messageId').notNull().references(() => messages.id),
+  attachmentFbid: text('attachmentFbid'),
+  filename: text('filename'),
+  filesize: integer('filesize'),
+  hasMedia: integer('hasMedia', { mode: 'boolean' }),
+  isSharable: integer('isSharable', { mode: 'boolean' }),
+  playableUrl: text('playableUrl'),
+  playableUrlFallback: text('playableUrlFallback'),
+  playableUrlExpirationTimestampMs: integer('playableUrlExpirationTimestampMs', { mode: 'timestamp' }),
+  playableUrlMimeType: text('playableUrlMimeType'),
+  dashManifest: text('dashManifest'),
+  previewUrl: text('previewUrl'),
+  previewUrlFallback: text('previewUrlFallback'),
+  previewUrlExpirationTimestampMs: integer('previewUrlExpirationTimestampMs', { mode: 'timestamp' }),
+  previewUrlMimeType: text('previewUrlMimeType'),
+  miniPreview: text('miniPreview'),
+  previewWidth: integer('previewWidth'),
+  previewHeight: integer('previewHeight'),
+  attributionAppId: text('attributionAppId'),
+  attributionAppName: text('attributionAppName'),
+  attributionAppIcon: text('attributionAppIcon'),
+  attributionAppIconFallback: text('attributionAppIconFallback'),
+  attributionAppIconUrlExpirationTimestampMs: integer('attributionAppIconUrlExpirationTimestampMs', { mode: 'timestamp' }),
+  localPlayableUrl: text('localPlayableUrl'),
+  playableDurationMs: integer('playableDurationMs'),
+  attachmentIndex: integer('attachmentIndex'),
+  accessibilitySummaryText: text('accessibilitySummaryText'),
+  isPreviewImage: integer('isPreviewImage', { mode: 'boolean' }),
+  originalFileHash: text('originalFileHash'),
+  attachmentType: text('attachmentType'),
+  timestampMs: integer('timestampMs', { mode: 'timestamp' }),
+  offlineAttachmentId: text('offlineAttachmentId'),
+  hasXma: integer('hasXma', { mode: 'boolean' }),
+  xmaLayoutType: text('xmaLayoutType'),
+  xmasTemplateType: text('xmasTemplateType'),
+  titleText: text('titleText'),
+  subtitleText: text('subtitleText'),
+  descriptionText: text('descriptionText'),
+  sourceText: text('sourceText'),
+  faviconUrlExpirationTimestampMs: integer('faviconUrlExpirationTimestampMs', { mode: 'timestamp' }),
+  isBorderless: integer('isBorderless', { mode: 'boolean' }),
+  previewUrlLarge: text('previewUrlLarge'),
+  samplingFrequencyHz: integer('samplingFrequencyHz'),
+  waveformData: text('waveformData'),
+  authorityLevel: text('authorityLevel'),
+});
