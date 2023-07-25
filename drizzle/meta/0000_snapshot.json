@@ -1,9 +1,367 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "108cd038-c414-494d-bb83-13eaf337eee4",
+  "id": "ab57339f-9cca-4b1a-865d-c8d40e4af12f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "attachments": {
+      "name": "attachments",
+      "columns": {
+        "original": {
+          "name": "original",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadKey": {
+          "name": "threadKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "messageId": {
+          "name": "messageId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attachmentFbid": {
+          "name": "attachmentFbid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "filesize": {
+          "name": "filesize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hasMedia": {
+          "name": "hasMedia",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playableUrl": {
+          "name": "playableUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playableUrlFallback": {
+          "name": "playableUrlFallback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playableUrlExpirationTimestampMs": {
+          "name": "playableUrlExpirationTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playableUrlMimeType": {
+          "name": "playableUrlMimeType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "dashManifest": {
+          "name": "dashManifest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewUrl": {
+          "name": "previewUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewUrlFallback": {
+          "name": "previewUrlFallback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewUrlExpirationTimestampMs": {
+          "name": "previewUrlExpirationTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewUrlMimeType": {
+          "name": "previewUrlMimeType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "miniPreview": {
+          "name": "miniPreview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewWidth": {
+          "name": "previewWidth",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewHeight": {
+          "name": "previewHeight",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attributionAppId": {
+          "name": "attributionAppId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attributionAppName": {
+          "name": "attributionAppName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attributionAppIcon": {
+          "name": "attributionAppIcon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attributionAppIconFallback": {
+          "name": "attributionAppIconFallback",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attributionAppIconUrlExpirationTimestampMs": {
+          "name": "attributionAppIconUrlExpirationTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "localPlayableUrl": {
+          "name": "localPlayableUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "playableDurationMs": {
+          "name": "playableDurationMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attachmentIndex": {
+          "name": "attachmentIndex",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accessibilitySummaryText": {
+          "name": "accessibilitySummaryText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isPreviewImage": {
+          "name": "isPreviewImage",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "originalFileHash": {
+          "name": "originalFileHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "attachmentType": {
+          "name": "attachmentType",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "timestampMs": {
+          "name": "timestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "offlineAttachmentId": {
+          "name": "offlineAttachmentId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hasXma": {
+          "name": "hasXma",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "xmaLayoutType": {
+          "name": "xmaLayoutType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "xmasTemplateType": {
+          "name": "xmasTemplateType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "titleText": {
+          "name": "titleText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "subtitleText": {
+          "name": "subtitleText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "descriptionText": {
+          "name": "descriptionText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sourceText": {
+          "name": "sourceText",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "faviconUrlExpirationTimestampMs": {
+          "name": "faviconUrlExpirationTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isBorderless": {
+          "name": "isBorderless",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "previewUrlLarge": {
+          "name": "previewUrlLarge",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "samplingFrequencyHz": {
+          "name": "samplingFrequencyHz",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "waveformData": {
+          "name": "waveformData",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authorityLevel": {
+          "name": "authorityLevel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "attachments_threadKey_threads_id_fk": {
+          "name": "attachments_threadKey_threads_id_fk",
+          "tableFrom": "attachments",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "threadKey"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "attachments_messageId_messages_id_fk": {
+          "name": "attachments_messageId_messages_id_fk",
+          "tableFrom": "attachments",
+          "tableTo": "messages",
+          "columnsFrom": [
+            "messageId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "messages": {
       "name": "messages",
       "columns": {
@@ -58,7 +416,7 @@
         },
         "forwardedFromThreadID": {
           "name": "forwardedFromThreadID",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -228,6 +586,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "messages_forwardedFromThreadID_threads_id_fk": {
+          "name": "messages_forwardedFromThreadID_threads_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "forwardedFromThreadID"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "messages_threadID_threads_id_fk": {
           "name": "messages_threadID_threads_id_fk",
           "tableFrom": "messages",
@@ -255,6 +626,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "threadID": {
+          "name": "threadID",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "id": {
           "name": "id",
           "type": "text",
@@ -271,7 +649,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "participants_threadID_threads_id_fk": {
+          "name": "participants_threadID_threads_id_fk",
+          "tableFrom": "participants",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "threadID"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
