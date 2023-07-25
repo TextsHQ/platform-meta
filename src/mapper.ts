@@ -41,7 +41,7 @@ export function mapMessage(currentUserId: string, message: any): Message {
 
   message.reaction?.forEach((reaction: any) => {
     reactions.push({
-      id: `${reaction.reactorId}`,
+      id: reaction.reactorId,
       participantID: reaction.reactorId,
       reactionKey: reaction.reaction,
     })
