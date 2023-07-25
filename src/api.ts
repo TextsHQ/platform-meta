@@ -1,4 +1,4 @@
-import { texts } from '@textshq/platform-sdk'
+import { AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
 import path from 'path'
 import { CookieJar } from 'tough-cookie'
@@ -159,8 +159,31 @@ export default class PlatformInstagram implements PlatformAPI {
     return true
   }
 
-  sendMessage = async (threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
-    if (!text && !threadID) return false
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+    if (!threadID) return false
+    if (!text) {
+      // image
+      if (fileBuffer || isRecordedAudio || isGif || !filePath) {
+        console.log(fileBuffer, isRecordedAudio, isGif, filePath)
+        console.log('second not')
+        return false
+      }
+      console.log(filePath)
+      console.log('called send image')
+      this.api.sendImage(threadID, { fileName, filePath })
+      const userMessage: Message = {
+        id: pendingMessageID,
+        timestamp: new Date(),
+        senderID: this.currentUser.id,
+        isSender: true,
+        attachments: [{
+          id: pendingMessageID,
+          type: AttachmentType.IMG,
+          srcURL: filePath,
+        }],
+      }
+      return [userMessage]
+    }
     const userMessage: Message = {
       id: pendingMessageID,
       timestamp: new Date(),

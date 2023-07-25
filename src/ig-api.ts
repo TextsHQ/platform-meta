@@ -3,6 +3,7 @@ import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
 
+import fs from 'fs'
 import type Instagram from './api'
 import type InstagramWebSocket from './ig-socket'
 import { parsePayload } from './parsers'
@@ -324,5 +325,69 @@ export default class InstagramAPI {
 
   mapMessage(message: any) {
     return mapMessage(this.session.fbid, message)
+  }
+
+  private async uploadPhoto(filePath, fileName?: string) {
+    const file = fs.readFileSync(filePath)
+    const blob = new Blob([file], { type: 'image/jpeg' })
+    const formData = new FormData()
+    formData.append('farr', blob, fileName || 'image.jpg')
+    return this.axios.post('https://www.instagram.com/ajax/mercury/upload.php', formData, {
+      params: {
+        __a: '1',
+        fb_dtsg: this.session.dtsg,
+      },
+      headers: {
+        authority: 'www.instagram.com',
+        accept: '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'content-type':
+          'multipart/form-data; boundary=----WebKitFormBoundaryK8furxKOo3188usO',
+        cookie: this.getCookies(),
+        origin: 'https://www.instagram.com',
+        referer: 'https://www.instagram.com/direct/t/100428318021025/',
+        'sec-ch-prefers-color-scheme': 'dark',
+        'sec-ch-ua':
+          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        'sec-ch-ua-full-version-list':
+          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.4.1"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+        'viewport-width': '1280',
+        'x-asbd-id': '129477',
+        'x-fb-lsd': 'khvBZW0GBGHjqubNqNUMn2',
+      },
+    })
+      .then(res => {
+        // Remove the "for (;;);" part from the response
+        const response = res.data
+        const jsonStartIndex = response.indexOf('{')
+        const jsonResponse = response.substring(jsonStartIndex)
+
+        // Parse the JSON object
+        const parsedData = JSON.parse(jsonResponse)
+        return parsedData
+      })
+      .catch(err => {
+        texts.error(err)
+      })
+  }
+
+  async sendImage(threadID, { filePath, fileName }) {
+    console.log('ig-api sendImage about to call uploadPhoto')
+    this.uploadPhoto(filePath, fileName).then(res => {
+      console.log('ig-api sendImage', res)
+      const imageId = res.payload.metadata[0].image_id
+      this.socket?.sendImage(threadID, imageId)
+    })
+      .catch(err => {
+        console.log('ig-api sendImage error', err)
+      })
   }
 }

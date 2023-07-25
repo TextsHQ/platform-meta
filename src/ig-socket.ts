@@ -339,6 +339,25 @@ export default class InstagramWebSocket {
     )
   }
 
+  sendImage(threadID, imageID) {
+    const { otid } = getTimeValues()
+    this.publishTask({
+      label: '46',
+      payload: JSON.stringify({
+        thread_id: Number(threadID),
+        otid: otid.toString(),
+        source: 65537,
+        send_type: 3,
+        sync_group: 1,
+        text: null,
+        attachment_fbids: [imageID],
+      }),
+      queue_name: threadID.toString(),
+      task_id: 2,
+      failure_count: null,
+    })
+  }
+
   addReaction(threadID: string, messageID: string, reaction: string) {
     const message = this.papi.api.db.getMessage(threadID, messageID)
 
