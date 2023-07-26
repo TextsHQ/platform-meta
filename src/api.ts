@@ -46,11 +46,14 @@ export default class PlatformInstagram implements PlatformAPI {
         instance: generateInstanceId(),
       })
 
-    if (texts.isLoggingEnabled) this.logger.info('ig log path', logPath)
+    texts.log('ig log path', logPath)
+    texts.log('is logging enabled', texts.isLoggingEnabled)
+    if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
 
     const dbPath = path.join(this.dataDirPath, `ig-${this.accountID}.db`)
 
     this.logger.info('ig db init', { dbPath })
+    texts.log('ig db path', dbPath)
 
     this.db = await getDB(accountID, dbPath, this.logger)
 
