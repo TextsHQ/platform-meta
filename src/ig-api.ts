@@ -7,22 +7,16 @@ import { desc, eq, type InferModel } from 'drizzle-orm'
 import * as schema from './store/schema'
 import { FOREVER } from './store/helpers'
 import type Instagram from './api'
-import InstagramWebSocket from './ig-socket'
 import { parseGetCursorResponse } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
 import { IGThread } from './ig-types'
+import type { SerializedSession } from './types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
-
-type Session = {
-  clientId: string
-  dtsg: string
-  fbid: string
-}
 
 interface InstagramParsedViewerConfig {
   biography: string
@@ -69,25 +63,25 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
-  session: Session
-
   viewerConfig: InstagramParsedViewerConfig
 
   private logger = getLogger('ig-api')
 
   constructor(private readonly papi: Instagram) {}
 
-  socket = new InstagramWebSocket(this.papi, this)
-
   authMethod: 'login-window' | 'extension' = 'login-window'
 
   jar: CookieJar
 
-  ua = texts.constants.USER_AGENT
+  ua: SerializedSession['ua'] = texts.constants.USER_AGENT
 
-  currentUser: InstagramParsedViewerConfig
+  clientId: SerializedSession['clientId']
 
-  get cursor() {
+  dtsg: SerializedSession['dtsg']
+
+  fbid: SerializedSession['fbid']
+
+  get cursor(): string {
     return this.cursorCache?.cursor
   }
 
@@ -119,7 +113,10 @@ export default class InstagramAPI {
 
   async init() {
     const { clientId, dtsg, fbid, config } = await this.getClientId()
-    this.session = { clientId, dtsg, fbid }
+    this.clientId = clientId
+    this.dtsg = dtsg
+    this.fbid = fbid
+
     this.papi.currentUser = {
       id: config.id,
       fullName: config.full_name,
@@ -228,7 +225,7 @@ export default class InstagramAPI {
   async apiCall<T extends {}>(doc_id: string, variables: T) {
     const response = await this.axios.post(
       'https://www.instagram.com/api/graphql/',
-      `fb_dtsg=${this.session.dtsg}&variables=${JSON.stringify(variables)}&doc_id=${doc_id}`,
+      `fb_dtsg=${this.dtsg}&variables=${JSON.stringify(variables)}&doc_id=${doc_id}`,
       {
         headers: {
           authority: 'www.instagram.com',
@@ -288,7 +285,7 @@ export default class InstagramAPI {
 
   async getCursor() {
     const response = await this.apiCall('6195354443842040', {
-      deviceId: this.session.clientId,
+      deviceId: this.clientId,
       requestId: 0,
       requestPayload: JSON.stringify({
         database: 1,
@@ -300,7 +297,7 @@ export default class InstagramAPI {
       requestType: 1,
     })
     const cursorResponse = parseGetCursorResponse(
-      this.session.fbid,
+      this.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
     this.cursorCache = cursorResponse
@@ -329,7 +326,7 @@ export default class InstagramAPI {
   }
 
   mapMessage(message: any) {
-    return mapMessage(this.session.fbid, message)
+    return mapMessage(this.fbid, message)
   }
 
   private addThread(thread: InferModel<typeof schema['threads'], 'insert'>) {

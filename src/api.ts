@@ -1,15 +1,16 @@
 import { texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, ThreadID, User } from '@textshq/platform-sdk'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, ThreadID, User } from '@textshq/platform-sdk'
 import path from 'path'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
 
 import InstagramAPI from './ig-api'
+import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import * as schema from './store/schema'
-import { PAPIReturn } from './types'
+import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 
 export default class PlatformInstagram implements PlatformAPI {
@@ -30,6 +31,8 @@ export default class PlatformInstagram implements PlatformAPI {
   db: DrizzleDB
 
   api = new InstagramAPI(this)
+
+  socket = new InstagramWebSocket(this)
 
   onEvent: OnServerEventCallback
 
@@ -61,10 +64,13 @@ export default class PlatformInstagram implements PlatformAPI {
     this.db = await getDB(accountID, dbPath, this.logger)
 
     if (!session?.jar) return
-    const { jar, ua, authMethod } = session
-    this.api.jar = CookieJar.fromJSON(jar)
+    const { jar, ua, authMethod, clientId, dtsg, fbid } = session
+    this.api.jar = CookieJar.fromJSON(jar as unknown as string)
     this.api.ua = ua
     this.api.authMethod = authMethod
+    this.api.clientId = clientId
+    this.api.dtsg = dtsg
+    this.api.fbid = fbid
     await this.api.init()
     this._initPromise.resolve()
   }
@@ -99,10 +105,14 @@ export default class PlatformInstagram implements PlatformAPI {
     // @TODO: logout
   }
 
-  serializeSession = () => ({
-    jar: this.api.jar?.toJSON(),
+  serializeSession = (): SerializedSession => ({
+    jar: this.api.jar.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
+    clientId: this.api.clientId,
+    dtsg: this.api.dtsg,
+    fbid: this.api.fbid,
+    lastCursor: this.api.cursor,
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
@@ -110,7 +120,7 @@ export default class PlatformInstagram implements PlatformAPI {
       onEvent(data)
       this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
     }
-    await this.api.socket.connect()
+    await this.socket.connect()
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
@@ -133,7 +143,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
-    this.api.socket?.getThreads?.()
+    this.socket.getThreads?.()
     const threads = this.db.select().from(schema.threads).all().map(thread => ({
       ...thread,
       participants: null,
@@ -148,7 +158,7 @@ export default class PlatformInstagram implements PlatformAPI {
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.logger.info('getMessages', threadID, pagination)
 
-    this.api.socket?.getMessages?.(threadID)
+    this.socket.getMessages(threadID)
     const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadID, threadID)).all()
     return {
       items: messages.map(m => ({
@@ -221,12 +231,12 @@ export default class PlatformInstagram implements PlatformAPI {
       senderID: this.currentUser.id,
       isSender: true,
     }
-    this.api.socket.sendMessage(threadID, text)
+    this.socket.sendMessage(threadID, text)
     return [userMessage]
   }
 
   sendActivityIndicator = (threadID: string) => {
-    this.api.socket.sendTypingIndicator(threadID)
+    this.socket.sendTypingIndicator(threadID)
   }
 
   deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {

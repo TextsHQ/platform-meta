@@ -4,11 +4,10 @@ import mqtt from 'mqtt-packet'
 import { ServerEventType } from '@textshq/platform-sdk'
 
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
-import { getLogger, type LoggerInstance } from './logger'
+import { getLogger } from './logger'
 import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
 import { mapThread } from './mapper'
-import type InstagramAPI from './ig-api'
 
 const MAX_RETRY_ATTEMPTS = 12
 
@@ -26,9 +25,10 @@ export default class InstagramWebSocket {
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {}
+  constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
+    await this.papi.initPromise // wait for api to be ready
     this.logger.info('connecting to ws')
     try {
       this.ws?.close()
@@ -36,7 +36,7 @@ export default class InstagramWebSocket {
       this.logger.error('ws transport: connect', err)
     }
     this.ws = new WebSocket(
-      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
+      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.clientId}`,
       {
         origin: 'https://www.instagram.com',
         headers: {
@@ -141,13 +141,13 @@ export default class InstagramWebSocket {
         keepalive: 10,
         username: JSON.stringify({
           // u: "17841418030588216", // doesnt seem to matter
-          u: this.papi.api.session.fbid,
+          u: this.papi.api.fbid,
           s: this.mqttSid,
           cp: 3,
           ecp: 10,
           chat_on: true,
           fg: false,
-          d: this.papi.api.session.clientId, // client id
+          d: this.papi.api.clientId, // client id
           ct: 'cookie_auth',
           mqtt_sid: '', // @TODO: should we use the one from the cookie?
           aid: 936619743392459, // app id
@@ -259,11 +259,11 @@ export default class InstagramWebSocket {
   private async processDeleteThenInsertThread(data: any) {
     this.logger.info('processing deleteThenInsertThread')
     const payload = (await parseMqttPacket(data)) as any
-    const { newConversations, newReactions } = parseMessagePayload(this.papi.api.session.fbid, payload.payload)
+    const { newConversations, newReactions } = parseMessagePayload(this.papi.api.fbid, payload.payload)
     this.logger.info('deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
 
     const mappedNewConversations = newConversations.map(mapThread)
-    this.igApi.upsertThreads(newConversations)
+    this.papi.api.upsertThreads(newConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -299,11 +299,11 @@ export default class InstagramWebSocket {
       return
     }
 
-    const { newMessages, newReactions, newConversations } = parseMessagePayload(this.papi.api.session.fbid, payload.payload)
+    const { newMessages, newReactions, newConversations } = parseMessagePayload(this.papi.api.fbid, payload.payload)
     this.logger.info('ig socket:', 'upsertMessage', JSON.stringify({ newMessages, newReactions, newConversations }, null, 2))
 
     const mappedMessages = newMessages.map(m => this.papi.api.mapMessage(m))
-    this.igApi.upsertMessages(mappedMessages)
+    this.papi.api.upsertMessages(mappedMessages)
 
     for (const message of mappedMessages) {
       this.papi.onEvent?.([{
@@ -442,7 +442,7 @@ export default class InstagramWebSocket {
   }
 
   getMessages(threadID: string) {
-    const lastMessage = this.igApi.getLastMessage(threadID)
+    const lastMessage = this.papi.api.getLastMessage(threadID)
     this.logger.info('getMessages', { threadID, lastMessage })
     this.publishTask({
       label: '228',
