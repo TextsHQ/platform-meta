@@ -1,5 +1,5 @@
 import { AttachmentType, texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, ThreadID, User } from '@textshq/platform-sdk'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
@@ -264,23 +264,19 @@ export default class PlatformInstagram implements PlatformAPI {
 
   deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {
     this.logger.info('deleteMessage', { threadID, messageID, forEveryone })
-    return null
   }
 
   sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
     this.logger.info('sendReadReceipt', { threadID, messageID, messageCursor })
-    return null
   }
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
     // this.api.socket?.addReaction?.(threadID, messageID, reactionKey)
-    return null
   }
 
   removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('removeReaction', { threadID, messageID, reactionKey })
-    return null
   }
 
   getLinkPreview = async (link: string): Promise<MessageLink> => {
@@ -290,47 +286,38 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addParticipant = async (threadID: string, participantID: string) => {
     this.logger.info('addParticipant', { threadID, participantID })
-    return null
   }
 
   removeParticipant = async (threadID: string, participantID: string) => {
     this.logger.info('removeParticipant', { threadID, participantID })
-    return null
   }
 
   changeParticipantRole = async (threadID: string, participantID: string, role: string) => {
     this.logger.info('changeParticipantRole', { threadID, participantID, role })
-    return null
   }
 
   changeThreadImage = async (threadID: string, imageBuffer: Buffer, mimeType: string) => {
     this.logger.info('changeThreadImage', { threadID, mimeType })
-    return null
   }
 
   markAsUnread = async (threadID: string, messageID?: string) => {
     this.logger.info('markAsUnread', { threadID, messageID })
-    return null
   }
 
   archiveThread = async (threadID: string, archived: boolean) => {
     this.logger.info('archiveThread', { threadID, archived })
-    return null
   }
 
   pinThread = async (threadID: string, pinned: boolean) => {
     this.logger.info('pinThread', { threadID, pinned })
-    return null
   }
 
   notifyAnyway = async (threadID: string) => {
     this.logger.info('notifyAnyway', { threadID })
-    return null
   }
 
   onThreadSelected = async (threadID: string) => {
     this.logger.info('onThreadSelected', { threadID })
-    return null
   }
 
   loadDynamicMessage = async (message: Message) => {
@@ -338,8 +325,8 @@ export default class PlatformInstagram implements PlatformAPI {
     return {}
   }
 
-  getAsset = async (_, ...args: string[]) => {
-    this.logger.info('getAsset', { args })
+  getAsset = async (fetchOptions?: GetAssetOptions, ...args: string[]) => {
+    this.logger.info('getAsset', { fetchOptions, args })
     return null
   }
 

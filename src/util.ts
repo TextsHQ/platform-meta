@@ -69,10 +69,11 @@ export const getMqttSid = () => parseInt(Math.random().toFixed(16).split('.')[1]
 export const sleep = (ms: number) => new Promise(resolve => { setTimeout(resolve, ms) })
 
 export function createPromise<T>() {
-  let promiseResolve: (value: T | PromiseLike<T>) => void
-  const promise = new Promise<T>(resolve => { promiseResolve = resolve })
-  return {
-    resolve: promiseResolve,
-    promise,
+  const p: {
+    resolve?: (value: T | PromiseLike<T>) => void
+    promise?: Promise<T>
+  } = {
+    promise: new Promise<T>(resolve => { p.resolve = resolve }),
   }
+  return p
 }

@@ -149,6 +149,7 @@ export default class InstagramAPI {
     const config: InstagramParsedViewerConfig = JSON.parse(
       `${
         sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
+      // eslint-disable-next-line no-useless-escape
       }}`.replace(/\\\"/g, '"'),
     )
     return { clientId, dtsg, fbid, config }

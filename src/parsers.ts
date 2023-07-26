@@ -1,7 +1,7 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
-import type { ExtendedIGMessage, ExtendedIGThread, IGAttachment, IGMessage, IGReaction, IGThread } from './ig-types'
+import type { ExtendedIGMessage, ExtendedIGThread, IGAttachment, IGMessage, IGReaction } from './ig-types'
 
 // construct the conversations from undecipherable data
 export function parsePayload(myUserId: string, payload: string) {
