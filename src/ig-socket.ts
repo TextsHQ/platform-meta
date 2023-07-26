@@ -408,7 +408,7 @@ export default class InstagramWebSocket {
     )
   }
 
-  sendImage(threadID, imageID) {
+  sendImage(threadID: string, imageID: string) {
     const { otid } = getTimeValues()
     this.publishTask({
       label: '46',
