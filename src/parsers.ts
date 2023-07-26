@@ -347,7 +347,8 @@ const parseReaction = a => ({
   actorId: a[3][1],
   reaction: a[4],
 })
-export function parseRawPayload(payload) {
+
+export function parseRawPayload(payload: any) {
   const j = JSON.parse(payload)
   // tasks we are interested in
   const lsCalls = {

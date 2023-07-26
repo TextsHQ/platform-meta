@@ -284,10 +284,10 @@ export default class InstagramAPI {
     this.cursorCache = cursorResponse
 
     const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
-    // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
-    // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
-    // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
-    // if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
+    if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
+    if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
+    if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
@@ -318,23 +318,31 @@ export default class InstagramAPI {
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
-    return this.papi.db.insert(schema.threads).values(threads)
+    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
   }
 
   addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
-    return this.papi.db.insert(schema.users).values(users)
+    return this.papi.db.insert(schema.users).values(users).onConflictDoNothing().run()
   }
 
   addParticipants(participants: InferModel<typeof schema['participants'], 'insert'>[]) {
-    return this.papi.db.insert(schema.participants).values(participants)
+    return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
-    return this.papi.db.insert(schema.messages).values(messages)
+    return this.papi.db
+      .insert(schema.messages)
+      .values(messages)
+      .onConflictDoNothing()
+      .run()
   }
 
   addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
-    return this.papi.db.insert(schema.reactions).values(reactions)
+    return this.papi.db
+      .insert(schema.reactions)
+      .values(reactions)
+      .onConflictDoNothing()
+      .run()
   }
 
   mapMessage(message: any) {
