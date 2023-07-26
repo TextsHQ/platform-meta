@@ -1,15 +1,16 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType, Thread, Message } from '@textshq/platform-sdk'
+import { texts, type User, ServerEventType, Message } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import * as schema from './store/schema'
+import { FOREVER } from './store/helpers'
 import type Instagram from './api'
-import type InstagramWebSocket from './ig-socket'
+import InstagramWebSocket from './ig-socket'
 import { parseGetCursorResponse } from './parsers'
 import { mapMessage, mapThread } from './mapper'
-import { FOREVER, LoggerInstance } from './util'
+import { getLogger } from './logger'
 import { IGThread } from './ig-types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
@@ -72,13 +73,11 @@ export default class InstagramAPI {
 
   viewerConfig: InstagramParsedViewerConfig
 
-  socket: InstagramWebSocket
+  private logger = getLogger('ig-api')
 
-  private logger: LoggerInstance
+  constructor(private readonly papi: Instagram) {}
 
-  constructor(private readonly papi: Instagram) {
-    this.logger = papi.logger.child({ name: 'ig-api' })
-  }
+  socket = new InstagramWebSocket(this.papi, this)
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 

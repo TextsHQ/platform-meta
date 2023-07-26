@@ -4,7 +4,8 @@ import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { resolve } from 'path'
 import * as schema from './schema'
-import type { LoggerInstance } from '../util'
+import { sleep } from '../util'
+import type { LoggerInstance } from '../logger'
 
 const getDB = async (name: string, sqlitePath: string, parentLogger: LoggerInstance) => {
   const migrationsFolder = resolve(__dirname, '../drizzle')
@@ -21,6 +22,7 @@ const getDB = async (name: string, sqlitePath: string, parentLogger: LoggerInsta
     },
   })
   migrate(db, { migrationsFolder })
+  await sleep(2000) // @TODO: need a better way to wait for migrations to finish
   return db
 }
 

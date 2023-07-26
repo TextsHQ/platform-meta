@@ -3,7 +3,8 @@ import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
 import { ServerEventType } from '@textshq/platform-sdk'
 
-import { type LoggerInstance, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+import { getLogger, type LoggerInstance } from './logger'
 import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
 import { mapThread } from './mapper'
@@ -21,16 +22,13 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger: LoggerInstance
+  private logger = getLogger('ig-socket')
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {
-    if (!this.papi.api?.cursor) throw new Error('cursor is required to start')
-    this.logger = papi.logger.child({ name: 'ig-socket' })
-  }
+  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {}
 
-  readonly connect = () => {
+  readonly connect = async () => {
     this.logger.info('connecting to ws')
     try {
       this.ws?.close()
@@ -416,34 +414,12 @@ export default class InstagramWebSocket {
     )
   }
 
-  private getWS() {
-    if (!this.ws) throw new Error('WebSocket not initialized')
-    switch (this.ws.readyState) {
-      case WebSocket.CLOSING:
-      case WebSocket.CLOSED: {
-        throw new Error('WebSocket is closing or closed')
-      }
-      case WebSocket.CONNECTING: {
-        throw new Error('WebSocket is connecting')
-      }
-      case WebSocket.OPEN:
-        return this.ws
-      default: {
-        this.logger.info(`unknown readyState ${this.ws.readyState}`)
-        return null
-      }
-    }
-  }
-
   // used for get messages and get threads
   publishTask(_tasks: any) {
-    const ws = this.getWS()
-    if (!ws) return
-
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
 
-    ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 6,

@@ -6,11 +6,11 @@ import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
 
 import InstagramAPI from './ig-api'
-import InstagramWebSocket from './ig-socket'
-import { type LoggerInstance, getLogger } from './util'
+import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import * as schema from './store/schema'
 import { PAPIReturn } from './types'
+import { createPromise } from './util'
 
 export default class PlatformInstagram implements PlatformAPI {
   private loginEventCallback: (data: any) => void
@@ -19,34 +19,38 @@ export default class PlatformInstagram implements PlatformAPI {
 
   private nativeArchiveSync: boolean | undefined
 
-  initPromise: Promise<void>
+  private _initPromise = createPromise<void>()
 
-  logger: LoggerInstance
+  get initPromise() {
+    return this._initPromise.promise
+  }
+
+  logger = getLogger()
 
   db: DrizzleDB
 
-  api: InstagramAPI
+  api = new InstagramAPI(this)
 
   onEvent: OnServerEventCallback
 
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
+    await mkdir(dataDirPath, { recursive: true })
+
     this.dataDirPath = dataDirPath
     this.nativeArchiveSync = nativeArchiveSync
 
-    await mkdir(this.dataDirPath, { recursive: true })
-
     // const logPath = path.join(dataDirPath, 'platform-instagram.log')
 
-    this.logger = getLogger()
+    // this.logger = getLogger()
     // .child({
     //   stream: 'pi-' + this.accountID,
     //   instance: generateInstanceId(),
     // })
 
     // texts.log('ig log path', logPath)
-    texts.log('is logging enabled', texts.isLoggingEnabled)
+    texts.log('is logging enabled', texts.isLoggingEnabled, dataDirPath)
     // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
 
     const dbPath = path.join(this.dataDirPath, `ig-${this.accountID}.db`)
@@ -56,15 +60,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
     this.db = await getDB(accountID, dbPath, this.logger)
 
-    this.api = new InstagramAPI(this)
-
     if (!session?.jar) return
     const { jar, ua, authMethod } = session
     this.api.jar = CookieJar.fromJSON(jar)
     this.api.ua = ua
     this.api.authMethod = authMethod
-    this.initPromise = this.api.init()
-    await this.initPromise
+    await this.api.init()
+    this._initPromise.resolve()
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -87,13 +89,13 @@ export default class PlatformInstagram implements PlatformAPI {
       this.api.authMethod = authMethod || 'login-window'
     }
     this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
-    this.initPromise = this.api.init()
-    await this.initPromise
+    await this.api.init()
+    this._initPromise.resolve()
     return { type: 'success' }
   }
 
-  // eslint-disable-next-line class-methods-use-this
   logout = async () => {
+    this.logger.info('logout')
     // @TODO: logout
   }
 
@@ -108,7 +110,7 @@ export default class PlatformInstagram implements PlatformAPI {
       onEvent(data)
       this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
     }
-    this.api.socket = new InstagramWebSocket(this, this.api)
+    await this.api.socket.connect()
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
