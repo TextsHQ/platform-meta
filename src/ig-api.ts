@@ -334,10 +334,10 @@ export default class InstagramAPI {
     return mapMessage(this.session.fbid, message)
   }
 
-  private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
+  private addThread(thread: InferModel<typeof schema['threads'], 'insert'>) {
     this.logger.info(`addThread ${thread.id}`)
     texts.log(`addThread ${thread.id} ${JSON.stringify(thread, null, 2)}`)
-    return this.papi.db.insert(schema.threads).values(thread).returning().get()
+    return this.papi.db.insert(schema.threads).values(thread).returning()
   }
 
   private upsertThread(thread: IGThread) {
@@ -354,7 +354,7 @@ export default class InstagramAPI {
     return this.papi.db.update(schema.threads).set({
       ...mapped,
       mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
-    }).where(eq(schema.threads.id, mapped.id)).returning().get()
+    }).where(eq(schema.threads.id, mapped.id)).returning()
   }
 
   upsertThreads(threads: IGThread[]) {
@@ -366,7 +366,7 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.messages).values({
       ...message,
       threadID,
-    }).returning().get()
+    }).returning()
   }
 
   private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
@@ -394,7 +394,7 @@ export default class InstagramAPI {
       seen: new Date(),
       action: null,
       sortKey: null,
-    }).where(eq(schema.messages.id, message.id)).returning().get()
+    }).where(eq(schema.messages.id, message.id)).returning()
   }
 
   upsertMessages(messages: Message[]) {
