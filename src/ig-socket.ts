@@ -1,13 +1,12 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import { ServerEventType } from '@textshq/platform-sdk'
-
+import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
+import { parsePayload } from './parsers'
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { getLogger } from './logger'
-import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
-import { mapThread } from './mapper'
+import { mapThread, mapMessage, mapReactions } from './mapper'
 
 const MAX_RETRY_ATTEMPTS = 12
 
@@ -248,21 +247,25 @@ export default class InstagramWebSocket {
       this.logger.info('request_id is not null', payload)
       return
     }
-    if (payload.payload.includes('upsertMessage')) {
-      await this.processUpsertMessage(data)
-    } else if (payload.payload.includes('deleteThenInsertThread')) {
-      await this.processDeleteThenInsertThread(data)
-    } else {
-      this.logger.info('unhandled message (2)', data, JSON.stringify(payload, null, 2))
+    // if (payload.payload.includes('upsertMessage')) {
+    //   await this.processUpsertMessage(data)
+    // } else if (payload.payload.includes('deleteThenInsertThread')) {
+    //   await this.processDeleteThenInsertThread(data)
+    // } else {
+    //   texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
+    // }
+    const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
+    if (newConversations) {
+      this.processConversations(newConversations)
+    }
+    if (newMessages) {
+      this.processMessages(newMessages)
+    } else if (newReactions) {
+      this.processReactions(newReactions)
     }
   }
 
-  private async processDeleteThenInsertThread(data: any) {
-    this.logger.info('processing deleteThenInsertThread')
-    const payload = (await parseMqttPacket(data)) as any
-    const { newConversations, newReactions } = parseMessagePayload(this.papi.api.fbid, payload.payload)
-    this.logger.info('deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
-
+  private async processConversations(newConversations: any) {
     const mappedNewConversations = newConversations.map(mapThread)
     this.papi.api.upsertThreads(newConversations)
     this.papi.onEvent?.([{
@@ -272,39 +275,11 @@ export default class InstagramWebSocket {
       mutationType: 'upsert',
       entries: mappedNewConversations,
     }])
-
-    this.logger.info(`got reactions ${JSON.stringify(newReactions, null, 2)}`)
-
-    // this.publishTask({
-    //   label: '145',
-    //   payload: JSON.stringify({
-    //     ...this.getLastThreadReference(newConversations),
-    //     is_after: 0,
-    //     parent_thread_key: 0,
-    //     additional_pages_to_fetch: 0,
-    //     messaging_tag: null,
-    //     sync_group: 1,
-    //   }),
-    //   queue_name: 'trq',
-    //   task_id: 1,
-    //   failure_count: null,
-    // })
   }
 
-  private async processUpsertMessage(data: any) {
-    this.logger.info('upsertMessage')
-
-    const payload = (await parseMqttPacket(data)) as any
-    if (!payload) {
-      this.logger.info('empty message (2.1)', data)
-      return
-    }
-
-    const { newMessages, newReactions, newConversations } = parseMessagePayload(this.papi.api.fbid, payload.payload)
-    this.logger.info('ig socket:', 'upsertMessage', JSON.stringify({ newMessages, newReactions, newConversations }, null, 2))
-
-    const mappedMessages = newMessages.map(m => this.papi.api.mapMessage(m))
-    this.papi.api.upsertMessages(mappedMessages)
+  private async processMessages(newMessages: any) {
+    const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
+    this.papi.api.db.addMessages(mappedMessages)
 
     for (const message of mappedMessages) {
       this.papi.onEvent?.([{
@@ -315,6 +290,20 @@ export default class InstagramWebSocket {
         entries: [message],
       }])
     }
+  }
+
+  private async processReactions(newReactions: any[]) {
+    console.log('ig socket: new reactions', newReactions)
+    const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
+
+    // loop through mappedReactions and newReactions together
+    newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'message_reaction',
+      objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
+      mutationType: 'upsert',
+      entries: [mappedReactions[i]],
+    }]))
   }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
@@ -413,6 +402,48 @@ export default class InstagramWebSocket {
         payload: hmm,
       }),
     )
+  }
+
+  sendImage(threadID: string, imageID: string) {
+    const { otid } = getTimeValues()
+    this.publishTask({
+      label: '46',
+      payload: JSON.stringify({
+        thread_id: Number(threadID),
+        otid: otid.toString(),
+        source: 65537,
+        send_type: 3,
+        sync_group: 1,
+        text: null,
+        attachment_fbids: [imageID],
+      }),
+      queue_name: threadID.toString(),
+      task_id: 2,
+      failure_count: null,
+    })
+  }
+
+  addReaction(threadID: string, messageID: string, reaction: string) {
+    const message = this.papi.getMessage(threadID, messageID)
+
+    this.publishTask({
+      label: '29',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        timestamp_ms: Number(message.timestamp.getTime()),
+        message_id: messageID,
+        actor_id: this.papi.api.fbid,
+        reaction,
+        reacion_style: null,
+        sync_group: 1,
+      }),
+      queue_name: JSON.stringify([
+        'reaction',
+        messageID,
+      ]),
+      task_id: 0,
+      failure_count: null,
+    })
   }
 
   // used for get messages and get threads

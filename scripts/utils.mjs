@@ -1,11 +1,11 @@
 import axios from "axios";
 import mqtt from "mqtt-packet";
 import { get } from "./settings.mjs";
-
 const commonHeaders = {
   authority: "www.instagram.com",
   "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
   "sec-ch-prefers-color-scheme": "light",
   "sec-ch-ua-mobile": "?0",
   "sec-ch-ua-platform": '"macOS"',
@@ -13,9 +13,10 @@ const commonHeaders = {
   "sec-ch-ua":
     '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
   "sec-fetch-site": "same-origin",
-  "sec-ch-ua-full-version-list": '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-  cookie: get('cookies'),
-}
+  "sec-ch-ua-full-version-list":
+    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+  cookie: get("cookies"),
+};
 
 export async function getClientId() {
   const response = await axios.get("https://www.instagram.com/direct/", {
@@ -37,7 +38,9 @@ export async function getClientId() {
   const clientId = resp.slice(resp.indexOf('{"clientID":')).split('"')[3];
   const dtsg = resp.slice(resp.indexOf("DTSGInitialData")).split('"')[4];
   const userId = resp.match(/"IG_USER_EIMU":"([^"]+)"/)?.[1];
-  return { clientId, dtsg, userId };
+  const lsd = resp.match(/"LSD",\[\],\{"token":"([^"]+)"\}/)?.[1];
+  const hsi = resp.match(/"hsi":"(\d+)"/)?.[1];
+  return { clientId, dtsg, userId, lsd, hsi };
 }
 
 export async function apiCall(cid, dtsg, cursor = null) {
@@ -97,4 +100,4 @@ export function parseMqttPacket(data) {
   });
 }
 
-export const mqttSid = parseInt(Math.random().toFixed(16).split(".")[1])
+export const mqttSid = parseInt(Math.random().toFixed(16).split(".")[1]);
