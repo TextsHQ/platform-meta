@@ -50,7 +50,7 @@ CREATE TABLE `attachments` (
 );
 --> statement-breakpoint
 CREATE TABLE `messages` (
-	`_original` blob,
+	`_original` text,
 	`id` text PRIMARY KEY NOT NULL,
 	`timestamp` integer NOT NULL,
 	`editedTimestamp` integer,
@@ -94,7 +94,7 @@ CREATE TABLE `participants` (
 );
 --> statement-breakpoint
 CREATE TABLE `threads` (
-	`_original` blob,
+	`_original` text,
 	`id` text PRIMARY KEY NOT NULL,
 	`folderName` text,
 	`title` text,

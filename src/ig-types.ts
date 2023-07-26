@@ -202,3 +202,9 @@ export interface IGAttachment {
   waveformData: string
   authorityLevel: number
 }
+
+export interface IGParticipant {
+  name: string
+  username: string
+  userId: string
+}

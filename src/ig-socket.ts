@@ -112,7 +112,7 @@ export default class InstagramWebSocket {
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (data: any) => {
-    while (this.ws?.readyState !== this.ws.OPEN) {
+    while (this.ws?.readyState !== WebSocket.OPEN) {
       this.logger.info('waiting 5ms to send')
       await sleep(5)
     }

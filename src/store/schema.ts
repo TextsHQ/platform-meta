@@ -3,7 +3,8 @@ import { sqliteTable, integer, text, blob } from 'drizzle-orm/sqlite-core'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
 export const threads = sqliteTable('threads', {
-  original: blob('_original', { mode: 'json' }).$type<IGThread>(),
+  // original: blob('_original', { mode: 'json' }).$type<IGThread>(),
+  original: text('_original'),
   id: text('id').primaryKey(),
   folderName: text('folderName'),
   title: text('title'),
@@ -23,7 +24,8 @@ export const threads = sqliteTable('threads', {
 })
 
 export const messages = sqliteTable('messages', {
-  original: blob('_original', { mode: 'json' }).$type<IGMessage>(),
+  // original: blob('_original', { mode: 'json' }).$type<IGMessage>(),
+  original: text('_original'),
   id: text('id').primaryKey(),
   timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
   editedTimestamp: integer('editedTimestamp', { mode: 'timestamp' }),
@@ -56,11 +58,22 @@ export const messages = sqliteTable('messages', {
   sortKey: text('sortKey'),
 })
 
+export const contacts = sqliteTable('contacts', {
+  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  id: text('id').notNull().primaryKey(),
+  name: text('name'),
+  username: text('username'),
+  fbid: text('fbid'),
+})
+
 export const participants = sqliteTable('participants', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   threadID: text('threadID').notNull().references(() => threads.id),
+  contactID: text('contactID').default(null).references(() => contacts.id),
   id: text('id').notNull().primaryKey(),
   name: text('name'),
+  username: text('username'),
+  fbid: text('fbid'),
 })
 
 export const attachments = sqliteTable('attachments', {

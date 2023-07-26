@@ -1,7 +1,7 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType, Message } from '@textshq/platform-sdk'
+import { texts, type User, ServerEventType, Message, Thread, Participant } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import * as schema from './store/schema'
@@ -343,7 +343,7 @@ export default class InstagramAPI {
 
     if (threads.length === 0) {
       return this.addThread({
-        original: thread,
+        original: mapped._original,
         title: mapped.title,
         id: mapped.id,
         type: mapped.type,
@@ -352,7 +352,7 @@ export default class InstagramAPI {
     }
 
     return this.papi.db.update(schema.threads).set({
-      original: thread,
+      original: mapped._original as any,
       title: mapped.title,
       id: mapped.id,
       type: mapped.type,
@@ -365,38 +365,45 @@ export default class InstagramAPI {
     return threads.map(thread => this.upsertThread(thread))
   }
 
-  private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
-    return this.papi.db.insert(schema.messages).values({
-      ...message,
-      threadID,
-    }).run()
-  }
+  // private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
+  //   return this.papi.db.insert(schema.messages).values(message).run()
+  // }
 
-  private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
-    return messages.map(message => this.upsertMessage(threadID, {
-      ...message,
-      action: null,
-    }))
-  }
+  // private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+  //   return messages.map(message => this.upsertMessage(threadID, {
+  //     ...message,
+  //     action: null,
+  //   }))
+  // }
 
   private upsertMessage(threadID: string, message: Message) {
     const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
     if (messages.length === 0) {
-      return this.addMessage(threadID, {
-        ...message,
+      return this.papi.db.insert(schema.messages).values({
+        original: message._original as any,
+        id: message.id,
+        senderID: message.senderID,
+        text: message.text,
+        timestamp: message.timestamp,
+        isSender: message.isSender,
         threadID,
         seen: new Date(),
         action: null,
         sortKey: null,
-      })
+      }).run()
     }
 
     return this.papi.db.update(schema.messages).set({
-      ...message,
       threadID,
       seen: new Date(),
       action: null,
       sortKey: null,
+      original: message._original as any,
+      id: message.id,
+      senderID: message.senderID,
+      text: message.text,
+      timestamp: message.timestamp,
+      isSender: message.isSender,
     }).where(eq(schema.messages.id, message.id)).run()
   }
 
@@ -410,5 +417,44 @@ export default class InstagramAPI {
       id: schema.messages.id,
       timestamp: schema.messages.timestamp,
     }).from(schema.messages).limit(1).where(eq(schema.messages.threadID, threadID)).orderBy(desc(schema.messages.timestamp)).get()
+  }
+
+  private addParticipant(participant: InferModel<typeof schema['participants'], 'insert'>) {
+    texts.log(`addParticipant ${participant.id} ${JSON.stringify(participant, null, 2)}`)
+    this.papi.db.insert(schema.participants).values(participant).run()
+  }
+
+  private upsertParticipant(threadID: string, participant: Participant) {
+    this.logger.info('upsertParticipant', { id: participant.id || 'unknown id', threadID, participant })
+    if (!participant.id) return
+
+    const participants = this.papi.db.select({ id: schema.participants.id })
+      .from(schema.participants)
+      .where(eq(schema.participants.id, participant.id))
+      .where(eq(schema.participants.threadID, threadID))
+      .all()
+
+    if (participants.length === 0) {
+      return this.addParticipant({
+        original: participant,
+        threadID,
+        id: participant.id,
+        username: participant.username,
+        name: participant.fullName,
+      })
+    }
+
+    return this.papi.db.update(schema.participants).set({
+      original: participant,
+      threadID,
+      id: participant.id,
+      username: participant.username,
+      name: participant.fullName,
+    }).where(eq(schema.participants.id, participant.id)).run()
+  }
+
+  upsertParticipants(threadID: string, participants: Participant[]) {
+    if (participants?.length < 1) return
+    return participants.map(participant => this.upsertParticipant(threadID, participant))
   }
 }
