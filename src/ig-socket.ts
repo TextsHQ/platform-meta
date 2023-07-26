@@ -28,6 +28,7 @@ export default class InstagramWebSocket {
   constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
+    this.logger.info('connecting')
     await this.papi.initPromise // wait for api to be ready
     this.logger.info('connecting to ws')
     try {
@@ -119,7 +120,7 @@ export default class InstagramWebSocket {
   }
 
   readonly send = (data: ArrayBufferLike) => {
-    if (this.ws?.readyState !== this.ws.OPEN) return this.waitAndSend(data)
+    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(data)
     this.ws.send(data)
   }
 

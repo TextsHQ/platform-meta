@@ -1,6 +1,5 @@
 import { texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, ThreadID, User } from '@textshq/platform-sdk'
-import path from 'path'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
@@ -56,12 +55,7 @@ export default class PlatformInstagram implements PlatformAPI {
     texts.log('is logging enabled', texts.isLoggingEnabled, dataDirPath)
     // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
 
-    const dbPath = path.join(this.dataDirPath, `ig-${this.accountID}.db`)
-
-    this.logger.info('ig db init', { dbPath })
-    texts.log('ig db path', dbPath)
-
-    this.db = await getDB(accountID, dbPath, this.logger)
+    this.db = await getDB(accountID, dataDirPath, this.logger)
 
     if (!session?.jar) return
     const { jar, ua, authMethod, clientId, dtsg, fbid } = session
@@ -117,8 +111,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
     this.onEvent = data => {
-      onEvent(data)
       this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
+      onEvent(data)
     }
     await this.socket.connect()
   }
@@ -143,7 +137,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
-    this.socket.getThreads?.()
+    this.socket.getThreads()
     const threads = this.db.select().from(schema.threads).all().map(thread => ({
       ...thread,
       participants: null,

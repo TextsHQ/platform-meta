@@ -7,8 +7,9 @@ import * as schema from './schema'
 import { sleep } from '../util'
 import type { LoggerInstance } from '../logger'
 
-const getDB = async (name: string, sqlitePath: string, parentLogger: LoggerInstance) => {
+const getDB = async (name: string, dataDirPath: string, parentLogger: LoggerInstance) => {
   const migrationsFolder = resolve(__dirname, '../drizzle')
+  const sqlitePath = resolve(dataDirPath, 'cache.db')
   texts.log(`Initializing database ${name} at ${sqlitePath} (migrations folder: ${migrationsFolder})`)
   const sqlite = new Database(sqlitePath)
   const logger = parentLogger.child({ name: `db:drizzle:${name}` })
