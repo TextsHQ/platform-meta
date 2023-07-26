@@ -1,20 +1,43 @@
 import WebSocket from 'ws'
+import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
+import type { Logger } from 'pino'
+// import { ServerEventType } from '@textshq/platform-sdk'
 
-import { getMqttSid, getTimeValues, parseMqttPacket } from './util'
-import { parsePayload } from './parsers'
+import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+// import { parsePayload } from './parsers'
 import type PlatformInstagram from './api'
-import { mapThread, mapMessage, mapReactions } from './mapper'
+// import { mapThread } from './mapper'
+import type InstagramAPI from './ig-api'
+
+const MAX_RETRY_ATTEMPTS = 12
+
+const getRetryTimeout = (attempt: number) =>
+  Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
 
 export default class InstagramWebSocket {
-  ws: WebSocket
+  private retryAttempt = 0
+
+  private stop = false
+
+  private ws: WebSocket
+
+  private logger: Logger
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly papi: PlatformInstagram) {
-    if (!this.papi.api?.cursor) throw new Error('ig socket: cursor is required')
+  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {
+    if (!this.papi.api?.cursor) throw new Error('cursor is required to start')
+    this.logger = papi.logger.child({ name: 'ig-socket' })
+  }
 
+  readonly connect = () => {
+    this.logger.info('connecting to ws')
+    try {
+      this.ws?.close()
+    } catch (err) {
+      this.logger.error('ws transport: connect', err)
+    }
     this.ws = new WebSocket(
       `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
       {
@@ -34,33 +57,84 @@ export default class InstagramWebSocket {
         },
       },
     )
-    this.ws.on('error', err => this.onError(err))
-    this.ws.on('open', () => this.onOpen())
-    this.ws.on('close', () => this.onClose())
+
     this.ws.on('message', data => this.onMessage(data))
+
     process.on('SIGINT', () => {
-      this.ws.close()
+      this.dispose()
     })
+
+    const retry = debounce(() => {
+      if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
+        clearTimeout(this.connectTimeout)
+        this.connectTimeout = setTimeout(this.connect, getRetryTimeout(this.retryAttempt))
+      } else {
+        this.stop = true
+        // trackEvent('error', {
+        //   context: 'ws-error',
+        //   message: 'Lost connection',
+        // })
+        // Sentry.captureMessage('Lost connection')
+      }
+    }, 25)
+
+    this.ws.onopen = () => {
+      this.logger.info('ws: onopen', {
+        retryAttempt: this.retryAttempt,
+      })
+      if (this.retryAttempt) this.onReconnected()
+      this.retryAttempt = 0
+      this.onOpen()
+    }
+
+    this.ws.onerror = ev => {
+      this.logger.error('ws: onerror', ev)
+      if (!this.stop) retry()
+    }
+
+    this.ws.onclose = ev => {
+      this.logger.info('ws: onclose', ev)
+      clearInterval(this.pingInterval)
+      this.pingInterval = null
+      if (!this.stop) retry()
+    }
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  private onError(event: Error) {
-    texts.log('ig socket: error', event)
+  private dispose() {
+    this.logger.info('ws: disposing')
+    this.stop = true
+    this.ws?.close()
+    clearTimeout(this.connectTimeout)
+  }
+
+  private onReconnected() {
+    this.logger.info('ws: reconnected')
+  }
+
+  private connectTimeout: ReturnType<typeof setTimeout>
+
+  private readonly waitAndSend = async (data: any) => {
+    while (this.ws?.readyState !== this.ws.OPEN) {
+      this.logger.info('waiting 5ms to send')
+      await sleep(5)
+    }
+    this.send(data)
+  }
+
+  readonly send = (data: ArrayBufferLike) => {
+    if (this.ws?.readyState !== this.ws.OPEN) return this.waitAndSend(data)
+    this.ws.send(data)
   }
 
   private onOpen() {
-    texts.log('ig socket: open')
-    this.connect()
+    this.afterConnect()
     this.sendAppSettings()
     this.startPing()
   }
 
   // initiate connection
-  private connect() {
-    const ws = this.getWS()
-    if (!ws) return
-
-    ws.send(
+  private afterConnect() {
+    this.send(
       mqtt.generate({
         cmd: 'connect',
         protocolId: 'MQIsdp',
@@ -102,7 +176,7 @@ export default class InstagramWebSocket {
   }
 
   private sendPing() {
-    this.ws?.send(
+    this.send(
       mqtt.generate({
         cmd: 'pingreq',
       }),
@@ -112,7 +186,7 @@ export default class InstagramWebSocket {
   private sendAppSettings() {
     // send app settings
     // need to wait for the ack before sending the subscribe
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 1,
@@ -126,18 +200,12 @@ export default class InstagramWebSocket {
     )
   }
 
-  private onClose() {
-    clearInterval(this.pingInterval)
-    this.pingInterval = null
-    texts.log('ig socket: close')
-  }
-
   private onMessage(data: WebSocket.RawData) {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
       // subscribe to /ls_resp
-      this.ws.send(
+      this.send(
         mqtt.generate({
           cmd: 'subscribe',
           qos: 1,
@@ -156,7 +224,7 @@ export default class InstagramWebSocket {
     } else if (data[0] !== 0x42) {
       this.parseNon0x42Data(data)
     } else {
-      texts.log('ig socket: unhandled message (1)', data)
+      this.logger.info('unhandled message (1)', data)
     }
   }
 
@@ -166,7 +234,7 @@ export default class InstagramWebSocket {
     // this is a hacky way to fix it.
     const payload = (await parseMqttPacket(data)) as any
     if (!payload) {
-      texts.log('ig socket: empty message (1.1)', data)
+      this.logger.info('empty message (1.1)', data)
       return
     }
 
@@ -179,8 +247,7 @@ export default class InstagramWebSocket {
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
     if (payload.request_id !== null) {
-      texts.log('ig socket: request_id is not null', payload)
-      return
+      this.logger.info('request_id is not null', payload)
     }
     // if (payload.payload.includes('upsertMessage')) {
     //   await this.processUpsertMessage(data)
@@ -189,57 +256,57 @@ export default class InstagramWebSocket {
     // } else {
     //   texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
     // }
-    const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
-    if (newConversations) {
-      this.processConversations(newConversations)
-    }
-    if (newMessages) {
-      this.processMessages(newMessages)
-    } else if (newReactions) {
-      this.processReactions(newReactions)
-    }
+    // const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
+    // if (newConversations) {
+    //   this.processConversations(newConversations)
+    // }
+    // if (newMessages) {
+    //   this.processMessages(newMessages)
+    // } else if (newReactions) {
+    //   this.processReactions(newReactions)
+    // }
   }
 
-  private async processConversations(newConversations: any) {
-    const mappedNewConversations = newConversations.map(mapThread)
-    this.papi.api.db.addThreads(mappedNewConversations)
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: {},
-      mutationType: 'upsert',
-      entries: mappedNewConversations,
-    }])
-  }
+  // private async processConversations(newConversations: any) {
+  //   const mappedNewConversations = newConversations.map(mapThread)
+  //   this.igApi.upsertThreads(mappedNewConversations)
+  //   this.papi.onEvent?.([{
+  //     type: ServerEventType.STATE_SYNC,
+  //     objectName: 'thread',
+  //     objectIDs: {},
+  //     mutationType: 'upsert',
+  //     entries: mappedNewConversations,
+  //   }])
+  // }
 
-  private async processMessages(newMessages: any) {
-    const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
-    this.papi.api.db.addMessages(mappedMessages)
+  // private async processMessages(newMessages: any) {
+  //   const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
+  //   this.papi.api.db.addMessages(mappedMessages)
 
-    for (const message of mappedMessages) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadID },
-        mutationType: 'upsert',
-        entries: [message],
-      }])
-    }
-  }
+  //   for (const message of mappedMessages) {
+  //     this.papi.onEvent?.([{
+  //       type: ServerEventType.STATE_SYNC,
+  //       objectName: 'message',
+  //       objectIDs: { threadID: message.threadID },
+  //       mutationType: 'upsert',
+  //       entries: [message],
+  //     }])
+  //   }
+  // }
 
-  private async processReactions(newReactions: any[]) {
-    console.log('ig socket: new reactions', newReactions)
-    const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
+  // private async processReactions(newReactions: any[]) {
+  //   console.log('ig socket: new reactions', newReactions)
+  //   const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
 
-    // loop through mappedReactions and newReactions together
-    newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'message_reaction',
-      objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
-      mutationType: 'upsert',
-      entries: [mappedReactions[i]],
-    }]))
-  }
+  //   // loop through mappedReactions and newReactions together
+  //   newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
+  //     type: ServerEventType.STATE_SYNC,
+  //     objectName: 'message_reaction',
+  //     objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
+  //     mutationType: 'upsert',
+  //     entries: [mappedReactions[i]],
+  //   }]))
+  // }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
     if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')
@@ -260,7 +327,7 @@ export default class InstagramWebSocket {
   }
 
   sendTypingIndicator(threadID: string) {
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 9,
@@ -326,7 +393,7 @@ export default class InstagramWebSocket {
       type: 3,
     })
 
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         dup: false,
@@ -358,28 +425,28 @@ export default class InstagramWebSocket {
     })
   }
 
-  addReaction(threadID: string, messageID: string, reaction: string) {
-    const message = this.papi.api.db.getMessage(threadID, messageID)
+  // addReaction(threadID: string, messageID: string, reaction: string) {
+  //   const message = this.papi.api.db.getMessage(threadID, messageID)
 
-    this.publishTask({
-      label: '29',
-      payload: JSON.stringify({
-        thread_key: threadID,
-        timestamp_ms: Number(message.timestamp.getTime()),
-        message_id: messageID,
-        actor_id: this.papi.api.session.fbid,
-        reaction,
-        reacion_style: null,
-        sync_group: 1,
-      }),
-      queue_name: JSON.stringify([
-        'reaction',
-        messageID,
-      ]),
-      task_id: 0,
-      failure_count: null,
-    })
-  }
+  //   this.publishTask({
+  //     label: '29',
+  //     payload: JSON.stringify({
+  //       thread_key: threadID,
+  //       timestamp_ms: Number(message.timestamp.getTime()),
+  //       message_id: messageID,
+  //       actor_id: this.papi.api.session.fbid,
+  //       reaction,
+  //       reacion_style: null,
+  //       sync_group: 1,
+  //     }),
+  //     queue_name: JSON.stringify([
+  //       'reaction',
+  //       messageID,
+  //     ]),
+  //     task_id: 0,
+  //     failure_count: null,
+  //   })
+  // }
 
   private getWS() {
     if (!this.ws) throw new Error('WebSocket not initialized')
@@ -394,7 +461,7 @@ export default class InstagramWebSocket {
       case WebSocket.OPEN:
         return this.ws
       default: {
-        texts.log(`ig socket: unknown readyState ${this.ws.readyState}`)
+        this.logger.info(`unknown readyState ${this.ws.readyState}`)
         return null
       }
     }
@@ -430,24 +497,24 @@ export default class InstagramWebSocket {
     )
   }
 
-  getMessages(threadID: string) {
-    const messages = this.papi.api.db.getMessages(threadID)
-    const lastMessage = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null
-    this.publishTask({
-      label: '228',
-      payload: JSON.stringify({
-        thread_key: Number(threadID),
-        direction: 0,
-        reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
-        reference_message_id: lastMessage.id,
-        sync_group: 1,
-        cursor: this.papi.api.cursor,
-      }),
-      queue_name: `mrq.${threadID}`,
-      task_id: 1,
-      failure_count: null,
-    })
-  }
+  // getMessages(threadID: string) {
+  //   const lastMessage = this.igApi.getLastMessage(threadID)
+  //   this.logger.info('getMessages', { threadID, lastMessage })
+  //   this.publishTask({
+  //     label: '228',
+  //     payload: JSON.stringify({
+  //       thread_key: Number(threadID),
+  //       direction: 0,
+  //       reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
+  //       reference_message_id: lastMessage.id,
+  //       sync_group: 1,
+  //       cursor: this.papi.api.cursor,
+  //     }),
+  //     queue_name: `mrq.${threadID}`,
+  //     task_id: 1,
+  //     failure_count: null,
+  //   })
+  // }
 
   getThreads() {
     this.publishTask({
@@ -480,7 +547,7 @@ export default class InstagramWebSocket {
   // may need similar code to get messages.
   private maybeSubscribeToDatabaseOne() {
     const { epoch_id } = getTimeValues()
-    this.ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 5,

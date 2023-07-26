@@ -2,13 +2,17 @@ import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
+import { type InferModel } from 'drizzle-orm'
+import type { Logger } from 'pino'
 
 import fs from 'fs'
+// import { M } from 'drizzle-orm/column.d-aa4e525d'
+import * as schema from './store/schema'
 import type Instagram from './api'
 import type InstagramWebSocket from './ig-socket'
-import { parsePayload } from './parsers'
+import { parsePayload, parseRawPayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
-import { ChatMemoryStore } from './store'
+// import { FOREVER } from './util'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -72,7 +76,13 @@ export default class InstagramAPI {
 
   socket: InstagramWebSocket
 
-  constructor(private readonly papi: Instagram) { }
+  private logger: Logger
+
+  constructor(private readonly papi: Instagram) {
+    console.log('papi in ig-api constructor', papi)
+    console.log('papi.logger in ig-api constructor', papi.logger)
+    this.logger = papi.logger.child({ name: 'igApi' })
+  }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -87,8 +97,6 @@ export default class InstagramAPI {
   }
 
   cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
-
-  db = new ChatMemoryStore()
 
   private _axios: AxiosInstance
 
@@ -124,24 +132,6 @@ export default class InstagramAPI {
       username: config.username,
     }
     await this.getCursor()
-    // try {
-    //   const me = await this.getMe();
-    // } catch (e) {
-    //   texts.error(e);
-    // }
-
-    // try {
-    //   const user = await this.getUserByUsername("texts_hq");
-    //   texts.log(
-    //     `getUserByUsername ${"texts_hq"} response: ${JSON.stringify(
-    //       user,
-    //       null,
-    //       2
-    //     )}`
-    //   );
-    // } catch (e) {
-    //   texts.error(e);
-    // }
   }
 
   async getClientId() {
@@ -214,7 +204,7 @@ export default class InstagramAPI {
       fullName: userInfo?.full_name,
       username: userInfo?.username,
     }
-    texts.log(
+    this.logger.info(
       `getUserByUsername ${username} response: ${JSON.stringify(user, null, 2)}`,
     )
     return user
@@ -240,11 +230,11 @@ export default class InstagramAPI {
 
   // get username from here
   async getUserById(userID: string) {
-    texts.log(`getUser ${userID}`)
+    this.logger.info(`getUser ${userID}`)
     const response = await this.apiCall('6083412141754133', {
       userID,
     })
-    texts.log(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
+    this.logger.info(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
     const data = response.data as {
       data: {
         userInfo: {
@@ -299,10 +289,31 @@ export default class InstagramAPI {
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
     this.cursorCache = cursorResponse
+
+    const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
+    // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
+    // if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
+    if (rawd.upsertReaction) {
+      this.addReactions(rawd.upsertReaction)
+    }
+    await this.papi.db.insert(schema.reactions)
+      .values([{
+        threadKey: '105868004148209',
+        timestampMs: 'asdasd',
+        messageId: 'mid.$cAAA7H5r_VlCPuuV-EGJiaA4MKwFx',
+        actorId: '100428318021025',
+        reaction: '❤️',
+        _original: rawd.upsertReaction[0],
+      }])
+    console.log('inserted')
+    console.log('inserted reactions')
+
     const { newConversations, newMessages } = cursorResponse
     const mappedNewConversations = newConversations?.map(mapThread)
+
     const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
-    this.db.addThreads(mappedNewConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -310,7 +321,6 @@ export default class InstagramAPI {
       mutationType: 'upsert',
       entries: mappedNewConversations,
     }])
-    this.db.addMessages(mappedNewMessages)
     for (const message of mappedNewMessages) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -321,6 +331,26 @@ export default class InstagramAPI {
       }])
     }
     return cursorResponse
+  }
+
+  addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
+    return this.papi.db.insert(schema.threads).values(threads)
+  }
+
+  addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
+    return this.papi.db.insert(schema.users).values(users)
+  }
+
+  addParticipants(participants: InferModel<typeof schema['participants'], 'insert'>[]) {
+    return this.papi.db.insert(schema.participants).values(participants)
+  }
+
+  addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+    return this.papi.db.insert(schema.messages).values(messages)
+  }
+
+  addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
+    return this.papi.db.insert(schema.reactions).values(reactions)
   }
 
   mapMessage(message: any) {
@@ -390,4 +420,74 @@ export default class InstagramAPI {
         console.log('ig-api sendImage error', err)
       })
   }
+
+  // private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
+  //   return this.papi.db.insert(schema.threads).values(thread).returning().get()
+  // }
+
+  // private upsertThread(thread: Thread) {
+  //   const threads = thread.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, thread.id)).all() : []
+  //   if (threads.length === 0) {
+  //     return this.addThread({
+  //       ...thread,
+  //       mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+  //     })
+  //   }
+
+  //   return this.papi.db.update(schema.threads).set({
+  //     ...thread,
+  //     mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+  //   }).where(eq(schema.threads.id, thread.id)).returning().get()
+  // }
+
+  // upsertThreads(threads: Thread[]) {
+  //   return threads.map(thread => this.upsertThread(thread))
+  // }
+
+  // private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
+  //   return this.papi.db.insert(schema.messages).values({
+  //     ...message,
+  //     threadID,
+  //   }).returning().get()
+  // }
+
+  // private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+  //   return messages.map(message => this.upsertMessage(threadID, {
+  //     ...message,
+  //     action: null,
+  //   }))
+  // }
+
+  // private upsertMessage(threadID: string, message: Message) {
+  //   const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
+  //   if (messages.length === 0) {
+  //     return this.addMessage(threadID, {
+  //       ...message,
+  //       threadID,
+  //       seen: new Date(),
+  //       action: null,
+  //       sortKey: null,
+  //     })
+  //   }
+
+  //   return this.papi.db.update(schema.messages).set({
+  //     ...message,
+  //     threadID,
+  //     seen: new Date(),
+  //     action: null,
+  //     sortKey: null,
+  //   }).where(eq(schema.messages.id, message.id)).returning().get()
+  // }
+
+  // upsertMessages(messages: Message[]) {
+  //   return messages.map(message => this.upsertMessage(message.threadID, message))
+  // }
+
+  // getLastMessage(threadID: string): Message {
+  //   const msg = this.papi.db.select({
+  //     threadID: schema.messages.threadKey,
+  //     id: schema.messages.messageId,
+  //     timestamp: schema.messages.timestamp,
+  //   }).from(schema.messages).limit(1).where(eq(schema.messages.thread, threadID)).orderBy(desc(schema.messages.timestampMs)).get()
+  // }
 }
