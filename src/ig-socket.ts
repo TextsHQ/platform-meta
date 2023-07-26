@@ -266,7 +266,7 @@ export default class InstagramWebSocket {
     this.logger.info('deleteThenInsertThread, newConversations', JSON.stringify(newConversations, null, 2))
 
     const mappedNewConversations = newConversations.map(mapThread)
-    this.igApi.upsertThreads(mappedNewConversations)
+    this.igApi.upsertThreads(newConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',

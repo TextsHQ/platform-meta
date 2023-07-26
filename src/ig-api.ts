@@ -11,6 +11,7 @@ import type InstagramWebSocket from './ig-socket'
 import { parseGetCursorResponse } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { FOREVER } from './util'
+import { IGThread } from './ig-types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -308,7 +309,7 @@ export default class InstagramAPI {
     const { newConversations, newMessages } = cursorResponse
     const mappedNewConversations = newConversations?.map(mapThread)
     const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
-    this.upsertThreads(mappedNewConversations)
+    this.upsertThreads(newConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -334,25 +335,30 @@ export default class InstagramAPI {
   }
 
   private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
+    this.logger.info(`addThread ${thread.id}`)
+    texts.log(`addThread ${thread.id} ${JSON.stringify(thread, null, 2)}`)
     return this.papi.db.insert(schema.threads).values(thread).returning().get()
   }
 
-  private upsertThread(thread: Thread) {
-    const threads = thread.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, thread.id)).all() : []
+  private upsertThread(thread: IGThread) {
+    const mapped = mapThread(thread)
+    const threads = mapped.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, mapped.id)).all() : []
     if (threads.length === 0) {
       return this.addThread({
-        ...thread,
-        mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+        _original: thread,
+        ...mapped,
+        mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
       })
     }
 
     return this.papi.db.update(schema.threads).set({
-      ...thread,
-      mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
-    }).where(eq(schema.threads.id, thread.id)).returning().get()
+      ...mapped,
+      mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
+    }).where(eq(schema.threads.id, mapped.id)).returning().get()
   }
 
-  upsertThreads(threads: Thread[]) {
+  upsertThreads(threads: IGThread[]) {
+    if (threads?.length < 1) return
     return threads.map(thread => this.upsertThread(thread))
   }
 
