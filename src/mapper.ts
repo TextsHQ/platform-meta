@@ -2,7 +2,7 @@ import { type Message, type Thread, type MessageReaction, type AttachmentWithURL
 
 export function mapThread(thread: any): Thread {
   return {
-    _original: `${JSON.stringify({ ...thread })}`,
+    _original: 'fill later',
     id: thread.threadId,
     // folderName: thread.pending ? 'requests' : 'normal',
     isUnread: thread.unread,

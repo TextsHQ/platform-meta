@@ -23,7 +23,7 @@ const getDB = async (name: string, dataDirPath: string, parentLogger: LoggerInst
     },
   })
   migrate(db, { migrationsFolder })
-  await sleep(2000) // @TODO: need a better way to wait for migrations to finish
+  await sleep(100) // @TODO: need a better way to wait for migrations to finish
   return db
 }
 
