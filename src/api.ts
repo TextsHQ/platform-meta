@@ -1,4 +1,4 @@
-import { texts } from '@textshq/platform-sdk'
+import { AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, ThreadID, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
@@ -254,7 +254,7 @@ export default class PlatformInstagram implements PlatformAPI {
       senderID: this.currentUser.id,
       isSender: true,
     }
-    this.api.socket.sendMessage(threadID, text)
+    this.socket.sendMessage(threadID, text)
     return [userMessage]
   }
 

@@ -184,7 +184,6 @@ export default class InstagramWebSocket {
     )
   }
 
-
   private sendAppSettings() {
     // send app settings
     // need to wait for the ack before sending the subscribe
@@ -450,34 +449,12 @@ export default class InstagramWebSocket {
   //   })
   // }
 
-  private getWS() {
-    if (!this.ws) throw new Error('WebSocket not initialized')
-    switch (this.ws.readyState) {
-      case WebSocket.CLOSING:
-      case WebSocket.CLOSED: {
-        throw new Error('WebSocket is closing or closed')
-      }
-      case WebSocket.CONNECTING: {
-        throw new Error('WebSocket is connecting')
-      }
-      case WebSocket.OPEN:
-        return this.ws
-      default: {
-        this.logger.info(`unknown readyState ${this.ws.readyState}`)
-        return null
-      }
-    }
-  }
-
   // used for get messages and get threads
   publishTask(_tasks: any) {
-    const ws = this.getWS()
-    if (!ws) return
-
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
 
-    ws.send(
+    this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 6,
