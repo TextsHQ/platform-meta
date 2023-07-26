@@ -1,5 +1,5 @@
 import { AttachmentType, texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, User } from '@textshq/platform-sdk'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
@@ -33,7 +33,12 @@ export default class PlatformInstagram implements PlatformAPI {
 
   socket = new InstagramWebSocket(this)
 
-  onEvent: OnServerEventCallback
+  onEvent: OnServerEventCallback = events => {
+    this.logger.info('instagram got server event before ready', JSON.stringify(events, null, 2))
+    this.pendingEvents.push(...events)
+  }
+
+  pendingEvents: ServerEvent[] = []
 
   constructor(readonly accountID: string) {}
 
@@ -112,10 +117,16 @@ export default class PlatformInstagram implements PlatformAPI {
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
-    this.onEvent = data => {
-      this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
-      onEvent(data)
+    if (this.pendingEvents.length > 0) {
+      onEvent(this.pendingEvents)
+      this.pendingEvents = []
     }
+
+    this.onEvent = events => {
+      this.logger.info('instagram got server event', JSON.stringify(events, null, 2))
+      onEvent(events)
+    }
+
     await this.socket.connect()
   }
 
@@ -146,6 +157,7 @@ export default class PlatformInstagram implements PlatformAPI {
       isReadOnly: false,
       participants: null,
       messages: null,
+      title: thread.threadName,
       type: 'single',
     }))
     return {

@@ -253,6 +253,8 @@ export default class InstagramWebSocket {
 
     this.logger.info('INSTAGRAM', { payload })
 
+    this.papi.api.handlePayload(payload.payload)
+
     // if (payload.payload.includes('upsertMessage')) {
     //   await this.processUpsertMessage(data)
     // } else if (payload.payload.includes('deleteThenInsertThread')) {

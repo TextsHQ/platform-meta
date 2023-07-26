@@ -1,12 +1,12 @@
 import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
-import { ExtendedIGMessage, ExtendedIGThread, IGReaction } from './ig-types'
+import type { ExtendedIGMessage, ExtendedIGThread, IGReaction, IGThread } from './ig-types'
 
-export function mapThread(thread: ExtendedIGThread): Thread {
+export function mapThread(thread: IGThread | ExtendedIGThread): Thread {
   return {
     _original: JSON.stringify(thread),
     id: thread.threadKey,
     // folderName: thread.pending ? 'requests' : 'normal',
-    isUnread: thread.unread,
+    isUnread: 'unread' in thread ? thread.unread : false,
     isReadOnly: false,
     type: 'single',
     title: thread.threadName,
@@ -18,21 +18,22 @@ export function mapThread(thread: ExtendedIGThread): Thread {
     },
     timestamp: new Date(Number(thread.lastActivityTimestampMs)),
     participants: {
-      items: thread?.participants?.map(participant => ({
-        id: participant.userId,
-        username: participant.username,
-        fullName: participant.name,
-      })),
+      items: [],
+      // items: thread?.participants?.map(participant => ({
+      //   id: participant.userId,
+      //   username: participant.username,
+      //   fullName: participant.name,
+      // })),
       hasMore: false,
       oldestCursor: '',
       newestCursor: '',
     },
-    lastReadMessageID: thread?.lastMessageDetails?.messageId,
-    partialLastMessage: {
-      id: thread?.lastMessageDetails?.messageId,
-      senderID: thread?.lastMessageDetails?.senderId,
-      text: thread?.lastMessageDetails?.text,
-    },
+    // lastReadMessageID: thread?.lastMessageDetails?.messageId,
+    // partialLastMessage: {
+    //   id: thread?.lastMessageDetails?.messageId,
+    //   senderID: thread?.lastMessageDetails?.senderId,
+    //   text: thread?.lastMessageDetails?.text,
+    // },
   }
 }
 

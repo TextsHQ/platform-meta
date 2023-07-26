@@ -1,6 +1,7 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
+import { texts } from '@textshq/platform-sdk'
 import type { ExtendedIGMessage, ExtendedIGThread, IGAttachment, IGMessage, IGReaction } from './ig-types'
 
 type RawItem = string[]
@@ -367,6 +368,7 @@ const parseThread = (a: RawItem) => {
     // eslint-disable-next-line prefer-destructuring
     tmap.threadName = a[3]
   }
+
   return tmap
   // loop through the keys and if the value is
 }
@@ -544,7 +546,7 @@ export function parseRawPayload(payload: string) {
     }
   }
 
-  console.log('lsCalls', lsCalls)
+  texts.log(`lsCalls: ${JSON.stringify(lsCalls, null, 2)}`)
 
   return {
     verifyContactRowExists: lsCalls.verifyContactRowExists.map(parseUser),
@@ -554,5 +556,6 @@ export function parseRawPayload(payload: string) {
     upsertReaction: lsCalls.upsertReaction.map(parseReaction),
     upsertSyncGroupThreadsRange: null,
     insertBlobAttachment: lsCalls.insertBlobAttachment.map(parseAttachment),
+    cursor: j.step[2][1][3][5],
   }
 }

@@ -4,6 +4,7 @@ import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
 import type { InferModel } from 'drizzle-orm'
 import { readFile } from 'fs/promises'
+import pick from 'lodash/pick'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
@@ -84,7 +85,7 @@ export default class InstagramAPI {
     return this.cursorCache?.cursor
   }
 
-  cursorCache: Awaited<ReturnType<typeof this.getCursor>> = null
+  cursorCache: Awaited<ReturnType<typeof parsePayload>> = null
 
   private _axios: AxiosInstance
 
@@ -278,51 +279,87 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
+
+    // @TODO:remove
     const cursorResponse = parsePayload(
       this.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
+
     this.cursorCache = cursorResponse
 
-    const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
+
+    // const { newConversations, newMessages } = cursorResponse
+    // const mappedNewConversations = newConversations?.map(mapThread)
+
+    // const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
+    // this.papi.onEvent?.([{
+    //   type: ServerEventType.STATE_SYNC,
+    //   objectName: 'thread',
+    //   objectIDs: {},
+    //   mutationType: 'upsert',
+    //   entries: mappedNewConversations,
+    // }])
+    // for (const message of mappedNewMessages) {
+    //   this.papi.onEvent?.([{
+    //     type: ServerEventType.STATE_SYNC,
+    //     objectName: 'message',
+    //     objectIDs: { threadID: message.threadID },
+    //     mutationType: 'upsert',
+    //     entries: [message],
+    //   }])
+    // }
+    // return cursorResponse
+  }
+
+  handlePayload(payload: any) {
+    const rawd = parseRawPayload(payload)
     this.logger.info('rawd', rawd)
-    // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
-    // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
-    // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
-    // if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
+    if (rawd.deleteThenInsertThread) {
+      const threads = rawd.deleteThenInsertThread.map(t => ({
+        // ...pick(t, Object.keys(schema.threads._.columns)),
+        ...schema.insertThreadSchema.parse(t),
+        threadKey: t.threadKey!,
+        original: t,
+      }))
+      this.addThreads(threads)
+    }
+    if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    if (rawd.addParticipantIdToGroupThread) {
+      const participants = rawd.addParticipantIdToGroupThread.map(p => ({
+        ...schema.insertParticipantSchema.parse(p),
+        threadKey: p.threadKey!,
+        userId: p.userId!,
+        original: p,
+      }))
+      this.addParticipants(participants)
+    }
+    if (rawd.upsertMessage) {
+      const messages = rawd.upsertMessage.map(m => ({
+        ...schema.insertMessageSchema.parse(m),
+        threadKey: m.threadKey!,
+        messageId: m.messageId!,
+        senderId: m.senderId!,
+        original: m,
+      }))
+      this.addMessages(messages)
+    }
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
+  }
 
-    this.logger.info('inserted')
-    this.logger.info('inserted reactions')
-
-    const { newConversations, newMessages } = cursorResponse
-    const mappedNewConversations = newConversations?.map(mapThread)
-
-    const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
+  addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
+    this.logger.info('addThreads', threads)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
       objectIDs: {},
       mutationType: 'upsert',
-      entries: mappedNewConversations,
+      entries: threads.map(mapThread as any), // @TODO remove any
     }])
-    for (const message of mappedNewMessages) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadID },
-        mutationType: 'upsert',
-        entries: [message],
-      }])
-    }
-    return cursorResponse
-  }
-
-  addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
-    this.logger.info('addThreads', threads)
-    return this.papi.db.insert(schema.threads).values(threads.map(t => schema.insertThreadSchema.parse(t) as InferModel<typeof schema['threads'], 'insert'>)).onConflictDoNothing().run()
+    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
   }
 
   addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
@@ -337,6 +374,15 @@ export default class InstagramAPI {
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
     this.logger.info('addMessages', messages)
+    for (const message of messages) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadKey },
+        mutationType: 'upsert',
+        entries: [message].map(mapMessage as any), // @TODO remove any
+      }])
+    }
     return this.papi.db
       .insert(schema.messages)
       .values(messages)
