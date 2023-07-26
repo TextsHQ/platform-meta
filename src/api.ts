@@ -29,7 +29,9 @@ export default class PlatformInstagram implements PlatformAPI {
 
   db: DrizzleDB
 
-  api = new InstagramAPI(this)
+  db: DrizzleDB
+
+  api: InstagramAPI
 
   socket = new InstagramWebSocket(this)
 
@@ -137,11 +139,14 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
-    this.socket.getThreads()
-    const threads = this.db.select().from(schema.threads).all().map(thread => ({
-      ...thread,
+    // this.api.socket?.getThreads?.()
+    const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
+      id: thread.threadKey,
+      isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
+      isReadOnly: false,
       participants: null,
       messages: null,
+      type: 'single',
     }))
     return {
       items: threads,
@@ -151,47 +156,50 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.logger.info('getMessages', threadID, pagination)
+    const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
 
-    this.socket.getMessages(threadID)
-    const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadID, threadID)).all()
+    // turn messages into a Message[]
+    const mappedMessages: Message[] = messages.map(message => ({
+      id: message.messageId,
+      timestamp: message.timestampMs,
+      senderID: message.senderId,
+      text: message.text,
+    }))
     return {
-      items: messages.map(m => ({
-        ...m,
-        action: null,
-      })),
+      items: mappedMessages,
       hasMore: false,
     }
   }
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread = async (threadID: string): PAPIReturn<'getThread'> => {
-    const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
-    if (!thread) return null
+  // getThread = async (threadID: string): PAPIReturn<'getThread'> => {
+  //   const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
+  //   if (!thread) return null
 
-    // @TODO: this could be a join and also needs to be paginated
-    const messages = await this.getMessages(threadID, {
-      cursor: null,
-      direction: 'after',
-    })
+  //   // @TODO: this could be a join and also needs to be paginated
+  //   const messages = await this.getMessages(threadID, {
+  //     cursor: null,
+  //     direction: 'after',
+  //   })
 
-    return {
-      ...thread,
-      messages,
-      participants: null,
-    }
-  }
+  //   return {
+  //     ...thread,
+  //     messages,
+  //     participants: null,
+  //   }
+  // }
 
-  getMessage = (threadID: ThreadID, messageID: MessageID) => {
-    const [message] = this.db.select().from(schema.messages)
-      .where(eq(schema.messages.id, messageID))
-      .where(eq(schema.messages.threadID, threadID))
-      .all()
-    return {
-      ...message,
-      action: null,
-    }
-  }
+  // getMessage = (threadID: ThreadID, messageID: MessageID) => {
+  //   const [message] = this.db.select().from(schema.messages)
+  //     .where(eq(schema.messages.messageId, messageID))
+  //     .where(eq(schema.messages.threadKey, threadID))
+  //     .all()
+  //   return {
+  //     ...message,
+  //     action: null,
+  //   }
+  // }
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
@@ -245,6 +253,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
+    // this.api.socket?.addReaction?.(threadID, messageID, reactionKey)
     return null
   }
 

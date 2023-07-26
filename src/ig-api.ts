@@ -124,24 +124,6 @@ export default class InstagramAPI {
       username: config.username,
     }
     await this.getCursor()
-    // try {
-    //   const me = await this.getMe();
-    // } catch (e) {
-    //   texts.error(e);
-    // }
-
-    // try {
-    //   const user = await this.getUserByUsername("texts_hq");
-    //   texts.log(
-    //     `getUserByUsername ${"texts_hq"} response: ${JSON.stringify(
-    //       user,
-    //       null,
-    //       2
-    //     )}`
-    //   );
-    // } catch (e) {
-    //   texts.error(e);
-    // }
   }
 
   async getClientId() {
@@ -301,8 +283,21 @@ export default class InstagramAPI {
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
     this.cursorCache = cursorResponse
+
+    const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
+    // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
+    // if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
+    if (rawd.upsertReaction) {
+      this.addReactions(rawd.upsertReaction)
+    }
+    console.log('inserted')
+    console.log('inserted reactions')
+
     const { newConversations, newMessages } = cursorResponse
     const mappedNewConversations = newConversations?.map(mapThread)
+
     const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
     this.upsertThreads(newConversations)
     this.papi.onEvent?.([{
@@ -323,6 +318,26 @@ export default class InstagramAPI {
       }])
     }
     return cursorResponse
+  }
+
+  addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
+    return this.papi.db.insert(schema.threads).values(threads)
+  }
+
+  addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
+    return this.papi.db.insert(schema.users).values(users)
+  }
+
+  addParticipants(participants: InferModel<typeof schema['participants'], 'insert'>[]) {
+    return this.papi.db.insert(schema.participants).values(participants)
+  }
+
+  addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+    return this.papi.db.insert(schema.messages).values(messages)
+  }
+
+  addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
+    return this.papi.db.insert(schema.reactions).values(reactions)
   }
 
   mapMessage(message: any) {
@@ -459,4 +474,74 @@ export default class InstagramAPI {
     if (participants?.length < 1) return
     return participants.map(participant => this.upsertParticipant(threadID, participant))
   }
+
+  // private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
+  //   return this.papi.db.insert(schema.threads).values(thread).returning().get()
+  // }
+
+  // private upsertThread(thread: Thread) {
+  //   const threads = thread.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, thread.id)).all() : []
+  //   if (threads.length === 0) {
+  //     return this.addThread({
+  //       ...thread,
+  //       mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+  //     })
+  //   }
+
+  //   return this.papi.db.update(schema.threads).set({
+  //     ...thread,
+  //     mutedUntil: thread.mutedUntil === 'forever' ? new Date(FOREVER) : thread.mutedUntil,
+  //   }).where(eq(schema.threads.id, thread.id)).returning().get()
+  // }
+
+  // upsertThreads(threads: Thread[]) {
+  //   return threads.map(thread => this.upsertThread(thread))
+  // }
+
+  // private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
+  //   return this.papi.db.insert(schema.messages).values({
+  //     ...message,
+  //     threadID,
+  //   }).returning().get()
+  // }
+
+  // private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+  //   return messages.map(message => this.upsertMessage(threadID, {
+  //     ...message,
+  //     action: null,
+  //   }))
+  // }
+
+  // private upsertMessage(threadID: string, message: Message) {
+  //   const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
+  //   if (messages.length === 0) {
+  //     return this.addMessage(threadID, {
+  //       ...message,
+  //       threadID,
+  //       seen: new Date(),
+  //       action: null,
+  //       sortKey: null,
+  //     })
+  //   }
+
+  //   return this.papi.db.update(schema.messages).set({
+  //     ...message,
+  //     threadID,
+  //     seen: new Date(),
+  //     action: null,
+  //     sortKey: null,
+  //   }).where(eq(schema.messages.id, message.id)).returning().get()
+  // }
+
+  // upsertMessages(messages: Message[]) {
+  //   return messages.map(message => this.upsertMessage(message.threadID, message))
+  // }
+
+  // getLastMessage(threadID: string): Message {
+  //   const msg = this.papi.db.select({
+  //     threadID: schema.messages.threadKey,
+  //     id: schema.messages.messageId,
+  //     timestamp: schema.messages.timestamp,
+  //   }).from(schema.messages).limit(1).where(eq(schema.messages.thread, threadID)).orderBy(desc(schema.messages.timestampMs)).get()
+  // }
 }

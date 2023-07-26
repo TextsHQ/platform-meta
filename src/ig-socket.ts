@@ -1,12 +1,16 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
-import { parsePayload } from './parsers'
+// import type { Logger } from 'pino'
+// import { ServerEventType } from '@textshq/platform-sdk'
+
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+// import { parsePayload } from './parsers'
+// import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
+// import { parsePayload } from './parsers'
 import { getLogger } from './logger'
 import type PlatformInstagram from './api'
-import { mapThread, mapMessage, mapReactions } from './mapper'
+// import { mapThread } from './mapper'
 
 const MAX_RETRY_ATTEMPTS = 12
 
@@ -180,6 +184,7 @@ export default class InstagramWebSocket {
     )
   }
 
+
   private sendAppSettings() {
     // send app settings
     // need to wait for the ack before sending the subscribe
@@ -245,7 +250,6 @@ export default class InstagramWebSocket {
 
     if (payload.request_id !== null) {
       this.logger.info('request_id is not null', payload)
-      return
     }
     // if (payload.payload.includes('upsertMessage')) {
     //   await this.processUpsertMessage(data)
@@ -254,57 +258,57 @@ export default class InstagramWebSocket {
     // } else {
     //   texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
     // }
-    const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.fbid, payload.payload)
-    if (newConversations) {
-      this.processConversations(newConversations)
-    }
-    if (newMessages) {
-      this.processMessages(newMessages)
-    } else if (newReactions) {
-      this.processReactions(newReactions)
-    }
+    // const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
+    // if (newConversations) {
+    //   this.processConversations(newConversations)
+    // }
+    // if (newMessages) {
+    //   this.processMessages(newMessages)
+    // } else if (newReactions) {
+    //   this.processReactions(newReactions)
+    // }
   }
 
-  private async processConversations(newConversations: any) {
-    const mappedNewConversations = newConversations.map(mapThread)
-    this.papi.api.upsertThreads(newConversations)
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: {},
-      mutationType: 'upsert',
-      entries: mappedNewConversations,
-    }])
-  }
+  // private async processConversations(newConversations: any) {
+  //   const mappedNewConversations = newConversations.map(mapThread)
+  //   this.igApi.upsertThreads(mappedNewConversations)
+  //   this.papi.onEvent?.([{
+  //     type: ServerEventType.STATE_SYNC,
+  //     objectName: 'thread',
+  //     objectIDs: {},
+  //     mutationType: 'upsert',
+  //     entries: mappedNewConversations,
+  //   }])
+  // }
 
-  private async processMessages(newMessages: any) {
-    const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.fbid, m))
-    this.papi.api.upsertMessages(mappedMessages)
+  // private async processMessages(newMessages: any) {
+  //   const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
+  //   this.papi.api.db.addMessages(mappedMessages)
 
-    for (const message of mappedMessages) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadID },
-        mutationType: 'upsert',
-        entries: [message],
-      }])
-    }
-  }
+  //   for (const message of mappedMessages) {
+  //     this.papi.onEvent?.([{
+  //       type: ServerEventType.STATE_SYNC,
+  //       objectName: 'message',
+  //       objectIDs: { threadID: message.threadID },
+  //       mutationType: 'upsert',
+  //       entries: [message],
+  //     }])
+  //   }
+  // }
 
-  private async processReactions(newReactions: any[]) {
-    console.log('ig socket: new reactions', newReactions)
-    const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
+  // private async processReactions(newReactions: any[]) {
+  //   console.log('ig socket: new reactions', newReactions)
+  //   const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
 
-    // loop through mappedReactions and newReactions together
-    newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'message_reaction',
-      objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
-      mutationType: 'upsert',
-      entries: [mappedReactions[i]],
-    }]))
-  }
+  //   // loop through mappedReactions and newReactions together
+  //   newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
+  //     type: ServerEventType.STATE_SYNC,
+  //     objectName: 'message_reaction',
+  //     objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
+  //     mutationType: 'upsert',
+  //     entries: [mappedReactions[i]],
+  //   }]))
+  // }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
     if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')
@@ -404,7 +408,7 @@ export default class InstagramWebSocket {
     )
   }
 
-  sendImage(threadID: string, imageID: string) {
+  sendImage(threadID, imageID) {
     const { otid } = getTimeValues()
     this.publishTask({
       label: '46',
@@ -423,35 +427,57 @@ export default class InstagramWebSocket {
     })
   }
 
-  addReaction(threadID: string, messageID: string, reaction: string) {
-    const message = this.papi.getMessage(threadID, messageID)
+  // addReaction(threadID: string, messageID: string, reaction: string) {
+  //   const message = this.papi.api.db.getMessage(threadID, messageID)
 
-    this.publishTask({
-      label: '29',
-      payload: JSON.stringify({
-        thread_key: threadID,
-        timestamp_ms: Number(message.timestamp.getTime()),
-        message_id: messageID,
-        actor_id: this.papi.api.fbid,
-        reaction,
-        reacion_style: null,
-        sync_group: 1,
-      }),
-      queue_name: JSON.stringify([
-        'reaction',
-        messageID,
-      ]),
-      task_id: 0,
-      failure_count: null,
-    })
+  //   this.publishTask({
+  //     label: '29',
+  //     payload: JSON.stringify({
+  //       thread_key: threadID,
+  //       timestamp_ms: Number(message.timestamp.getTime()),
+  //       message_id: messageID,
+  //       actor_id: this.papi.api.session.fbid,
+  //       reaction,
+  //       reacion_style: null,
+  //       sync_group: 1,
+  //     }),
+  //     queue_name: JSON.stringify([
+  //       'reaction',
+  //       messageID,
+  //     ]),
+  //     task_id: 0,
+  //     failure_count: null,
+  //   })
+  // }
+
+  private getWS() {
+    if (!this.ws) throw new Error('WebSocket not initialized')
+    switch (this.ws.readyState) {
+      case WebSocket.CLOSING:
+      case WebSocket.CLOSED: {
+        throw new Error('WebSocket is closing or closed')
+      }
+      case WebSocket.CONNECTING: {
+        throw new Error('WebSocket is connecting')
+      }
+      case WebSocket.OPEN:
+        return this.ws
+      default: {
+        this.logger.info(`unknown readyState ${this.ws.readyState}`)
+        return null
+      }
+    }
   }
 
   // used for get messages and get threads
   publishTask(_tasks: any) {
+    const ws = this.getWS()
+    if (!ws) return
+
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
 
-    this.send(
+    ws.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 6,
@@ -473,24 +499,24 @@ export default class InstagramWebSocket {
     )
   }
 
-  getMessages(threadID: string) {
-    const lastMessage = this.papi.api.getLastMessage(threadID)
-    this.logger.info('getMessages', { threadID, lastMessage })
-    this.publishTask({
-      label: '228',
-      payload: JSON.stringify({
-        thread_key: Number(threadID),
-        direction: 0,
-        reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
-        reference_message_id: lastMessage.id,
-        sync_group: 1,
-        cursor: this.papi.api.cursor,
-      }),
-      queue_name: `mrq.${threadID}`,
-      task_id: 1,
-      failure_count: null,
-    })
-  }
+  // getMessages(threadID: string) {
+  //   const lastMessage = this.igApi.getLastMessage(threadID)
+  //   this.logger.info('getMessages', { threadID, lastMessage })
+  //   this.publishTask({
+  //     label: '228',
+  //     payload: JSON.stringify({
+  //       thread_key: Number(threadID),
+  //       direction: 0,
+  //       reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
+  //       reference_message_id: lastMessage.id,
+  //       sync_group: 1,
+  //       cursor: this.papi.api.cursor,
+  //     }),
+  //     queue_name: `mrq.${threadID}`,
+  //     task_id: 1,
+  //     failure_count: null,
+  //   })
+  // }
 
   getThreads() {
     this.publishTask({
