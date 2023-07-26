@@ -1,16 +1,15 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType, Message, Thread, Participant } from '@textshq/platform-sdk'
-import { desc, eq, type InferModel } from 'drizzle-orm'
+import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
+import type { InferModel } from 'drizzle-orm'
+import { readFile } from 'fs/promises'
 
 import * as schema from './store/schema'
-import { FOREVER } from './store/helpers'
 import type Instagram from './api'
 import { parsePayload, parseRawPayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
-import { ExtendedIGThread, IGThread } from './ig-types'
 import type { SerializedSession } from './types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
@@ -299,7 +298,6 @@ export default class InstagramAPI {
     const mappedNewConversations = newConversations?.map(mapThread)
 
     const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
-    this.upsertThreads(newConversations)
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
@@ -307,7 +305,6 @@ export default class InstagramAPI {
       mutationType: 'upsert',
       entries: mappedNewConversations,
     }])
-    this.upsertMessages(mappedNewMessages)
     for (const message of mappedNewMessages) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -344,43 +341,43 @@ export default class InstagramAPI {
     return mapMessage(this.fbid, message)
   }
 
-  private addThread(thread: InferModel<typeof schema['threads'], 'insert'>) {
-    texts.log(`addThread ${thread.id} ${JSON.stringify(thread, null, 2)}`)
-    const response = this.papi.db.insert(schema.threads).values(thread).run()
-    texts.log(`addThread ${thread.id} response: ${JSON.stringify(response, null, 2)}`)
-  }
+  // private addThread(thread: InferModel<typeof schema['threads'], 'insert'>) {
+  //   texts.log(`addThread ${thread.id} ${JSON.stringify(thread, null, 2)}`)
+  //   const response = this.papi.db.insert(schema.threads).values(thread).run()
+  //   texts.log(`addThread ${thread.id} response: ${JSON.stringify(response, null, 2)}`)
+  // }
 
-  private upsertThread(thread: ExtendedIGThread) {
-    const mapped = mapThread(thread)
-    const threads = mapped.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, mapped.id)).all() : []
+  // private upsertThread(thread: ExtendedIGThread) {
+  //   const mapped = mapThread(thread)
+  //   const threads = mapped.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, mapped.id)).all() : []
 
-    this.logger.info('upsertThread', { id: mapped.id || 'unknown id', mapped, threads })
+  //   this.logger.info('upsertThread', { id: mapped.id || 'unknown id', mapped, threads })
 
-    if (threads.length === 0) {
-      return this.addThread({
-        original: thread,
-        _original_parsed: JSON.stringify(thread),
-        title: mapped.title,
-        id: mapped.id,
-        type: mapped.type,
-        mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
-      })
-    }
+  //   if (threads.length === 0) {
+  //     return this.addThread({
+  //       original: thread,
+  //       _original_parsed: JSON.stringify(thread),
+  //       title: mapped.title,
+  //       id: mapped.id,
+  //       type: mapped.type,
+  //       mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
+  //     })
+  //   }
 
-    return this.papi.db.update(schema.threads).set({
-      original: thread,
-      _original_parsed: JSON.stringify(thread),
-      title: mapped.title,
-      id: mapped.id,
-      type: mapped.type,
-      mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
-    }).where(eq(schema.threads.id, mapped.id)).run()
-  }
+  //   return this.papi.db.update(schema.threads).set({
+  //     original: thread,
+  //     _original_parsed: JSON.stringify(thread),
+  //     title: mapped.title,
+  //     id: mapped.id,
+  //     type: mapped.type,
+  //     mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
+  //   }).where(eq(schema.threads.id, mapped.id)).run()
+  // }
 
-  upsertThreads(threads: ExtendedIGThread[]) {
-    if (threads?.length < 1) return
-    return threads.map(thread => this.upsertThread(thread))
-  }
+  // upsertThreads(threads: ExtendedIGThread[]) {
+  //   if (threads?.length < 1) return
+  //   return threads.map(thread => this.upsertThread(thread))
+  // }
 
   // private addMessage(threadID: string, message: InferModel<typeof schema['messages'], 'insert'>) {
   //   return this.papi.db.insert(schema.messages).values(message).run()
@@ -393,86 +390,144 @@ export default class InstagramAPI {
   //   }))
   // }
 
-  private upsertMessage(threadID: string, message: Message) {
-    const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
-    if (messages.length === 0) {
-      return this.papi.db.insert(schema.messages).values({
-        original: message._original as any,
-        id: message.id,
-        senderID: message.senderID,
-        text: message.text,
-        timestamp: message.timestamp,
-        isSender: message.isSender,
-        threadID,
-        seen: new Date(),
-        action: null,
-        sortKey: null,
-      }).run()
+  // private upsertMessage(threadID: string, message: Message) {
+  //   const messages = message.id ? this.papi.db.select().from(schema.messages).where(eq(schema.messages.id, schema.messages.id)).all() : []
+  //   if (messages.length === 0) {
+  //     return this.papi.db.insert(schema.messages).values({
+  //       original: message._original as any,
+  //       id: message.id,
+  //       senderID: message.senderID,
+  //       text: message.text,
+  //       timestamp: message.timestamp,
+  //       isSender: message.isSender,
+  //       threadID,
+  //       seen: new Date(),
+  //       action: null,
+  //       sortKey: null,
+  //     }).run()
+  //   }
+
+  //   return this.papi.db.update(schema.messages).set({
+  //     threadID,
+  //     seen: new Date(),
+  //     action: null,
+  //     sortKey: null,
+  //     original: message._original as any,
+  //     id: message.id,
+  //     senderID: message.senderID,
+  //     text: message.text,
+  //     timestamp: message.timestamp,
+  //     isSender: message.isSender,
+  //   }).where(eq(schema.messages.id, message.id)).run()
+  // }
+
+  // upsertMessages(messages: Message[]) {
+  //   return messages.map(message => this.upsertMessage(message.threadID, message))
+  // }
+
+  // getLastMessage(threadID: string) {
+  //   return this.papi.db.select({
+  //     threadID: schema.messages.threadID,
+  //     id: schema.messages.id,
+  //     timestamp: schema.messages.timestamp,
+  //   }).from(schema.messages).limit(1).where(eq(schema.messages.threadID, threadID)).orderBy(desc(schema.messages.timestamp)).get()
+  // }
+
+  // private addParticipant(participant: InferModel<typeof schema['participants'], 'insert'>) {
+  //   texts.log(`addParticipant ${participant.id} ${JSON.stringify(participant, null, 2)}`)
+  //   this.papi.db.insert(schema.participants).values(participant).run()
+  // }
+
+  // private upsertParticipant(threadID: string, participant: Participant) {
+  //   this.logger.info('upsertParticipant', { id: participant.id || 'unknown id', threadID, participant })
+  //   if (!participant.id) return
+
+  //   const participants = this.papi.db.select({ id: schema.participants.id })
+  //     .from(schema.participants)
+  //     .where(eq(schema.participants.id, participant.id))
+  //     .where(eq(schema.participants.threadID, threadID))
+  //     .all()
+
+  //   if (participants.length === 0) {
+  //     return this.addParticipant({
+  //       original: participant,
+  //       threadID,
+  //       id: participant.id,
+  //       username: participant.username,
+  //       name: participant.fullName,
+  //     })
+  //   }
+
+  //   return this.papi.db.update(schema.participants).set({
+  //     original: participant,
+  //     threadID,
+  //     id: participant.id,
+  //     username: participant.username,
+  //     name: participant.fullName,
+  //   }).where(eq(schema.participants.id, participant.id)).run()
+  // }
+
+  // upsertParticipants(threadID: string, participants: Participant[]) {
+  //   if (participants?.length < 1) return
+  //   return participants.map(participant => this.upsertParticipant(threadID, participant))
+  // }
+
+  private async uploadPhoto(filePath: string, fileName?: string) {
+    const file = await readFile(filePath)
+    const blob = new Blob([file], { type: 'image/jpeg' })
+    const formData = new FormData()
+    formData.append('farr', blob, fileName || 'image.jpg')
+    const res = await this.axios.post('https://www.instagram.com/ajax/mercury/upload.php', formData, {
+      params: {
+        __a: '1',
+        fb_dtsg: this.dtsg,
+      },
+      headers: {
+        authority: 'www.instagram.com',
+        accept: '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'content-type':
+          'multipart/form-data; boundary=----WebKitFormBoundaryK8furxKOo3188usO',
+        cookie: this.getCookies(),
+        origin: 'https://www.instagram.com',
+        referer: 'https://www.instagram.com/direct/t/100428318021025/',
+        'sec-ch-prefers-color-scheme': 'dark',
+        'sec-ch-ua':
+          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        'sec-ch-ua-full-version-list':
+          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.4.1"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': this.ua,
+        'viewport-width': '1280',
+        'x-asbd-id': '129477',
+        'x-fb-lsd': 'khvBZW0GBGHjqubNqNUMn2',
+      },
+    })
+
+    const response = res.data
+    const jsonStartIndex = response.indexOf('{')
+    const jsonResponse = response.substring(jsonStartIndex)
+
+    // Parse the JSON object
+    const parsedData = JSON.parse(jsonResponse)
+    return parsedData
+  }
+
+  async sendImage(threadID: string, { filePath, fileName }: { filePath: string, fileName: string }) {
+    this.logger.info('sendImage about to call uploadPhoto')
+    try {
+      const res = await this.uploadPhoto(filePath, fileName)
+      this.logger.info('sendImage', res)
+      const imageId = res.payload.metadata[0].image_id
+      this.papi.socket.sendImage(threadID, imageId)
+    } catch (err) {
+      this.logger.error('ig-api sendImage error', err)
     }
-
-    return this.papi.db.update(schema.messages).set({
-      threadID,
-      seen: new Date(),
-      action: null,
-      sortKey: null,
-      original: message._original as any,
-      id: message.id,
-      senderID: message.senderID,
-      text: message.text,
-      timestamp: message.timestamp,
-      isSender: message.isSender,
-    }).where(eq(schema.messages.id, message.id)).run()
-  }
-
-  upsertMessages(messages: Message[]) {
-    return messages.map(message => this.upsertMessage(message.threadID, message))
-  }
-
-  getLastMessage(threadID: string) {
-    return this.papi.db.select({
-      threadID: schema.messages.threadID,
-      id: schema.messages.id,
-      timestamp: schema.messages.timestamp,
-    }).from(schema.messages).limit(1).where(eq(schema.messages.threadID, threadID)).orderBy(desc(schema.messages.timestamp)).get()
-  }
-
-  private addParticipant(participant: InferModel<typeof schema['participants'], 'insert'>) {
-    texts.log(`addParticipant ${participant.id} ${JSON.stringify(participant, null, 2)}`)
-    this.papi.db.insert(schema.participants).values(participant).run()
-  }
-
-  private upsertParticipant(threadID: string, participant: Participant) {
-    this.logger.info('upsertParticipant', { id: participant.id || 'unknown id', threadID, participant })
-    if (!participant.id) return
-
-    const participants = this.papi.db.select({ id: schema.participants.id })
-      .from(schema.participants)
-      .where(eq(schema.participants.id, participant.id))
-      .where(eq(schema.participants.threadID, threadID))
-      .all()
-
-    if (participants.length === 0) {
-      return this.addParticipant({
-        original: participant,
-        threadID,
-        id: participant.id,
-        username: participant.username,
-        name: participant.fullName,
-      })
-    }
-
-    return this.papi.db.update(schema.participants).set({
-      original: participant,
-      threadID,
-      id: participant.id,
-      username: participant.username,
-      name: participant.fullName,
-    }).where(eq(schema.participants.id, participant.id)).run()
-  }
-
-  upsertParticipants(threadID: string, participants: Participant[]) {
-    if (participants?.length < 1) return
-    return participants.map(participant => this.upsertParticipant(threadID, participant))
   }
 
   // private addThread(thread: InferModel<typeof schema['threads'], 'insert'>): Omit<Thread, 'messages' | 'participants'> {
