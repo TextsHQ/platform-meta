@@ -285,10 +285,10 @@ export default class InstagramAPI {
     this.cursorCache = cursorResponse
 
     const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
-    if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
-    if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
-    if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
-    if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
+    // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
+    // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
+    // if (rawd.upsertMessage) this.addMessages(rawd.upsertMessage)
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
