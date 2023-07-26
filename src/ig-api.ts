@@ -326,14 +326,17 @@ export default class InstagramAPI {
   }
 
   addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
+    this.logger.info('addUsers', users)
     return this.papi.db.insert(schema.users).values(users).onConflictDoNothing().run()
   }
 
   addParticipants(participants: InferModel<typeof schema['participants'], 'insert'>[]) {
+    this.logger.info('addParticipants', participants)
     return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+    this.logger.info('addMessages', messages)
     return this.papi.db
       .insert(schema.messages)
       .values(messages)
@@ -342,6 +345,7 @@ export default class InstagramAPI {
   }
 
   addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
+    this.logger.info('addReactions', reactions)
     return this.papi.db
       .insert(schema.reactions)
       .values(reactions)

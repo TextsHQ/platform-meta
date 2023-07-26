@@ -90,14 +90,11 @@ CREATE TABLE `participants` (
 --> statement-breakpoint
 CREATE TABLE `reactions` (
 	`_original` blob,
-	`threadKey` text NOT NULL,
+	`threadKey` text,
 	`timestampMs` integer,
-	`messageId` text NOT NULL,
-	`actorId` text NOT NULL,
-	`reaction` text,
-	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`messageId`) REFERENCES `messages`(`messageId`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`actorId`) REFERENCES `users`(`threadKey`) ON UPDATE no action ON DELETE no action
+	`messageId` text,
+	`actorId` text,
+	`reaction` text
 );
 --> statement-breakpoint
 CREATE TABLE `threads` (

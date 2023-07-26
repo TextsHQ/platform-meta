@@ -163,10 +163,13 @@ export const selectParticipantSchema = createSelectSchema(participants)
 
 export const reactions = sqliteTable('reactions', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
-  threadKey: text('threadKey').notNull().references(() => threads.threadKey),
+  // threadKey: text('threadKey').references(() => threads.threadKey),
+  threadKey: text('threadKey'),
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
-  messageId: text('messageId').notNull().references(() => messages.messageId),
-  actorId: text('actorId').notNull().references(() => users.id),
+  messageId: text('messageId'),
+  // messageId: text('messageId').notNull().references(() => messages.messageId),
+  // actorId: text('actorId').notNull().references(() => users.id),
+  actorId: text('actorId'),
   reaction: text('reaction'),
 })
 

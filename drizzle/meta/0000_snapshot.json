@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "9d7a1368-f117-4519-84ef-0885ae620c2a",
+  "id": "b80bf7b6-9edc-4a6d-bad3-b5fe28da97b1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -645,7 +645,7 @@
           "name": "threadKey",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "timestampMs": {
@@ -659,14 +659,14 @@
           "name": "messageId",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "actorId": {
           "name": "actorId",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "reaction": {
@@ -678,47 +678,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "reactions_threadKey_threads_threadKey_fk": {
-          "name": "reactions_threadKey_threads_threadKey_fk",
-          "tableFrom": "reactions",
-          "tableTo": "threads",
-          "columnsFrom": [
-            "threadKey"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "reactions_messageId_messages_messageId_fk": {
-          "name": "reactions_messageId_messages_messageId_fk",
-          "tableFrom": "reactions",
-          "tableTo": "messages",
-          "columnsFrom": [
-            "messageId"
-          ],
-          "columnsTo": [
-            "messageId"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "reactions_actorId_users_threadKey_fk": {
-          "name": "reactions_actorId_users_threadKey_fk",
-          "tableFrom": "reactions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "actorId"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
