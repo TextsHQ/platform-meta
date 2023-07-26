@@ -75,6 +75,27 @@ const parseReaction = (a) => ({
   actorId: a[3][1],
   reaction: a[4],
 });
+
+const parseSearchArguments = (a) => ({
+  // query: a[0],
+  userId: a[1],
+  displayName: a[5],
+  profilePictureUrl: a[6],
+  username: a[8],
+  // messageId: a[9],
+  // messageTimestampMs: new Date(Number(a[10])),
+  // isVerified: a[12],
+});
+
+const parseMap = {
+  deleteThenInsertThread: parseThread,
+  upsertMessage: parseMessage,
+  upsertReaction: parseReaction,
+  addParticipantIdToGroupThread: parseParticipant,
+  verifyContactRowExists: parseUser,
+  insertSearchResult: parseSearchArguments,
+};
+
 export function parseRawPayload(payload) {
   const j = JSON.parse(payload);
   // tasks we are interested in
@@ -85,24 +106,52 @@ export function parseRawPayload(payload) {
     upsertMessage: [],
     upsertReaction: [],
     upsertSyncGroupThreadsRange: [],
+    insertSearchResult: [],
   };
+
   // loop through the tasks
   for (const item of j.step[2][2][2].slice(1)) {
     // if we are interested in the task then add it to the lsCalls object
     if (item[1][1] in lsCalls) {
+      console.error("item is", item[1][1]);
       lsCalls[item[1][1]].push(item[1].slice(2));
     }
   }
 
-  // Process lsCalls and return the desired output
+  // Remove empty lsCalls or lsCalls that are not in parseMap
+  for (const key in lsCalls) {
+    if (lsCalls[key].length === 0 || !(key in parseMap)) {
+      delete lsCalls[key];
+    }
+  }
+  // parse the lsCalls
+  const result = {};
 
-  const parseMap = {
-    deleteThenInsertThread: parseThread,
-    upsertMessage: parseMessage,
-    upsertReaction: parseReaction,
-    addParticipantIdToGroupThread: parseParticipant,
-    verifyContactRowExists: parseUser,
+  for (const key in lsCalls) {
+    result[key] = lsCalls[key].map(parseMap[key]);
+  }
+  return result;
+}
+
+export function parseSearchResult(payload) {
+  const j = JSON.parse(payload);
+  // tasks we are interested in
+  const lsCalls = {
+    insertSearchResult: [],
   };
+
+  // loop through the tasks
+  let i = 0;
+  for (const i of j.step.slice(2)) {
+    const functionName = i[2][2][1][1];
+    const args = i[2][2][1].splice(2);
+
+    // if we are interested in the task then add it to the lsCalls object
+    if (functionName in lsCalls) {
+      lsCalls[functionName].push(args);
+    }
+  }
+
   // Remove empty lsCalls or lsCalls that are not in parseMap
   for (const key in lsCalls) {
     if (lsCalls[key].length === 0 || !(key in parseMap)) {

@@ -1,6 +1,10 @@
 import axios from "axios";
 import mqtt from "mqtt-packet";
 import { get } from "./settings.mjs";
+import path from "path";
+import process from "process";
+import { createRequire } from "module";
+import { fileURLToPath } from "url";
 const commonHeaders = {
   authority: "www.instagram.com",
   "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
@@ -17,7 +21,15 @@ const commonHeaders = {
     '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
   cookie: get("cookies"),
 };
-
+export const getTimeValues = () => {
+  // console.log(typing.toString("hex").match(/../g).join(" "));
+  // https://intuitiveexplanations.com/tech/messenger
+  // link above has good explanation of otid
+  const timestamp = BigInt(Date.now());
+  const epoch_id = timestamp << BigInt(22);
+  const otid = epoch_id + BigInt(Math.floor(Math.random() * 2 ** 22));
+  return { timestamp, epoch_id: Number(epoch_id), otid };
+};
 export async function getClientId() {
   const response = await axios.get("https://www.instagram.com/direct/", {
     headers: {
@@ -101,3 +113,35 @@ export function parseMqttPacket(data) {
 }
 
 export const mqttSid = parseInt(Math.random().toFixed(16).split(".")[1]);
+export function stripExt(name) {
+  const extension = path.extname(name);
+  if (!extension) {
+    return name;
+  }
+
+  return name.slice(0, -extension.length);
+}
+
+/**
+ * Check if a module was run directly with node as opposed to being
+ * imported from another module.
+ * @param {ImportMeta} meta The `import.meta` object.
+ * @return {boolean} The module was run directly with node.
+ */
+export function esMain(meta) {
+  if (!meta || !process.argv[1]) {
+    return false;
+  }
+
+  const require = createRequire(meta.url);
+  const scriptPath = require.resolve(process.argv[1]);
+
+  const modulePath = fileURLToPath(meta.url);
+
+  const extension = path.extname(scriptPath);
+  if (extension) {
+    return modulePath === scriptPath;
+  }
+
+  return stripExt(modulePath) === scriptPath;
+}

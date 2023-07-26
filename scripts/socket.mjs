@@ -1,14 +1,14 @@
 import WebSocket from "ws";
 import mqtt from "mqtt-packet";
-import { get } from './settings.mjs'
-import { getClientId, apiCall, mqttSid } from './utils.mjs'
+import { get } from "./settings.mjs";
+import { getClientId, apiCall, mqttSid, getTimeValues } from "./utils.mjs";
 
-const cookies = get('cookies');
+const cookies = get("cookies");
 
-let isConnectedPromiseResolve
+let isConnectedPromiseResolve;
 export const isConnectedPromise = new Promise((resolve, reject) => {
-  isConnectedPromiseResolve = resolve
-})
+  isConnectedPromiseResolve = resolve;
+});
 
 // construct the conversations from undecipherable data
 function parseGetCursorResponse(payload) {
@@ -62,7 +62,6 @@ async function getCursor(cid, dtsg) {
 const { clientId, dtsg, userId: myUserId } = await getClientId();
 
 let cursor = await getCursor(clientId, dtsg);
-console.log(cursor);
 
 export const ws = new WebSocket(
   `wss://edge-chat.instagram.com/chat?sid=${mqttSid}&cid=${clientId}`,
@@ -90,8 +89,7 @@ ws.on("error", function incoming(data) {
 });
 
 ws.on("open", function open() {
-  console.log("connected");
-  isConnectedPromiseResolve?.()
+  isConnectedPromiseResolve?.();
 
   // initiate connection
   ws.send(
@@ -144,7 +142,7 @@ ws.on("open", function open() {
 });
 
 ws.on("message", function incoming(data) {
-  console.log('on msg from socket', data)
+  // console.log("on msg from socket", data);
   if (data.toString("hex") == "42020001") {
     // ack for app settings
 
@@ -191,9 +189,9 @@ ws.on("message", function incoming(data) {
     );
   } else if (data[0] != 0x42) {
     // @TODO
-    console.log("data", data);
+    // console.error("data", data);
   } else {
-    console.log("data", data);
+    // console.error("data", data);
   }
 });
 
@@ -204,3 +202,28 @@ ws.on("close", function close() {
 process.on("SIGINT", () => {
   ws.close();
 });
+
+export function publishTask(_tasks) {
+  const tasks = Array.isArray(_tasks) ? _tasks : [_tasks];
+  const { epoch_id } = getTimeValues();
+  const bytesToSend = mqtt.generate({
+    cmd: "publish",
+    messageId: 6,
+    qos: 1,
+    dup: false,
+    retain: false,
+    topic: "/ls_req",
+    payload: JSON.stringify({
+      app_id: "936619743392459",
+      payload: JSON.stringify({
+        tasks,
+        epoch_id,
+        version_id: "9477666248971112",
+      }),
+      request_id: 6,
+      type: 3,
+    }),
+  });
+  ws.send(bytesToSend);
+  return bytesToSend;
+}

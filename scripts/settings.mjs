@@ -1,23 +1,23 @@
 // settings.mjs (written by chatgpt)
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
-const CACHE_FILE_PATH = path.resolve(process.cwd(), '.cache.json');
+const CACHE_FILE_PATH = path.resolve(process.cwd(), ".cache.json");
 
 let cache = new Map();
 
 // Load values from .cache.json if it exists.
 function loadCache() {
   try {
-    const data = fs.readFileSync(CACHE_FILE_PATH, 'utf-8');
+    const data = fs.readFileSync(CACHE_FILE_PATH, "utf-8");
     const json = JSON.parse(data);
     for (const key in json) {
       cache.set(key, json[key]);
     }
   } catch (err) {
-    if (err.code === 'ENOENT') {
+    if (err.code === "ENOENT") {
       // Set defaults if the file not found
-      set('cookies', null);
+      set("cookies", null);
     } else {
       throw err; // Re-throw errors other than "file not found"
     }
@@ -54,7 +54,4 @@ function get(key) {
 // Initialization
 loadCache();
 
-export {
-  set,
-  get
-};
+export { set, get };

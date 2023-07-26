@@ -7,7 +7,9 @@ import { mqttSid, getClientId } from "./utils.mjs";
 const cookies = get("cookies");
 const threads = get("threads");
 const threadIds = Object.keys(threads);
-
+if (!threadIds.length) {
+  console.log("No threads found, please run getThreads.mjs first");
+}
 let threadId = get("selectedThread");
 if (!threadId) {
   threadId = threadIds[Math.floor(Math.random() * threadIds.length)];
