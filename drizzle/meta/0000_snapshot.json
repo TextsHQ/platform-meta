@@ -1,12 +1,19 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "1e366b88-6a5d-4c6a-a404-8257fea40b22",
+  "id": "e5a80216-89dd-4cd9-9d6a-2286f331386f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
       "name": "attachments",
       "columns": {
+        "_original_parsed": {
+          "name": "_original_parsed",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "_original": {
           "name": "_original",
           "type": "blob",
@@ -32,7 +39,7 @@
           "name": "attachmentFbid",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "filename": {
@@ -51,13 +58,6 @@
         },
         "hasMedia": {
           "name": "hasMedia",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isSharable": {
-          "name": "isSharable",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -226,7 +226,7 @@
         },
         "attachmentType": {
           "name": "attachmentType",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -331,7 +331,7 @@
         },
         "authorityLevel": {
           "name": "authorityLevel",
-          "type": "text",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -339,33 +339,77 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "attachments_threadKey_threads_threadKey_fk": {
-          "name": "attachments_threadKey_threads_threadKey_fk",
+        "attachments_threadKey_threads_id_fk": {
+          "name": "attachments_threadKey_threads_id_fk",
           "tableFrom": "attachments",
           "tableTo": "threads",
           "columnsFrom": [
             "threadKey"
           ],
           "columnsTo": [
-            "threadKey"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "attachments_messageId_messages_messageId_fk": {
-          "name": "attachments_messageId_messages_messageId_fk",
+        "attachments_messageId_messages_id_fk": {
+          "name": "attachments_messageId_messages_id_fk",
           "tableFrom": "attachments",
           "tableTo": "messages",
           "columnsFrom": [
             "messageId"
           ],
           "columnsTo": [
-            "messageId"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "contacts": {
+      "name": "contacts",
+      "columns": {
+        "_original": {
+          "name": "_original",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fbid": {
+          "name": "fbid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -379,60 +423,81 @@
           "notNull": false,
           "autoincrement": false
         },
-        "threadKey": {
-          "name": "threadKey",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "offlineThreadingId": {
-          "name": "offlineThreadingId",
+        "_original_parsed": {
+          "name": "_original_parsed",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "authorityLevel": {
-          "name": "authorityLevel",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "timestampMs": {
-          "name": "timestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "messageId": {
-          "name": "messageId",
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
-        "senderId": {
-          "name": "senderId",
-          "type": "text",
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "isAdminMessage": {
-          "name": "isAdminMessage",
+        "editedTimestamp": {
+          "name": "editedTimestamp",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "sendStatus": {
-          "name": "sendStatus",
+        "expiresInSeconds": {
+          "name": "expiresInSeconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forwardedCount": {
+          "name": "forwardedCount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forwardedFromText": {
+          "name": "forwardedFromText",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
+          "autoincrement": false
+        },
+        "forwardedFromThreadID": {
+          "name": "forwardedFromThreadID",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forwardedFromUserID": {
+          "name": "forwardedFromUserID",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "senderID": {
+          "name": "senderID",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "threadID": {
+          "name": "threadID",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "text": {
@@ -442,78 +507,135 @@
           "notNull": false,
           "autoincrement": false
         },
-        "subscriptErrorMessage": {
-          "name": "subscriptErrorMessage",
+        "textAttributes": {
+          "name": "textAttributes",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "textHeading": {
+          "name": "textHeading",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "stickerId": {
-          "name": "stickerId",
+        "textFooter": {
+          "name": "textFooter",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "messageRenderingType": {
-          "name": "messageRenderingType",
+        "iframeURL": {
+          "name": "iframeURL",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "isUnsent": {
-          "name": "isUnsent",
+        "seen": {
+          "name": "seen",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "unsentTimestampMs": {
-          "name": "unsentTimestampMs",
+        "isDelivered": {
+          "name": "isDelivered",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "mentionOffsets": {
-          "name": "mentionOffsets",
+        "isHidden": {
+          "name": "isHidden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isSender": {
+          "name": "isSender",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isAction": {
+          "name": "isAction",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isDeleted": {
+          "name": "isDeleted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isErrored": {
+          "name": "isErrored",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "parseTemplate": {
+          "name": "parseTemplate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "linkedMessageThreadID": {
+          "name": "linkedMessageThreadID",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "mentionLengths": {
-          "name": "mentionLengths",
+        "linkedMessageID": {
+          "name": "linkedMessageID",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "mentionIds": {
-          "name": "mentionIds",
+        "action": {
+          "name": "action",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "mentionTypes": {
-          "name": "mentionTypes",
+        "cursor": {
+          "name": "cursor",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "replySourceId": {
-          "name": "replySourceId",
+        "behavior": {
+          "name": "behavior",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": null
+        },
+        "accountID": {
+          "name": "accountID",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "replySourceType": {
-          "name": "replySourceType",
+        "sortKey": {
+          "name": "sortKey",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -521,7 +643,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "messages_forwardedFromThreadID_threads_id_fk": {
+          "name": "messages_forwardedFromThreadID_threads_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "forwardedFromThreadID"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "messages_threadID_threads_id_fk": {
+          "name": "messages_threadID_threads_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "threadID"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
@@ -535,128 +684,44 @@
           "notNull": false,
           "autoincrement": false
         },
-        "threadKey": {
-          "name": "threadKey",
+        "threadID": {
+          "name": "threadID",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "userId": {
-          "name": "userId",
+        "contactID": {
+          "name": "contactID",
           "type": "text",
           "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": null
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
-        "readWatermarkTimestampMs": {
-          "name": "readWatermarkTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "readActionTimestampMs": {
-          "name": "readActionTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "deliveredWatermarkTimestampMs": {
-          "name": "deliveredWatermarkTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "lastDeliveredActionTimestampMs": {
-          "name": "lastDeliveredActionTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isAdmin": {
-          "name": "isAdmin",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "participants_threadKey_threads_threadKey_fk": {
-          "name": "participants_threadKey_threads_threadKey_fk",
-          "tableFrom": "participants",
-          "tableTo": "threads",
-          "columnsFrom": [
-            "threadKey"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "participants_userId_users_threadKey_fk": {
-          "name": "participants_userId_users_threadKey_fk",
-          "tableFrom": "participants",
-          "tableTo": "users",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "reactions": {
-      "name": "reactions",
-      "columns": {
-        "_original": {
-          "name": "_original",
-          "type": "blob",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "threadKey": {
-          "name": "threadKey",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "timestampMs": {
-          "name": "timestampMs",
-          "type": "integer",
+        "username": {
+          "name": "username",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "messageId": {
-          "name": "messageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actorId": {
-          "name": "actorId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reaction": {
-          "name": "reaction",
+        "fbid": {
+          "name": "fbid",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -665,41 +730,28 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "reactions_threadKey_threads_threadKey_fk": {
-          "name": "reactions_threadKey_threads_threadKey_fk",
-          "tableFrom": "reactions",
+        "participants_threadID_threads_id_fk": {
+          "name": "participants_threadID_threads_id_fk",
+          "tableFrom": "participants",
           "tableTo": "threads",
           "columnsFrom": [
-            "threadKey"
+            "threadID"
           ],
           "columnsTo": [
-            "threadKey"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "reactions_messageId_messages_messageId_fk": {
-          "name": "reactions_messageId_messages_messageId_fk",
-          "tableFrom": "reactions",
-          "tableTo": "messages",
+        "participants_contactID_contacts_id_fk": {
+          "name": "participants_contactID_contacts_id_fk",
+          "tableFrom": "participants",
+          "tableTo": "contacts",
           "columnsFrom": [
-            "messageId"
+            "contactID"
           ],
           "columnsTo": [
-            "messageId"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "reactions_actorId_users_threadKey_fk": {
-          "name": "reactions_actorId_users_threadKey_fk",
-          "tableFrom": "reactions",
-          "tableTo": "users",
-          "columnsFrom": [
-            "actorId"
-          ],
-          "columnsTo": [
-            "threadKey"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -718,25 +770,18 @@
           "notNull": false,
           "autoincrement": false
         },
-        "threadKey": {
-          "name": "threadKey",
+        "_original_parsed": {
+          "name": "_original_parsed",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
-        },
-        "lastReadWatermarkTimestampMs": {
-          "name": "lastReadWatermarkTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "threadType": {
-          "name": "threadType",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "folderName": {
@@ -746,248 +791,100 @@
           "notNull": false,
           "autoincrement": false
         },
-        "parentThreadKey": {
-          "name": "parentThreadKey",
+        "title": {
+          "name": "title",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "lastActivityTimestampMs": {
-          "name": "lastActivityTimestampMs",
+        "isUnread": {
+          "name": "isUnread",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "snippet": {
-          "name": "snippet",
+        "lastReadMessageID": {
+          "name": "lastReadMessageID",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "threadName": {
-          "name": "threadName",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "threadPictureUrl": {
-          "name": "threadPictureUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "needsAdminApprovalForNewParticipant": {
-          "name": "needsAdminApprovalForNewParticipant",
+        "isReadOnly": {
+          "name": "isReadOnly",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "threadPictureUrlFallback": {
-          "name": "threadPictureUrlFallback",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "removeWatermarkTimestampMs": {
-          "name": "removeWatermarkTimestampMs",
+        "isArchived": {
+          "name": "isArchived",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "muteExpireTimeMs": {
-          "name": "muteExpireTimeMs",
+        "isPinned": {
+          "name": "isPinned",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "groupNotificationSettings": {
-          "name": "groupNotificationSettings",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isAdminSnippet": {
-          "name": "isAdminSnippet",
+        "mutedUntil": {
+          "name": "mutedUntil",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "snippetSenderContactId": {
-          "name": "snippetSenderContactId",
+        "type": {
+          "name": "type",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'single'"
         },
-        "snippetStringHash": {
-          "name": "snippetStringHash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "snippetStringArgument1": {
-          "name": "snippetStringArgument1",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "snippetAttribution": {
-          "name": "snippetAttribution",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "snippetAttributionStringHash": {
-          "name": "snippetAttributionStringHash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "disappearingSettingTtl": {
-          "name": "disappearingSettingTtl",
+        "timestamp": {
+          "name": "timestamp",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "disappearingSettingUpdatedTs": {
-          "name": "disappearingSettingUpdatedTs",
+        "imgURL": {
+          "name": "imgURL",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "disappearingSettingUpdatedBy": {
-          "name": "disappearingSettingUpdatedBy",
+        "description": {
+          "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "cannotReplyReason": {
-          "name": "cannotReplyReason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "customEmoji": {
-          "name": "customEmoji",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "customEmojiImageUrl": {
-          "name": "customEmojiImageUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "outgoingBubbleColor": {
-          "name": "outgoingBubbleColor",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "themeFbid": {
-          "name": "themeFbid",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "typing_indicators": {
-      "name": "typing_indicators",
-      "columns": {
-        "_original": {
-          "name": "_original",
+        "partialLastMessage": {
+          "name": "partialLastMessage",
           "type": "blob",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "threadKey": {
-          "name": "threadKey",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "minTimestampMs": {
-          "name": "minTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "minMessageId": {
-          "name": "minMessageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "maxTimestampMs": {
-          "name": "maxTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "maxMessageId": {
-          "name": "maxMessageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isLoadingBefore": {
-          "name": "isLoadingBefore",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isLoadingAfter": {
-          "name": "isLoadingAfter",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "hasMoreBefore": {
-          "name": "hasMoreBefore",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "hasMoreAfter": {
-          "name": "hasMoreAfter",
+        "messageExpirySeconds": {
+          "name": "messageExpirySeconds",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -996,64 +893,6 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "users": {
-      "name": "users",
-      "columns": {
-        "_original": {
-          "name": "_original",
-          "type": "blob",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "threadKey": {
-          "name": "threadKey",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "profilePictureUrl": {
-          "name": "profilePictureUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "users_threadKey_threads_threadKey_fk": {
-          "name": "users_threadKey_threads_threadKey_fk",
-          "tableFrom": "users",
-          "tableTo": "threads",
-          "columnsFrom": [
-            "threadKey"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     }

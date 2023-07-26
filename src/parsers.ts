@@ -1,12 +1,7 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
-type IGReaction = {
-  reactionSentTs: string
-  reactorId: string
-  reaction: string
-  messageId: string
-}
+import type { ExtendedIGMessage, ExtendedIGThread, IGAttachment, IGMessage, IGReaction, IGThread } from './ig-types'
 
 // construct the conversations from undecipherable data
 export function parsePayload(myUserId: string, payload: string) {
@@ -27,8 +22,10 @@ export function parsePayload(myUserId: string, payload: string) {
   const lastMessageLookup = {}
   const reactionLookup: Record<string, IGReaction[]> = {}
   const imageLookup: Record<string, { imageId: string, imageUrl: string }[]> = {}
+  const attachments: Map<IGAttachment['threadKey'], IGAttachment[]> = new Map()
+
   const conversationParticipants = {}
-  const conversations = []
+  const conversations: ExtendedIGThread[] = []
 
   // loop through the tasks
   for (const item of j.step[2][2][2].slice(1)) {
@@ -60,6 +57,7 @@ export function parsePayload(myUserId: string, payload: string) {
     }
     conversationParticipants[threadId].add(userLookup[userId])
   }
+
   for (const item of lsCalls.upsertReaction) {
     const reactionSentTs = item[1][1]
     const messageId = item[2] as string
@@ -80,87 +78,189 @@ export function parsePayload(myUserId: string, payload: string) {
   }
 
   for (const item of lsCalls.insertBlobAttachment) {
-    const imageUrl = item[8]
-    const messageId = item[32]
-    const imageId = item[0]
+    const attachment: IGAttachment = {
+      filename: item[0],
+      threadKey: item[27],
+      messageId: item[32],
+      previewUrl: item[8],
+      previewUrlFallback: item[9],
+      previewUrlExpirationTimestampMs: item[10],
+      previewUrlMimeType: item[11],
+      previewWidth: item[14],
+      previewHeight: item[15],
+      timestampMs: item[31],
+      attachmentType: item[29],
+      attachmentFbid: item[34],
+      filesize: item[1],
+      hasMedia: item[2],
+      playableUrl: item[3],
+      playableUrlFallback: item[4],
+      playableUrlExpirationTimestampMs: item[5],
+      playableUrlMimeType: item[6],
+      dashManifest: item[7],
+      miniPreview: item[13],
+      attributionAppId: item[16],
+      attributionAppName: item[17],
+    }
+
+    attachments.set(
+      attachment.threadKey,
+      [...(attachments.get(attachment.threadKey) || []), attachment],
+    )
+
+    const { messageId } = attachment
     if (!(messageId in imageLookup)) {
       imageLookup[messageId] = []
     }
     imageLookup[messageId].push({
-      imageId,
-      imageUrl,
+      imageId: attachment.attachmentFbid,
+      imageUrl: attachment.previewUrl,
     })
   }
 
-  const newMessages = []
+  const newMessages: ExtendedIGMessage[] = []
   for (const item of lsCalls.upsertMessage) {
-    const message = item[0]
-    const threadId = item[3][1]
-    const sentTs = item[5][1]
-    const messageId = item[8]
-    const authorId = item[10][1]
+    const message: IGMessage = {
+      text: item[0],
+      threadKey: item[3][1],
+      messageId: item[8],
+      timestampMs: item[5][1],
+      senderId: item[10][1],
+    }
 
-    const _r = reactionLookup[messageId]
+    const _r = reactionLookup[message.messageId]
     const reaction = _r ? Array.from(_r) : null
-    const images = imageLookup[messageId]
+    const images = imageLookup[message.messageId]
 
     newMessages.push({
-      message,
-      messageId,
-      sentTs,
-      authorId,
-      threadId,
+      ...message,
       reaction,
       images,
     })
-    lastMessageLookup[threadId] = {
-      message,
-      sentTs,
-      messageId,
-      authorId,
-      threadId,
+    lastMessageLookup[message.threadKey] = {
+      ...message,
       reaction,
       images,
     }
   }
 
   for (const item of lsCalls.deleteThenInsertThread) {
-    const lastSentTime = item[0][1]
-    const lastReadTime = item[1][1]
-    let groupName: string
+    const lastActivityTimestampMs = item[0][1]
+    const lastReadWatermarkTimestampMs = item[1][1]
+    let threadName: string
     if (Array.isArray(item[3])) {
-      groupName = null
+      threadName = null
     } else {
       // eslint-disable-next-line prefer-destructuring
-      groupName = item[3]
+      threadName = item[3]
     }
 
-    const threadId = item[7][1]
+    const threadKey = item[7][1]
 
     // skip if threads have no participants ie no one is in the group
-    if (!(threadId in conversationParticipants)) continue
+    if (!(threadKey in conversationParticipants)) continue
 
-    // if groupName is null then set it to all the participants names
-    if (groupName === null) {
-      groupName = Array.from(conversationParticipants[threadId])
+    // if threadName is null then set it to all the participants names
+    if (threadName === null) {
+      threadName = Array.from(conversationParticipants[threadKey])
         .filter(x => (x as any).userId !== myUserId)
         .map(x => (x as any).name)
         .join(', ')
     }
 
     conversations.push({
-      threadId,
-      unread: Number(lastSentTime) > Number(lastReadTime),
-      lastReadTime,
-      lastSentTime,
-      groupName,
-      participants: Array.from(conversationParticipants[threadId]),
-      lastMessageDetails: lastMessageLookup[threadId],
+      lastActivityTimestampMs,
+      lastReadWatermarkTimestampMs,
+      snippet: item[2],
+      threadName,
+      threadPictureUrl: item[4],
+      needsAdminApprovalForNewParticipant: item[5],
+      authorityLevel: item[6],
+      threadKey,
+      parentThreadKey: item[38],
+      mailboxType: item[8],
+      threadType: item[9],
+      folderName: item[10],
+      threadPictureUrlFallback: item[11],
+      threadPictureUrlExpirationTimestampMs: item[12],
+      removeWatermarkTimestampMs: item[13],
+      muteExpireTimeMs: item[14],
+      muteMentionExpireTimeMs: item[15],
+      muteCallsExpireTimeMs: item[16],
+      groupNotificationSettings: item[19],
+      isAdminSnippet: item[20],
+      snippetSenderContactId: item[21],
+      snippetStringHash: item[24],
+      snippetStringArgument1: item[25],
+      snippetAttribution: item[26],
+      snippetAttributionStringHash: item[27],
+      disappearingSettingTtl: item[28],
+      disappearingSettingUpdatedTs: item[29],
+      disappearingSettingUpdatedBy: item[30],
+      ongoingCallState: item[32],
+      cannotReplyReason: item[33],
+      customEmoji: item[34],
+      customEmojiImageUrl: item[35],
+      outgoingBubbleColor: item[36],
+      themeFbid: item[37],
+      nullstateDescriptionText1: item[39],
+      nullstateDescriptionType1: item[40],
+      nullstateDescriptionText2: item[41],
+      nullstateDescriptionType2: item[42],
+      nullstateDescriptionText3: item[43],
+      nullstateDescriptionType3: item[44],
+      draftMessage: item[45],
+      snippetHasEmoji: item[46],
+      hasPersistentMenu: item[47],
+      disableComposerInput: item[48],
+      cannotUnsendReason: item[49],
+      viewedPluginKey: item[50],
+      viewedPluginContext: item[51],
+      clientThreadKey: item[52],
+      capabilities: item[53],
+      shouldRoundThreadPicture: item[54],
+      proactiveWarningDismissTime: item[55],
+      isCustomThreadPicture: item[56],
+      otidOfFirstMessage: item[57],
+      normalizedSearchTerms: item[58],
+      additionalThreadContext: item[59],
+      disappearingThreadKey: item[60],
+      isDisappearingMode: item[61],
+      disappearingModeInitiator: item[62],
+      unreadDisappearingMessageCount: item[63],
+      lastMessageCtaId: item[65],
+      lastMessageCtaType: item[66],
+      lastMessageCtaTimestampMs: item[67],
+      consistentThreadFbid: item[68],
+      threadDescription: item[70],
+      unsendLimitMs: item[71],
+      capabilities2: item[79],
+      capabilities3: item[80],
+      syncGroup: item[83],
+      threadInvitesEnabled: item[84],
+      threadInviteLink: item[85],
+      isAllUnreadMessageMissedCallXma: item[86],
+      lastNonMissedCallXmaMessageTimestampMs: item[87],
+      threadInvitesEnabledV2: item[89],
+      hasPendingInvitation: item[92],
+      eventStartTimestampMs: item[93],
+      eventEndTimestampMs: item[94],
+      takedownState: item[95],
+      secondaryParentThreadKey: item[96],
+      igFolder: item[97],
+      inviterId: item[98],
+      threadTags: item[99],
+      threadStatus: item[100],
+      threadSubtype: item[101],
+      pauseThreadTimestamp: item[102],
+      unread: Number(lastActivityTimestampMs) > Number(lastReadWatermarkTimestampMs),
+      participants: Array.from(conversationParticipants[threadKey]),
+      lastMessageDetails: lastMessageLookup[threadKey],
     })
   }
 
   return {
-    newMessages: newMessages.length ? newMessages : null,
+    newMessages,
     newConversations: conversations.length ? conversations : null,
     // return newreactions as an array if it exists and remove the set
     newReactions: Object.keys(reactionLookup).length ? Object.values(reactionLookup).flat() : null,

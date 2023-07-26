@@ -1,4 +1,5 @@
 import type { Message, Participant, PlatformAPI, Thread } from '@textshq/platform-sdk'
+import type { CookieJar } from 'tough-cookie'
 
 export interface ChatStoreInterface {
   upsertParticipant(participant: Participant): Promise<void>
@@ -17,7 +18,12 @@ export type MethodReturnType<T, K extends keyof T> = T[K] extends (...args: any[
 
 export type PAPIReturn<K extends keyof PlatformAPI> = Promise<Awaited<MethodReturnType<PlatformAPI, K>>>
 
-// @TODO: replace with responses from IG API
-export type IGThread = Record<string, any>
-export type IGMessage = Record<string, any>
-export type IGParticipant = Record<string, any>
+export interface SerializedSession {
+  jar: CookieJar.Serialized
+  ua?: string
+  authMethod?: 'login-window' | 'extension'
+  clientId: string
+  dtsg: string
+  fbid: string
+  lastCursor: string
+}

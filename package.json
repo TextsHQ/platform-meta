@@ -5,18 +5,19 @@
   "scripts": {
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
-    "build": "tsc",
+    "build": "tsc && yarn db:build",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "yarn lint --fix",
     "watch": "yarn tsc --watch",
-    "db:generate": "drizzle-kit generate:sqlite"
+    "db:generate": "drizzle-kit generate:sqlite",
+    "db:move-to-dist": "rimraf ./dist/drizzle && cp -R ./drizzle ./dist/drizzle",
+    "db:build": "yarn db:generate && yarn db:move-to-dist"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
     "axios": "1.4.0",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
-    "drizzle-kit": "^0.19.11",
     "drizzle-orm": "^0.27.2",
     "http-cookie-agent": "^5.0.4",
     "lodash": "4.17.21",
@@ -34,7 +35,10 @@
     "@types/pino": "^7.0.5",
     "@types/tough-cookie": "^4.0.2",
     "@types/ws": "^8.5.5",
+    "copyfiles": "^2.4.1",
+    "drizzle-kit": "^0.19.12",
     "eslint": "^8.36.0",
+    "rimraf": "^5.0.1",
     "typescript": "^5.0.2"
   },
   "packageManager": "yarn@3.5.0"

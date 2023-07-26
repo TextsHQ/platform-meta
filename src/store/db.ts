@@ -1,12 +1,17 @@
-import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
-// import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import Database from 'better-sqlite3'
-import type { Logger } from 'pino'
+import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { resolve } from 'path'
 import * as schema from './schema'
+import { sleep } from '../util'
+import { getLogger } from '../logger'
 
-const getDB = async (name: string, sqlitePath: string, parentLogger: Logger) => {
-  const sqlite = new Database('/Users/rahulvaidun/Texts/test.db')
-  const logger = parentLogger.child({ name: `db:drizzle:${name}` })
+const getDB = async (name: string, dataDirPath: string) => {
+  const logger = getLogger('drizzle')
+  const migrationsFolder = resolve(__dirname, '../drizzle')
+  const sqlitePath = resolve(dataDirPath, 'cache.db')
+  logger.info(`Initializing database ${name} at ${sqlitePath} (migrations folder: ${migrationsFolder})`)
+  const sqlite = new Database(sqlitePath)
   const db = drizzle(sqlite, {
     schema,
     logger: {
@@ -15,11 +20,10 @@ const getDB = async (name: string, sqlitePath: string, parentLogger: Logger) => 
       },
     },
   })
-  // await migrate(db, { migrationsFolder: '/Users/rahulvaidun/Texts/platform-instagram/drizzle' })
+  migrate(db, { migrationsFolder })
+  await sleep(100) // @TODO: need a better way to wait for migrations to finish
   return db
 }
-
-export const cache = {}
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>
 

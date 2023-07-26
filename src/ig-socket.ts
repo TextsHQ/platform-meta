@@ -1,14 +1,16 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import type { Logger } from 'pino'
+// import type { Logger } from 'pino'
 // import { ServerEventType } from '@textshq/platform-sdk'
 
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 // import { parsePayload } from './parsers'
+// import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
+// import { parsePayload } from './parsers'
+import { getLogger } from './logger'
 import type PlatformInstagram from './api'
 // import { mapThread } from './mapper'
-import type InstagramAPI from './ig-api'
 
 const MAX_RETRY_ATTEMPTS = 12
 
@@ -22,16 +24,15 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger: Logger
+  private logger = getLogger('ig-socket')
 
   private mqttSid = getMqttSid()
 
-  constructor(private readonly papi: PlatformInstagram, private readonly igApi: InstagramAPI) {
-    if (!this.papi.api?.cursor) throw new Error('cursor is required to start')
-    this.logger = papi.logger.child({ name: 'ig-socket' })
-  }
+  constructor(private readonly papi: PlatformInstagram) {}
 
-  readonly connect = () => {
+  readonly connect = async () => {
+    this.logger.info('connecting')
+    await this.papi.initPromise // wait for api to be ready
     this.logger.info('connecting to ws')
     try {
       this.ws?.close()
@@ -39,7 +40,7 @@ export default class InstagramWebSocket {
       this.logger.error('ws transport: connect', err)
     }
     this.ws = new WebSocket(
-      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.session.clientId}`,
+      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.clientId}`,
       {
         origin: 'https://www.instagram.com',
         headers: {
@@ -114,7 +115,7 @@ export default class InstagramWebSocket {
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (data: any) => {
-    while (this.ws?.readyState !== this.ws.OPEN) {
+    while (this.ws?.readyState !== WebSocket.OPEN) {
       this.logger.info('waiting 5ms to send')
       await sleep(5)
     }
@@ -122,7 +123,7 @@ export default class InstagramWebSocket {
   }
 
   readonly send = (data: ArrayBufferLike) => {
-    if (this.ws?.readyState !== this.ws.OPEN) return this.waitAndSend(data)
+    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(data)
     this.ws.send(data)
   }
 
@@ -144,13 +145,13 @@ export default class InstagramWebSocket {
         keepalive: 10,
         username: JSON.stringify({
           // u: "17841418030588216", // doesnt seem to matter
-          u: this.papi.api.session.fbid,
+          u: this.papi.api.fbid,
           s: this.mqttSid,
           cp: 3,
           ecp: 10,
           chat_on: true,
           fg: false,
-          d: this.papi.api.session.clientId, // client id
+          d: this.papi.api.clientId, // client id
           ct: 'cookie_auth',
           mqtt_sid: '', // @TODO: should we use the one from the cookie?
           aid: 936619743392459, // app id
@@ -182,6 +183,7 @@ export default class InstagramWebSocket {
       }),
     )
   }
+
 
   private sendAppSettings() {
     // send app settings
