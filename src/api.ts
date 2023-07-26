@@ -4,12 +4,13 @@ import path from 'path'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm/better-sqlite3'
 import type { Logger } from 'pino'
 
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
 import { generateInstanceId, getLogger } from './util'
-import getDB, { type DrizzleDB } from './store/db'
+import getDB, { migrate, type DrizzleDB } from './store/db'
 import * as schema from './store/schema'
 import { PAPIReturn } from './types'
 
@@ -53,7 +54,6 @@ export default class PlatformInstagram implements PlatformAPI {
     this.logger.info('ig db init', { dbPath })
 
     this.db = await getDB(accountID, dbPath, this.logger)
-    await migrate(this.db, { migrationsFolder: './drizzle' });
 
     this.api = new InstagramAPI(this)
 

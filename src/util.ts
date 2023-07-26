@@ -5,7 +5,6 @@ import { sql } from 'drizzle-orm'
 import { createWriteStream } from 'fs'
 import P, { multistream } from 'pino'
 import mqtt from 'mqtt-packet'
-import path from 'path'
 import type WebSocket from 'ws'
 
 import { DrizzleDB } from './store/db'
@@ -82,12 +81,3 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
 })
 
 export const FOREVER = 4117219200000 // 2100-06-21T00:00:00.000Z
-
-const path = require('path');
-
-// Get the relative path from the current script file
-const currentScriptPath = __filename;
-const filePath = '/path/to/file.txt';
-const relativePath = path.relative(path.dirname(currentScriptPath), filePath);
-
-console.log(relativePath);
