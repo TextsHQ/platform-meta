@@ -2,7 +2,7 @@ import { type Message, type Thread, type MessageReaction, type AttachmentWithURL
 
 export function mapThread(thread: any): Thread {
   return {
-    _original: `${JSON.stringify({ ...thread })}`,
+    _original: JSON.stringify(thread) as Thread['_original'],
     id: thread.threadId,
     // folderName: thread.pending ? 'requests' : 'normal',
     isUnread: thread.unread,
@@ -56,7 +56,7 @@ export function mapMessage(currentUserId: string, message: any): Message {
   })
 
   return {
-    _original: `${JSON.stringify({ ...message })}`,
+    _original: JSON.stringify(message) as Message['_original'],
     id: message.messageId,
     senderID: message.authorId,
     threadID: message.threadId,

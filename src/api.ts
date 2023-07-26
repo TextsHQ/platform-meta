@@ -1,12 +1,16 @@
-import { AttachmentType, texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, SerializedSession, Thread, User } from '@textshq/platform-sdk'
-import path from 'path'
+import { texts } from '@textshq/platform-sdk'
+import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, Thread, ThreadID, User } from '@textshq/platform-sdk'
+import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
-import type { Logger } from 'pino'
+import { eq } from 'drizzle-orm'
 
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
-import { generateInstanceId, getLogger } from './util'
+import { getLogger } from './logger'
+import getDB, { type DrizzleDB } from './store/db'
+import * as schema from './store/schema'
+import { PAPIReturn, SerializedSession } from './types'
+import { createPromise } from './util'
 
 export default class PlatformInstagram implements PlatformAPI {
   private loginEventCallback: (data: any) => void
@@ -15,44 +19,66 @@ export default class PlatformInstagram implements PlatformAPI {
 
   private nativeArchiveSync: boolean | undefined
 
-  logger: Logger
+  private _initPromise = createPromise<void>()
+
+  get initPromise() {
+    return this._initPromise.promise
+  }
+
+  logger = getLogger()
+
+  db: DrizzleDB
 
   api = new InstagramAPI(this)
 
+  socket = new InstagramWebSocket(this)
+
   onEvent: OnServerEventCallback
 
-  constructor(readonly accountID: string) { }
+  constructor(readonly accountID: string) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  init = async (session: SerializedSession, { nativeArchiveSync, dataDirPath }: ClientContext) => {
-    if (!session) return
+  init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
+    await mkdir(dataDirPath, { recursive: true })
+
     this.dataDirPath = dataDirPath
     this.nativeArchiveSync = nativeArchiveSync
 
-    const logPath = path.join(dataDirPath, 'platform-instagram.log')
-    if (texts.isLoggingEnabled) texts.log('ig log path', logPath) // @TODO: remove
+    // const logPath = path.join(dataDirPath, 'platform-instagram.log')
 
-    this.logger = getLogger(logPath)
-      .child({
-        stream: 'pi-' + this.accountID,
-        instance: generateInstanceId(),
-      })
+    // this.logger = getLogger()
+    // .child({
+    //   stream: 'pi-' + this.accountID,
+    //   instance: generateInstanceId(),
+    // })
 
-    const { jar, ua, authMethod } = session
-    this.api.jar = CookieJar.fromJSON(jar)
+    // texts.log('ig log path', logPath)
+    texts.log('is logging enabled', texts.isLoggingEnabled, dataDirPath)
+    // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
+
+    this.db = await getDB(accountID, dataDirPath)
+
+    if (!session?.jar) return
+    const { jar, ua, authMethod, clientId, dtsg, fbid } = session
+    this.api.jar = CookieJar.fromJSON(jar as unknown as string)
     this.api.ua = ua
     this.api.authMethod = authMethod
+    this.api.clientId = clientId
+    this.api.dtsg = dtsg
+    this.api.fbid = fbid
     await this.api.init()
+    this._initPromise.resolve()
   }
 
   // eslint-disable-next-line class-methods-use-this
-  dispose = () => { }
+  dispose = () => {
+    // if (this.api?.socket?.ws?.readyState === WebSocket.OPEN) {
+    //   this.api?.socket.ws.close()
+    // }
+  }
 
   currentUser: CurrentUser
 
   getCurrentUser = () => this.currentUser
-
-  initPromise: Promise<void>
 
   login = async (creds: LoginCreds): Promise<LoginResult> => {
     const cookieJarJSON = 'cookieJarJSON' in creds && creds.cookieJarJSON
@@ -63,28 +89,32 @@ export default class PlatformInstagram implements PlatformAPI {
       this.api.authMethod = authMethod || 'login-window'
     }
     this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
-    this.initPromise = this.api.init()
-    await this.initPromise
+    await this.api.init()
+    this._initPromise.resolve()
     return { type: 'success' }
   }
 
-  // eslint-disable-next-line class-methods-use-this
   logout = async () => {
+    this.logger.info('logout')
     // @TODO: logout
   }
 
-  serializeSession = () => ({
+  serializeSession = (): SerializedSession => ({
     jar: this.api.jar.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
+    clientId: this.api.clientId,
+    dtsg: this.api.dtsg,
+    fbid: this.api.fbid,
+    lastCursor: this.api.cursor,
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
     this.onEvent = data => {
+      this.logger.info('instagram got server event', JSON.stringify(data, null, 2))
       onEvent(data)
-      texts.log('instagram got server event', JSON.stringify(data, null, 2))
     }
-    this.api.socket = new InstagramWebSocket(this)
+    await this.socket.connect()
   }
 
   onLoginEvent = (onEvent: (data: any) => void) => {
@@ -106,41 +136,68 @@ export default class PlatformInstagram implements PlatformAPI {
   getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getThreads = async (_folderName: string, pagination?: PaginationArg) => {
-    this.api.socket?.getThreads?.()
+  getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+    this.socket.getThreads()
+    const threads = this.db.select().from(schema.threads).all().map(thread => ({
+      ...thread,
+      participants: null,
+      messages: null,
+    }))
     return {
-      items: this.api.db.getThreads(),
+      items: threads,
       hasMore: false,
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getMessages = async (threadID: string, _pagination: PaginationArg): Promise<Paginated<Message>> => {
-    this.api.socket?.getMessages?.(threadID)
+  getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+    this.logger.info('getMessages', threadID, pagination)
+
+    this.socket.getMessages(threadID)
+    const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadID, threadID)).all()
     return {
-      items: this.api.db.getMessages(threadID),
+      items: messages.map(m => ({
+        ...m,
+        action: null,
+      })),
       hasMore: false,
     }
   }
 
   getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
-  getThread = (threadID: string) => {
-    this.logger.info('getThread', threadID)
-    // @TODO: get thread
-    return this.api.db.getThread(threadID)
+  getThread = async (threadID: string): PAPIReturn<'getThread'> => {
+    const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
+    if (!thread) return null
+
+    // @TODO: this could be a join and also needs to be paginated
+    const messages = await this.getMessages(threadID, {
+      cursor: null,
+      direction: 'after',
+    })
+
+    return {
+      ...thread,
+      messages,
+      participants: null,
+    }
   }
 
-  getMessage = (messageID: string) => {
-    this.logger.info('getMessage', messageID)
-    return null
+  getMessage = (threadID: ThreadID, messageID: MessageID) => {
+    const [message] = this.db.select().from(schema.messages)
+      .where(eq(schema.messages.id, messageID))
+      .where(eq(schema.messages.threadID, threadID))
+      .all()
+    return {
+      ...message,
+      action: null,
+    }
   }
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
     const username = 'username' in ids && ids.username
     const user: User = await this.api.getUserByUsername(username)
-    texts.log('instagram got user', user)
+    this.logger.info('instagram got user', user)
     return user
   }
 
@@ -159,31 +216,8 @@ export default class PlatformInstagram implements PlatformAPI {
     return true
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
-    if (!threadID) return false
-    if (!text) {
-      // image
-      if (fileBuffer || isRecordedAudio || isGif || !filePath) {
-        console.log(fileBuffer, isRecordedAudio, isGif, filePath)
-        console.log('second not')
-        return false
-      }
-      console.log(filePath)
-      console.log('called send image')
-      this.api.sendImage(threadID, { fileName, filePath })
-      const userMessage: Message = {
-        id: pendingMessageID,
-        timestamp: new Date(),
-        senderID: this.currentUser.id,
-        isSender: true,
-        attachments: [{
-          id: pendingMessageID,
-          type: AttachmentType.IMG,
-          srcURL: filePath,
-        }],
-      }
-      return [userMessage]
-    }
+  sendMessage = async (threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+    if (!text && !threadID) return false
     const userMessage: Message = {
       id: pendingMessageID,
       timestamp: new Date(),
@@ -191,12 +225,12 @@ export default class PlatformInstagram implements PlatformAPI {
       senderID: this.currentUser.id,
       isSender: true,
     }
-    this.api.socket.sendMessage(threadID, text)
+    this.socket.sendMessage(threadID, text)
     return [userMessage]
   }
 
   sendActivityIndicator = (threadID: string) => {
-    this.api.socket.sendTypingIndicator(threadID)
+    this.socket.sendTypingIndicator(threadID)
   }
 
   deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {
@@ -211,7 +245,6 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
-    this.api.socket?.addReaction?.(threadID, messageID, reactionKey)
     return null
   }
 
