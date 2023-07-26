@@ -298,15 +298,6 @@ export default class InstagramAPI {
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
-    await this.papi.db.insert(schema.reactions)
-      .values([{
-        threadKey: '105868004148209',
-        timestampMs: 'asdasd',
-        messageId: 'mid.$cAAA7H5r_VlCPuuV-EGJiaA4MKwFx',
-        actorId: '100428318021025',
-        reaction: '❤️',
-        _original: rawd.upsertReaction[0],
-      }])
     console.log('inserted')
     console.log('inserted reactions')
 
