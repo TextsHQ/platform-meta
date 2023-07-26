@@ -2105,7 +2105,7 @@ __metadata:
     better-sqlite3: ^8.5.0
     bufferutil: ^4.0.7
     copyfiles: ^2.4.1
-    drizzle-kit: ^0.19.10
+    drizzle-kit: ^0.19.12
     drizzle-orm: ^0.27.2
     eslint: ^8.36.0
     http-cookie-agent: ^5.0.4
@@ -3355,9 +3355,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-kit@npm:^0.19.10":
-  version: 0.19.10
-  resolution: "drizzle-kit@npm:0.19.10"
+"drizzle-kit@npm:^0.19.12":
+  version: 0.19.12
+  resolution: "drizzle-kit@npm:0.19.12"
   dependencies:
     "@drizzle-team/studio": ^0.0.5
     "@esbuild-kit/esm-loader": ^2.5.5
@@ -3373,7 +3373,7 @@ __metadata:
     zod: ^3.20.2
   bin:
     drizzle-kit: index.cjs
-  checksum: 7461f412d05bcf0ce7dd3eb7be12b3522275c43da73f8cbe73d7ca1957cf3f2f45d3d7554c342d2c3a7d1289ba41b36242fa8aa65bc18a6fcd6f53b975a85e43
+  checksum: 36cbcbd5530a76c652fa1db7df82e644c15ac6681a42c7c578c2b7c6d51930f64360e93b467e50caad7ff84f4f244ee0971bc4583b2c7b52c0b7fad002a6c008
   languageName: node
   linkType: hard
 
