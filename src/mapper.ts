@@ -1,21 +1,22 @@
 import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
+import { ExtendedIGMessage, ExtendedIGThread, IGReaction } from './ig-types'
 
-export function mapThread(thread: any): Thread {
+export function mapThread(thread: ExtendedIGThread): Thread {
   return {
-    _original: JSON.stringify(thread) as Thread['_original'],
-    id: thread.threadId,
+    _original: JSON.stringify(thread),
+    id: thread.threadKey,
     // folderName: thread.pending ? 'requests' : 'normal',
     isUnread: thread.unread,
     isReadOnly: false,
     type: 'single',
-    title: thread.groupName,
+    title: thread.threadName,
     messages: {
       items: [],
       hasMore: false,
       oldestCursor: '',
       newestCursor: '',
     },
-    timestamp: new Date(Number(thread.lastSentTime)),
+    timestamp: new Date(Number(thread.lastActivityTimestampMs)),
     participants: {
       items: thread?.participants?.map(participant => ({
         id: participant.userId,
@@ -29,17 +30,17 @@ export function mapThread(thread: any): Thread {
     lastReadMessageID: thread?.lastMessageDetails?.messageId,
     partialLastMessage: {
       id: thread?.lastMessageDetails?.messageId,
-      senderID: thread?.lastMessageDetails?.authorId,
-      text: thread?.lastMessageDetails?.message,
+      senderID: thread?.lastMessageDetails?.senderId,
+      text: thread?.lastMessageDetails?.text,
     },
   }
 }
 
-export function mapMessage(currentUserId: string, message: any): Message {
+export function mapMessage(currentUserId: string, message: ExtendedIGMessage): Message {
   const reactions: MessageReaction[] = []
   const attachments: AttachmentWithURL[] = []
 
-  message.reaction?.forEach((reaction: any) => {
+  message.reaction?.forEach(reaction => {
     reactions.push({
       id: reaction.reactorId,
       participantID: reaction.reactorId,
@@ -47,7 +48,7 @@ export function mapMessage(currentUserId: string, message: any): Message {
     })
   })
 
-  message.images?.forEach((image: any) => {
+  message.images?.forEach(image => {
     attachments.push({
       id: image.imageId,
       type: AttachmentType.IMG,
@@ -56,18 +57,18 @@ export function mapMessage(currentUserId: string, message: any): Message {
   })
 
   return {
-    _original: JSON.stringify(message) as Message['_original'],
+    _original: JSON.stringify(message),
     id: message.messageId,
-    senderID: message.authorId,
-    threadID: message.threadId,
-    text: message.message,
-    timestamp: new Date(Number(message.sentTs)),
-    isSender: message.authorId === currentUserId,
+    senderID: message.senderId,
+    threadID: message.threadKey,
+    text: message.text,
+    timestamp: new Date(Number(message.timestampMs)),
+    isSender: message.senderId === currentUserId,
     reactions,
     attachments,
   }
 }
-export function mapReactions(reaction: any): MessageReaction {
+export function mapReactions(reaction: IGReaction): MessageReaction {
   return {
     id: `${reaction.reactorId}`,
     participantID: reaction.reactorId,

@@ -10,7 +10,7 @@ import type Instagram from './api'
 import { parsePayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
-import { IGThread } from './ig-types'
+import { ExtendedIGThread, IGThread } from './ig-types'
 import type { SerializedSession } from './types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
@@ -335,7 +335,7 @@ export default class InstagramAPI {
     texts.log(`addThread ${thread.id} response: ${JSON.stringify(response, null, 2)}`)
   }
 
-  private upsertThread(thread: IGThread) {
+  private upsertThread(thread: ExtendedIGThread) {
     const mapped = mapThread(thread)
     const threads = mapped.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, mapped.id)).all() : []
 
@@ -343,7 +343,8 @@ export default class InstagramAPI {
 
     if (threads.length === 0) {
       return this.addThread({
-        original: mapped._original,
+        original: thread,
+        _original_parsed: JSON.stringify(thread),
         title: mapped.title,
         id: mapped.id,
         type: mapped.type,
@@ -352,7 +353,8 @@ export default class InstagramAPI {
     }
 
     return this.papi.db.update(schema.threads).set({
-      original: mapped._original as any,
+      original: thread,
+      _original_parsed: JSON.stringify(thread),
       title: mapped.title,
       id: mapped.id,
       type: mapped.type,
@@ -360,7 +362,7 @@ export default class InstagramAPI {
     }).where(eq(schema.threads.id, mapped.id)).run()
   }
 
-  upsertThreads(threads: IGThread[]) {
+  upsertThreads(threads: ExtendedIGThread[]) {
     if (threads?.length < 1) return
     return threads.map(thread => this.upsertThread(thread))
   }
