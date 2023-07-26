@@ -57,14 +57,14 @@ export const messages = sqliteTable('messages', {
 })
 
 export const participants = sqliteTable('participants', {
-  original: blob('original', { mode: 'json' }).$type<Record<string, any>>(),
+  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   threadID: text('threadID').notNull().references(() => threads.id),
   id: text('id').notNull().primaryKey(),
   name: text('name'),
 })
 
 export const attachments = sqliteTable('attachments', {
-  original: blob('original', { mode: 'json' }).$type<IGAttachment>(),
+  original: blob('_original', { mode: 'json' }).$type<IGAttachment>(),
   threadKey: text('threadKey').notNull().references(() => threads.id),
   messageId: text('messageId').notNull().references(() => messages.id),
   attachmentFbid: text('attachmentFbid').notNull(),

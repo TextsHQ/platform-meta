@@ -26,15 +26,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
   db: DrizzleDB
 
-  api = new InstagramAPI(this)
+  api: InstagramAPI
 
   onEvent: OnServerEventCallback
 
   constructor(readonly accountID: string) {}
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
-    if (!session) return
     this.dataDirPath = dataDirPath
     this.nativeArchiveSync = nativeArchiveSync
 
@@ -55,7 +53,11 @@ export default class PlatformInstagram implements PlatformAPI {
     this.logger.info('ig db init', { dbPath })
 
     this.db = await getDB(accountID, dbPath, this.logger)
+    await migrate(this.db, { migrationsFolder: './drizzle' });
 
+    this.api = new InstagramAPI(this)
+
+    if (!session?.jar) return
     const { jar, ua, authMethod } = session
     this.api.jar = CookieJar.fromJSON(jar)
     this.api.ua = ua
@@ -95,7 +97,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   serializeSession = () => ({
-    jar: this.api.jar.toJSON(),
+    jar: this.api.jar?.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
   })
