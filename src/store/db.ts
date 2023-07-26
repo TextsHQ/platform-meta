@@ -1,23 +1,21 @@
-import { texts } from '@textshq/platform-sdk'
 import Database from 'better-sqlite3'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { resolve } from 'path'
 import * as schema from './schema'
 import { sleep } from '../util'
-import type { LoggerInstance } from '../logger'
+import { getLogger } from '../logger'
 
-const getDB = async (name: string, dataDirPath: string, parentLogger: LoggerInstance) => {
+const getDB = async (name: string, dataDirPath: string) => {
+  const logger = getLogger('drizzle')
   const migrationsFolder = resolve(__dirname, '../drizzle')
   const sqlitePath = resolve(dataDirPath, 'cache.db')
-  texts.log(`Initializing database ${name} at ${sqlitePath} (migrations folder: ${migrationsFolder})`)
+  logger.info(`Initializing database ${name} at ${sqlitePath} (migrations folder: ${migrationsFolder})`)
   const sqlite = new Database(sqlitePath)
-  const logger = parentLogger.child({ name: `db:drizzle:${name}` })
   const db = drizzle(sqlite, {
     schema,
     logger: {
       logQuery: (query, params) => {
-        texts.log(`IGDB ${query} ${JSON.stringify(params)}`)
         logger.info(query, { params }) // @TODO: maybe debug on prod?
       },
     },

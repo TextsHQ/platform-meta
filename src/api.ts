@@ -55,7 +55,7 @@ export default class PlatformInstagram implements PlatformAPI {
     texts.log('is logging enabled', texts.isLoggingEnabled, dataDirPath)
     // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
 
-    this.db = await getDB(accountID, dataDirPath, this.logger)
+    this.db = await getDB(accountID, dataDirPath)
 
     if (!session?.jar) return
     const { jar, ua, authMethod, clientId, dtsg, fbid } = session

@@ -331,7 +331,7 @@ export default class InstagramAPI {
 
   private addThread(thread: InferModel<typeof schema['threads'], 'insert'>) {
     texts.log(`addThread ${thread.id} ${JSON.stringify(thread, null, 2)}`)
-    const response = this.papi.db.insert(schema.threads).values(thread).returning().run()
+    const response = this.papi.db.insert(schema.threads).values(thread).run()
     texts.log(`addThread ${thread.id} response: ${JSON.stringify(response, null, 2)}`)
   }
 
@@ -339,8 +339,7 @@ export default class InstagramAPI {
     const mapped = mapThread(thread)
     const threads = mapped.id ? this.papi.db.select({ id: schema.threads.id }).from(schema.threads).where(eq(schema.threads.id, mapped.id)).all() : []
 
-    texts.log(`upsertThread ${mapped.id} mapped ${JSON.stringify(mapped, null, 2)}`)
-    texts.log(`upsertThread ${mapped.id} threads ${JSON.stringify(threads, null, 2)}`)
+    this.logger.info('upsertThread', { id: mapped.id || 'unknown id', mapped, threads })
 
     if (threads.length === 0) {
       return this.addThread({
@@ -353,9 +352,12 @@ export default class InstagramAPI {
     }
 
     return this.papi.db.update(schema.threads).set({
-      ...mapped,
+      original: thread,
+      title: mapped.title,
+      id: mapped.id,
+      type: mapped.type,
       mutedUntil: mapped.mutedUntil === 'forever' ? new Date(FOREVER) : mapped.mutedUntil,
-    }).where(eq(schema.threads.id, mapped.id)).returning().all()
+    }).where(eq(schema.threads.id, mapped.id)).run()
   }
 
   upsertThreads(threads: IGThread[]) {
@@ -367,7 +369,7 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.messages).values({
       ...message,
       threadID,
-    }).returning().all()
+    }).run()
   }
 
   private addMessages(threadID: string, messages: InferModel<typeof schema['messages'], 'insert'>[]) {
@@ -395,7 +397,7 @@ export default class InstagramAPI {
       seen: new Date(),
       action: null,
       sortKey: null,
-    }).where(eq(schema.messages.id, message.id)).returning().all()
+    }).where(eq(schema.messages.id, message.id)).run()
   }
 
   upsertMessages(messages: Message[]) {
