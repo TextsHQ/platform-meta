@@ -227,12 +227,12 @@ export default class PlatformInstagram implements PlatformAPI {
     if (!text) {
       // image
       if (fileBuffer || isRecordedAudio || isGif || !filePath) {
-        console.log(fileBuffer, isRecordedAudio, isGif, filePath)
-        console.log('second not')
+        this.logger.info('sendMessage', fileBuffer, isRecordedAudio, isGif, filePath)
+        this.logger.info('sendMessage', 'second not')
         return false
       }
-      console.log(filePath)
-      console.log('called send image')
+      this.logger.info('sendMessage', filePath)
+      this.logger.info('sendMessage', 'called send image')
       this.api.sendImage(threadID, { fileName, filePath })
       const userMessage: Message = {
         id: pendingMessageID,

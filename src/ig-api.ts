@@ -291,8 +291,9 @@ export default class InstagramAPI {
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
-    console.log('inserted')
-    console.log('inserted reactions')
+
+    this.logger.info('inserted')
+    this.logger.info('inserted reactions')
 
     const { newConversations, newMessages } = cursorResponse
     const mappedNewConversations = newConversations?.map(mapThread)
