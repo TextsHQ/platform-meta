@@ -1,12 +1,19 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "8aa41078-7bc8-4324-b95a-01c0b415677d",
+  "id": "e5a80216-89dd-4cd9-9d6a-2286f331386f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
       "name": "attachments",
       "columns": {
+        "_original_parsed": {
+          "name": "_original_parsed",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "_original": {
           "name": "_original",
           "type": "blob",
@@ -362,11 +369,62 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
+    "contacts": {
+      "name": "contacts",
+      "columns": {
+        "_original": {
+          "name": "_original",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fbid": {
+          "name": "fbid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "messages": {
       "name": "messages",
       "columns": {
         "_original": {
           "name": "_original",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "_original_parsed": {
+          "name": "_original_parsed",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -633,6 +691,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "contactID": {
+          "name": "contactID",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": null
+        },
         "id": {
           "name": "id",
           "type": "text",
@@ -642,6 +708,20 @@
         },
         "name": {
           "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fbid": {
+          "name": "fbid",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -662,6 +742,19 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "participants_contactID_contacts_id_fk": {
+          "name": "participants_contactID_contacts_id_fk",
+          "tableFrom": "participants",
+          "tableTo": "contacts",
+          "columnsFrom": [
+            "contactID"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -672,6 +765,13 @@
       "columns": {
         "_original": {
           "name": "_original",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "_original_parsed": {
+          "name": "_original_parsed",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

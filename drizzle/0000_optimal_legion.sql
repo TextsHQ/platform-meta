@@ -1,4 +1,5 @@
 CREATE TABLE `attachments` (
+	`_original_parsed` text,
 	`_original` blob,
 	`threadKey` text NOT NULL,
 	`messageId` text NOT NULL,
@@ -49,8 +50,17 @@ CREATE TABLE `attachments` (
 	FOREIGN KEY (`messageId`) REFERENCES `messages`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `contacts` (
+	`_original` blob,
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text,
+	`username` text,
+	`fbid` text
+);
+--> statement-breakpoint
 CREATE TABLE `messages` (
-	`_original` text,
+	`_original` blob,
+	`_original_parsed` text,
 	`id` text PRIMARY KEY NOT NULL,
 	`timestamp` integer NOT NULL,
 	`editedTimestamp` integer,
@@ -88,13 +98,18 @@ CREATE TABLE `messages` (
 CREATE TABLE `participants` (
 	`_original` blob,
 	`threadID` text NOT NULL,
+	`contactID` text DEFAULT null,
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text,
-	FOREIGN KEY (`threadID`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE no action
+	`username` text,
+	`fbid` text,
+	FOREIGN KEY (`threadID`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`contactID`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `threads` (
-	`_original` text,
+	`_original` blob,
+	`_original_parsed` text,
 	`id` text PRIMARY KEY NOT NULL,
 	`folderName` text,
 	`title` text,
