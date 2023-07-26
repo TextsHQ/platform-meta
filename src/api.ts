@@ -29,7 +29,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   db: DrizzleDB
 
-  api: InstagramAPI
+  api = new InstagramAPI(this)
 
   socket = new InstagramWebSocket(this)
 
