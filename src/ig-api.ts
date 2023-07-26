@@ -3,14 +3,13 @@ import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType, Thread, Message } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
-import type { Logger } from 'pino'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
 import type InstagramWebSocket from './ig-socket'
 import { parseGetCursorResponse } from './parsers'
 import { mapMessage, mapThread } from './mapper'
-import { FOREVER } from './util'
+import { FOREVER, LoggerInstance } from './util'
 import { IGThread } from './ig-types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
@@ -75,10 +74,10 @@ export default class InstagramAPI {
 
   socket: InstagramWebSocket
 
-  private logger: Logger
+  private logger: LoggerInstance
 
   constructor(private readonly papi: Instagram) {
-    this.logger = papi.logger.child({ name: 'igApi' })
+    this.logger = papi.logger.child({ name: 'ig-api' })
   }
 
   authMethod: 'login-window' | 'extension' = 'login-window'

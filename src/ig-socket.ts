@@ -1,10 +1,9 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt from 'mqtt-packet'
-import type { Logger } from 'pino'
 import { ServerEventType } from '@textshq/platform-sdk'
 
-import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+import { type LoggerInstance, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { parseMessagePayload } from './parsers'
 import type PlatformInstagram from './api'
 import { mapThread } from './mapper'
@@ -22,7 +21,7 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger: Logger
+  private logger: LoggerInstance
 
   private mqttSid = getMqttSid()
 

@@ -4,11 +4,10 @@ import path from 'path'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import { eq } from 'drizzle-orm'
-import type { Logger } from 'pino'
 
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
-import { generateInstanceId, getLogger } from './util'
+import { type LoggerInstance, getLogger } from './util'
 import getDB, { type DrizzleDB } from './store/db'
 import * as schema from './store/schema'
 import { PAPIReturn } from './types'
@@ -22,7 +21,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   initPromise: Promise<void>
 
-  logger: Logger
+  logger: LoggerInstance
 
   db: DrizzleDB
 
@@ -38,17 +37,17 @@ export default class PlatformInstagram implements PlatformAPI {
 
     await mkdir(this.dataDirPath, { recursive: true })
 
-    const logPath = path.join(dataDirPath, 'platform-instagram.log')
+    // const logPath = path.join(dataDirPath, 'platform-instagram.log')
 
-    this.logger = getLogger(logPath)
-      .child({
-        stream: 'pi-' + this.accountID,
-        instance: generateInstanceId(),
-      })
+    this.logger = getLogger()
+    // .child({
+    //   stream: 'pi-' + this.accountID,
+    //   instance: generateInstanceId(),
+    // })
 
-    texts.log('ig log path', logPath)
+    // texts.log('ig log path', logPath)
     texts.log('is logging enabled', texts.isLoggingEnabled)
-    if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
+    // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
 
     const dbPath = path.join(this.dataDirPath, `ig-${this.accountID}.db`)
 
