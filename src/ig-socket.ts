@@ -254,7 +254,7 @@ export default class InstagramWebSocket {
     // } else {
     //   texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
     // }
-    const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
+    const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.fbid, payload.payload)
     if (newConversations) {
       this.processConversations(newConversations)
     }
@@ -278,8 +278,8 @@ export default class InstagramWebSocket {
   }
 
   private async processMessages(newMessages: any) {
-    const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
-    this.papi.api.db.addMessages(mappedMessages)
+    const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.fbid, m))
+    this.papi.api.upsertMessages(mappedMessages)
 
     for (const message of mappedMessages) {
       this.papi.onEvent?.([{

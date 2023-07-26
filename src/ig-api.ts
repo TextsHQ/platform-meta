@@ -7,7 +7,7 @@ import { desc, eq, type InferModel } from 'drizzle-orm'
 import * as schema from './store/schema'
 import { FOREVER } from './store/helpers'
 import type Instagram from './api'
-import { parseGetCursorResponse } from './parsers'
+import { parsePayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
 import { IGThread } from './ig-types'
@@ -296,7 +296,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    const cursorResponse = parseGetCursorResponse(
+    const cursorResponse = parsePayload(
       this.fbid,
       response.data.data.lightspeed_web_request_for_igd.payload,
     )
