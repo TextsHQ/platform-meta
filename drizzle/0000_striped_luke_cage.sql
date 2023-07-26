@@ -71,7 +71,8 @@ CREATE TABLE `messages` (
 	`mentionIds` text,
 	`mentionTypes` text,
 	`replySourceId` text,
-	`replySourceType` text
+	`replySourceType` text,
+	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `participants` (

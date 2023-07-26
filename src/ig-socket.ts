@@ -250,6 +250,9 @@ export default class InstagramWebSocket {
     if (payload.request_id !== null) {
       this.logger.info('request_id is not null', payload)
     }
+
+    this.logger.info('INSTAGRAM', { payload })
+
     // if (payload.payload.includes('upsertMessage')) {
     //   await this.processUpsertMessage(data)
     // } else if (payload.payload.includes('deleteThenInsertThread')) {

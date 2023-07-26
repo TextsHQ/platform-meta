@@ -1,45 +1,5 @@
 import { sqliteTable, integer, text, blob } from 'drizzle-orm/sqlite-core'
-import type { InferModel } from 'drizzle-orm'
-
-export const messages = sqliteTable('messages', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
-  threadKey: text('threadKey').notNull(),
-  offlineThreadingId: text('offlineThreadingId'),
-  authorityLevel: integer('authorityLevel'),
-  timestampMs: integer('timestampMs', { mode: 'timestamp' }),
-  messageId: text('messageId').primaryKey(),
-  senderId: text('senderId').notNull(),
-  isAdminMessage: integer('isAdminMessage', { mode: 'boolean' }),
-  sendStatus: text('sendStatus'),
-  text: text('text'),
-  subscriptErrorMessage: text('subscriptErrorMessage'),
-  stickerId: text('stickerId'),
-  messageRenderingType: text('messageRenderingType'),
-  isUnsent: integer('isUnsent', { mode: 'boolean' }),
-  unsentTimestampMs: integer('unsentTimestampMs', { mode: 'timestamp' }),
-  mentionOffsets: text('mentionOffsets'),
-  mentionLengths: text('mentionLengths'),
-  mentionIds: text('mentionIds'),
-  mentionTypes: text('mentionTypes'),
-  replySourceId: text('replySourceId'),
-  replySourceType: text('replySourceType'),
-})
-
-export type Message = InferModel<typeof messages, 'select'>
-export type NewMessage = InferModel<typeof messages, 'insert'>
-
-export const typingIndicators = sqliteTable('typing_indicators', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
-  threadKey: text('threadKey').notNull(),
-  minTimestampMs: integer('minTimestampMs', { mode: 'timestamp' }),
-  minMessageId: text('minMessageId'),
-  maxTimestampMs: integer('maxTimestampMs', { mode: 'timestamp' }),
-  maxMessageId: text('maxMessageId'),
-  isLoadingBefore: integer('isLoadingBefore', { mode: 'boolean' }),
-  isLoadingAfter: integer('isLoadingAfter', { mode: 'boolean' }),
-  hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
-  hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
-})
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 
 export const threads = sqliteTable('threads', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
@@ -72,6 +32,56 @@ export const threads = sqliteTable('threads', {
   outgoingBubbleColor: text('outgoingBubbleColor'),
   themeFbid: text('themeFbid'),
 })
+
+export const insertThreadSchema = createInsertSchema(threads).required({
+  threadKey: true,
+  original: true,
+})
+
+export const selectThreadSchema = createSelectSchema(threads)
+
+export const messages = sqliteTable('messages', {
+  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  threadKey: text('threadKey').notNull().references(() => threads.threadKey),
+  offlineThreadingId: text('offlineThreadingId'),
+  authorityLevel: integer('authorityLevel'),
+  timestampMs: integer('timestampMs', { mode: 'timestamp' }),
+  messageId: text('messageId').primaryKey(),
+  senderId: text('senderId').notNull(),
+  isAdminMessage: integer('isAdminMessage', { mode: 'boolean' }),
+  sendStatus: text('sendStatus'),
+  text: text('text'),
+  subscriptErrorMessage: text('subscriptErrorMessage'),
+  stickerId: text('stickerId'),
+  messageRenderingType: text('messageRenderingType'),
+  isUnsent: integer('isUnsent', { mode: 'boolean' }),
+  unsentTimestampMs: integer('unsentTimestampMs', { mode: 'timestamp' }),
+  mentionOffsets: text('mentionOffsets'),
+  mentionLengths: text('mentionLengths'),
+  mentionIds: text('mentionIds'),
+  mentionTypes: text('mentionTypes'),
+  replySourceId: text('replySourceId'),
+  replySourceType: text('replySourceType'),
+})
+
+export const insertMessageSchema = createInsertSchema(messages)
+export const selectMessageSchema = createSelectSchema(messages)
+
+export const typingIndicators = sqliteTable('typing_indicators', {
+  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  threadKey: text('threadKey').notNull(),
+  minTimestampMs: integer('minTimestampMs', { mode: 'timestamp' }),
+  minMessageId: text('minMessageId'),
+  maxTimestampMs: integer('maxTimestampMs', { mode: 'timestamp' }),
+  maxMessageId: text('maxMessageId'),
+  isLoadingBefore: integer('isLoadingBefore', { mode: 'boolean' }),
+  isLoadingAfter: integer('isLoadingAfter', { mode: 'boolean' }),
+  hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
+  hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
+})
+
+export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators)
+export const selectTypingIndicatorSchema = createSelectSchema(typingIndicators)
 
 export const attachments = sqliteTable('attachments', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
@@ -123,6 +133,9 @@ export const attachments = sqliteTable('attachments', {
   authorityLevel: text('authorityLevel'),
 })
 
+export const insertAttachmentSchema = createInsertSchema(attachments)
+export const selectAttachmentSchema = createSelectSchema(attachments)
+
 export const users = sqliteTable('users', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   id: text('threadKey').notNull().references(() => threads.threadKey),
@@ -130,6 +143,9 @@ export const users = sqliteTable('users', {
   name: text('name'),
   username: text('username'),
 })
+
+export const insertUserSchema = createInsertSchema(users)
+export const selectUserSchema = createSelectSchema(users)
 
 export const participants = sqliteTable('participants', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
@@ -142,6 +158,9 @@ export const participants = sqliteTable('participants', {
   isAdmin: integer('isAdmin', { mode: 'boolean' }),
 })
 
+export const insertParticipantSchema = createInsertSchema(participants)
+export const selectParticipantSchema = createSelectSchema(participants)
+
 export const reactions = sqliteTable('reactions', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
@@ -150,3 +169,6 @@ export const reactions = sqliteTable('reactions', {
   actorId: text('actorId').notNull().references(() => users.id),
   reaction: text('reaction'),
 })
+
+export const insertReactionSchema = createInsertSchema(reactions)
+export const selectReactionSchema = createSelectSchema(reactions)

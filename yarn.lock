@@ -2107,6 +2107,7 @@ __metadata:
     copyfiles: ^2.4.1
     drizzle-kit: ^0.19.12
     drizzle-orm: ^0.27.2
+    drizzle-zod: ^0.4.4
     eslint: ^8.36.0
     http-cookie-agent: ^5.0.4
     lodash: 4.17.21
@@ -3440,6 +3441,16 @@ __metadata:
     sqlite3:
       optional: true
   checksum: a61d39bdd16c8038441829e9ecbf14b91738fab0ef2e89f6deb6b4a02c3ff56054f7898180b4a83eac014a2520994bdde75cf2be772ee8cb3c21ab6b1ed9b601
+  languageName: node
+  linkType: hard
+
+"drizzle-zod@npm:^0.4.4":
+  version: 0.4.4
+  resolution: "drizzle-zod@npm:0.4.4"
+  peerDependencies:
+    drizzle-orm: ">=0.23.13"
+    zod: "*"
+  checksum: 1c53c3d9c8d9ff1cdd4fd58ae4cbbdcaedd2fb065692acdfc98571f2c8ace16492634d8c375cf7997e61cf375f0e900438382b8858ab20a069a12735684e2cee
   languageName: node
   linkType: hard
 

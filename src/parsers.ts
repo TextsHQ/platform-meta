@@ -3,6 +3,8 @@
 
 import type { ExtendedIGMessage, ExtendedIGThread, IGAttachment, IGMessage, IGReaction } from './ig-types'
 
+type RawItem = string[]
+
 // construct the conversations from undecipherable data
 export function parsePayload(myUserId: string, payload: string) {
   const j = JSON.parse(payload)
@@ -269,7 +271,7 @@ export function parsePayload(myUserId: string, payload: string) {
   }
 }
 
-const parseThread = a => {
+const parseThread = (a: RawItem) => {
   const tmap = {
     isUnread: Number(a[0][1]) > Number(a[1][1]),
     threadKey: a[7],
@@ -314,14 +316,14 @@ const parseThread = a => {
   // loop through the keys and if the value is
 }
 
-const parseUser = a => ({
+const parseUser = (a: RawItem) => ({
   id: a[0][1],
   profilePictureUrl: a[2] == null ? '' : a[2],
   name: a[3],
   username: a[20],
 })
 
-const parseParticipant = a => ({
+const parseParticipant = (a: RawItem) => ({
   threadKey: a[0][1],
   userId: a[1][1],
   readWatermarkTimestampMs: a[2][1],
@@ -331,7 +333,7 @@ const parseParticipant = a => ({
   isAdmin: a[6],
 })
 
-const parseMessage = a => ({
+const parseMessage = (a: RawItem) => ({
   text: a[0],
   threadKey: a[3][1],
   timestampMs: a[5][1],
@@ -340,7 +342,32 @@ const parseMessage = a => ({
   senderId: a[10][1],
 })
 
-const parseReaction = a => ({
+const parseAttachment = (a: RawItem) => ({
+  filename: a[0],
+  threadKey: a[27],
+  messageId: a[32],
+  previewUrl: a[8],
+  previewUrlFallback: a[9],
+  previewUrlExpirationTimestampMs: a[10],
+  previewUrlMimeType: a[11],
+  previewWidth: a[14],
+  previewHeight: a[15],
+  timestampMs: a[31],
+  attachmentType: a[29],
+  attachmentFbid: a[34],
+  filesize: a[1],
+  hasMedia: a[2],
+  playableUrl: a[3],
+  playableUrlFallback: a[4],
+  playableUrlExpirationTimestampMs: a[5],
+  playableUrlMimeType: a[6],
+  dashManifest: a[7],
+  miniPreview: a[13],
+  attributionAppId: a[16],
+  attributionAppName: a[17],
+})
+
+const parseReaction = (a: RawItem) => ({
   threadKey: a[0][1],
   timestampMs: new Date(Number(a[1][1])),
   messageId: a[2],
@@ -348,7 +375,7 @@ const parseReaction = a => ({
   reaction: a[4],
 })
 
-export function parseRawPayload(payload: any) {
+export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
   // tasks we are interested in
   const lsCalls = {
@@ -357,9 +384,25 @@ export function parseRawPayload(payload: any) {
     deleteThenInsertThread: [],
     upsertMessage: [],
     upsertReaction: [],
-    // insertBlobAttachment: [],
+    insertBlobAttachment: [],
+    insertAttachmentItem: [],
     upsertSyncGroupThreadsRange: [],
+    clearPinnedMessages: [],
+    writeThreadCapabilities: [],
+    deleteThenInsertIgThreadInfo: [],
+    setMessageDisplayedContentTypes: [],
+    setForwardScore: [],
+    updateReadReceipt: [],
+    insertXmaAttachment: [],
+    getFirstAvailableAttachmentCTAID: [],
+    insertAttachmentCta: [],
+    updateAttachmentItemCtaAtIndex: [],
+    updateAttachmentCtaAtIndexIgnoringAuthority: [],
+    deleteExistingMessageRanges: [],
+    insertNewMessageRange: [],
+    upsertFolderSeenTimestamp: [],
   }
+
   // loop through the tasks
   for (const item of j.step[2][2][2].slice(1)) {
     // if we are interested in the task then add it to the lsCalls object
@@ -367,28 +410,16 @@ export function parseRawPayload(payload: any) {
       lsCalls[item[1][1]].push(item[1].slice(2))
     }
   }
-  const res = {
-    verifyContactRowExists: null,
-    addParticipantIdToGroupThread: null,
-    deleteThenInsertThread: null,
-    upsertMessage: null,
-    upsertReaction: null,
-    upsertSyncGroupThreadsRange: null,
-  }
-  // lsCalls.deleteThenInsertThread = lsCalls.deleteThenInsertThread.map(parseThread)
-  // lsCalls.verifyContactRowExists = lsCalls.verifyContactRowExists.map(parseUser)
-  // lsCalls.addParticipantIdToGroupThread = lsCalls.addParticipantIdToGroupThread.map(parseParticipant)
-  // lsCalls.upsertMessage = lsCalls.upsertMessage.map(parseMessage)
-  // lsCalls.upsertReaction = lsCalls.upsertReaction.map(parseReaction)
-  if (lsCalls.deleteThenInsertThread.length) {
-    res.deleteThenInsertThread = lsCalls.deleteThenInsertThread.map(parseThread)
-  }
-  if (lsCalls.verifyContactRowExists.length) { res.verifyContactRowExists = lsCalls.verifyContactRowExists.map(parseUser) }
-  if (lsCalls.addParticipantIdToGroupThread.length) {
-    res.addParticipantIdToGroupThread = lsCalls.addParticipantIdToGroupThread.map(parseParticipant)
-  }
-  if (lsCalls.upsertMessage.length) { res.upsertMessage = lsCalls.upsertMessage.map(parseMessage) }
-  if (lsCalls.upsertReaction.length) { res.upsertReaction = lsCalls.upsertReaction.map(parseReaction) }
 
-  return res
+  console.log('lsCalls', lsCalls)
+
+  return {
+    verifyContactRowExists: lsCalls.verifyContactRowExists.map(parseUser),
+    addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread.map(parseParticipant),
+    deleteThenInsertThread: lsCalls.deleteThenInsertThread.map(parseThread),
+    upsertMessage: lsCalls.upsertMessage.map(parseMessage),
+    upsertReaction: lsCalls.upsertReaction.map(parseReaction),
+    upsertSyncGroupThreadsRange: null,
+    insertBlobAttachment: lsCalls.insertBlobAttachment.map(parseAttachment),
+  }
 }

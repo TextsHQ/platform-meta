@@ -285,6 +285,7 @@ export default class InstagramAPI {
     this.cursorCache = cursorResponse
 
     const rawd = parseRawPayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    this.logger.info('rawd', rawd)
     // if (rawd.deleteThenInsertThread) this.addThreads(rawd.deleteThenInsertThread)
     // if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
     // if (rawd.addParticipantIdToGroupThread) this.addParticipants(rawd.addParticipantIdToGroupThread)
@@ -320,7 +321,8 @@ export default class InstagramAPI {
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
-    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
+    this.logger.info('addThreads', threads)
+    return this.papi.db.insert(schema.threads).values(threads.map(t => schema.insertThreadSchema.parse(t) as InferModel<typeof schema['threads'], 'insert'>)).onConflictDoNothing().run()
   }
 
   addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
