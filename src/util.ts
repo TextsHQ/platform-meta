@@ -72,8 +72,7 @@ export function createPromise<T>() {
   const p: {
     resolve?: (value: T | PromiseLike<T>) => void
     promise?: Promise<T>
-  } = {
-    promise: new Promise<T>(resolve => { p.resolve = resolve }),
-  }
+  } = {}
+  p.promise = new Promise<T>(resolve => { p.resolve = resolve })
   return p
 }
