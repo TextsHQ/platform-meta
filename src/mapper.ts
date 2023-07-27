@@ -1,5 +1,6 @@
 import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
-import type { ExtendedIGMessage, ExtendedIGThread, IGReaction, IGThread } from './ig-types'
+import type { ExtendedIGMessage, ExtendedIGThread, IGReaction } from './ig-types'
+import type { IGThread } from './store/schema'
 
 export function mapThread(thread: IGThread | ExtendedIGThread): Thread {
   return {
