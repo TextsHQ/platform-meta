@@ -1,4 +1,5 @@
-import { sqliteTable, integer, text, blob } from 'drizzle-orm/sqlite-core'
+import { relations } from 'drizzle-orm'
+import { sqliteTable, integer, text, blob, primaryKey } from 'drizzle-orm/sqlite-core'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import type { InferModel } from 'drizzle-orm'
 
@@ -116,6 +117,10 @@ export const messages = sqliteTable('messages', {
 export const insertMessageSchema = createInsertSchema(messages)
 export const selectMessageSchema = createSelectSchema(messages)
 
+export const messageRelations = relations(messages, ({ one }) => ({
+  thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
+}))
+
 export const typingIndicators = sqliteTable('typing_indicators', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
   threadKey: text('threadKey').notNull(),
@@ -206,7 +211,22 @@ export const participants = sqliteTable('participants', {
   lastDeliveredActionTimestampMs: integer('lastDeliveredActionTimestampMs', { mode: 'timestamp' }),
   // lastDeliveredWatermarkTimestampMs: integer('lastDeliveredWatermarkTimestampMs', { mode: 'timestamp' }),
   isAdmin: integer('isAdmin', { mode: 'boolean' }),
-})
+}, table => ({
+  pk: primaryKey(table.threadKey, table.userId),
+}))
+export const participantRelations = relations(participants, ({ one }) => ({
+  thread: one(threads, { fields: [participants.threadKey], references: [threads.threadKey] }),
+  user: one(users, { fields: [participants.userId], references: [users.id] }),
+}))
+
+export const userRelations = relations(users, ({ many }) => ({
+  participants: many(participants),
+}))
+
+export const threadsRelation = relations(threads, ({ many }) => ({
+  messages: many(messages),
+  participants: many(participants),
+}))
 
 export type IGParticipant = InferModel<typeof participants, 'select'>
 export const insertParticipantSchema = createInsertSchema(participants)

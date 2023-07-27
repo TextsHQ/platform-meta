@@ -1,22 +1,11 @@
 import fs from "fs";
 import { parseRawPayload } from "./parsers.mjs";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-
-import Database from "better-sqlite3";
+import { getDB } from "./utils.mjs";
 import * as schema from "/Users/rahulvaidun/Texts/platform-instagram/dist/store/schema.js";
-const getDB = async () => {
-  const sqlite = new Database("/Users/rahulvaidun/Texts/test.db");
-  const db = drizzle(sqlite, {});
-  await migrate(db, {
-    migrationsFolder: "/Users/rahulvaidun/Texts/platform-instagram/drizzle",
-  });
-  return db;
-};
 
 const db = await getDB();
 
-const rawPayload = fs.readFileSync("scripts/dbtest.json");
+const rawPayload = fs.readFileSync("dbtest.json");
 const rawd = parseRawPayload(rawPayload);
 const parseMap = {
   deleteThenInsertThread: addThreads,

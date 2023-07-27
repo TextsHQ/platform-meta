@@ -84,6 +84,7 @@ CREATE TABLE `participants` (
 	`deliveredWatermarkTimestampMs` integer,
 	`lastDeliveredActionTimestampMs` integer,
 	`isAdmin` integer,
+	PRIMARY KEY(`threadKey`, `userId`),
 	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );

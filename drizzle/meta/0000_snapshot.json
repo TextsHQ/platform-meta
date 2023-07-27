@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "6db13db9-d7ce-40e7-8f32-230c6918dc32",
+  "id": "d1e913a7-e590-4bbb-9ac8-4c92b7ebde5f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -628,7 +628,14 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "participants_threadKey_userId_pk": {
+          "columns": [
+            "threadKey",
+            "userId"
+          ]
+        }
+      },
       "uniqueConstraints": {}
     },
     "reactions": {

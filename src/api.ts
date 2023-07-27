@@ -160,7 +160,15 @@ export default class PlatformInstagram implements PlatformAPI {
       title: thread.threadName,
       type: 'single',
     }))
-    this.logger.info('getThreads is the value', threads)
+    const threadsTest = this.db.query.threads.findMany(
+      {
+        with: {
+          participants: true,
+          messages: true,
+        },
+      },
+    )
+    this.logger.info('getThreads is the value', threadsTest)
     return {
       items: threads,
       hasMore: false,

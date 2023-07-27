@@ -5,6 +5,11 @@ import path from "path";
 import process from "process";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import * as schema from "/Users/rahulvaidun/Texts/platform-instagram/dist/store/schema.js";
+
+import Database from "better-sqlite3";
 const commonHeaders = {
   authority: "www.instagram.com",
   "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
@@ -20,6 +25,14 @@ const commonHeaders = {
   "sec-ch-ua-full-version-list":
     '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
   cookie: get("cookies"),
+};
+export const getDB = async () => {
+  const sqlite = new Database("/Users/rahulvaidun/Texts/test.db");
+  const db = drizzle(sqlite, {schema});
+  // await migrate(db, {
+  //   migrationsFolder: "/Users/rahulvaidun/Texts/platform-instagram/drizzle",
+  // });
+  return db;
 };
 export const getTimeValues = () => {
   // console.log(typing.toString("hex").match(/../g).join(" "));
