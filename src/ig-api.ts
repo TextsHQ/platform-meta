@@ -290,28 +290,6 @@ export default class InstagramAPI {
     // this.cursorCache = cursorResponse
 
     this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
-
-    // const { newConversations, newMessages } = cursorResponse
-    // const mappedNewConversations = newConversations?.map(mapThread)
-
-    // const mappedNewMessages = newMessages?.map(message => this.mapMessage(message))
-    // this.papi.onEvent?.([{
-    //   type: ServerEventType.STATE_SYNC,
-    //   objectName: 'thread',
-    //   objectIDs: {},
-    //   mutationType: 'upsert',
-    //   entries: mappedNewConversations,
-    // }])
-    // for (const message of mappedNewMessages) {
-    //   this.papi.onEvent?.([{
-    //     type: ServerEventType.STATE_SYNC,
-    //     objectName: 'message',
-    //     objectIDs: { threadID: message.threadID },
-    //     mutationType: 'upsert',
-    //     entries: [message],
-    //   }])
-    // }
-    // return cursorResponse
   }
 
   handlePayload(payload: any) {

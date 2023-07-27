@@ -254,65 +254,7 @@ export default class InstagramWebSocket {
     this.logger.info('INSTAGRAM', { payload })
 
     this.papi.api.handlePayload(payload.payload)
-
-    // if (payload.payload.includes('upsertMessage')) {
-    //   await this.processUpsertMessage(data)
-    // } else if (payload.payload.includes('deleteThenInsertThread')) {
-    //   await this.processDeleteThenInsertThread(data)
-    // } else {
-    //   texts.log('ig socket: unhandled message (2)', data, JSON.stringify(payload, null, 2))
-    // }
-    // const { newMessages, newReactions, newConversations } = parsePayload(this.papi.api.session.fbid, payload.payload)
-    // if (newConversations) {
-    //   this.processConversations(newConversations)
-    // }
-    // if (newMessages) {
-    //   this.processMessages(newMessages)
-    // } else if (newReactions) {
-    //   this.processReactions(newReactions)
-    // }
   }
-
-  // private async processConversations(newConversations: any) {
-  //   const mappedNewConversations = newConversations.map(mapThread)
-  //   this.igApi.upsertThreads(mappedNewConversations)
-  //   this.papi.onEvent?.([{
-  //     type: ServerEventType.STATE_SYNC,
-  //     objectName: 'thread',
-  //     objectIDs: {},
-  //     mutationType: 'upsert',
-  //     entries: mappedNewConversations,
-  //   }])
-  // }
-
-  // private async processMessages(newMessages: any) {
-  //   const mappedMessages = newMessages.map(m => mapMessage(this.papi.api.session.fbid, m))
-  //   this.papi.api.db.addMessages(mappedMessages)
-
-  //   for (const message of mappedMessages) {
-  //     this.papi.onEvent?.([{
-  //       type: ServerEventType.STATE_SYNC,
-  //       objectName: 'message',
-  //       objectIDs: { threadID: message.threadID },
-  //       mutationType: 'upsert',
-  //       entries: [message],
-  //     }])
-  //   }
-  // }
-
-  // private async processReactions(newReactions: any[]) {
-  //   console.log('ig socket: new reactions', newReactions)
-  //   const mappedReactions: MessageReaction[] = newReactions.map(r => mapReactions(r))
-
-  //   // loop through mappedReactions and newReactions together
-  //   newReactions.forEach((reaction, i) => this.papi.onEvent?.([{
-  //     type: ServerEventType.STATE_SYNC,
-  //     objectName: 'message_reaction',
-  //     objectIDs: { threadID: reaction.threadID, messageID: reaction.messageID },
-  //     mutationType: 'upsert',
-  //     entries: [mappedReactions[i]],
-  //   }]))
-  // }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
     if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')

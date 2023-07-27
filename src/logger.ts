@@ -19,5 +19,3 @@ export const getLogger = (_p?: string) => {
     fatal: (...args: any[]) => texts.error([p, '[fatal]', ...args].join(' ')),
   }
 }
-
-export type LoggerInstance = ReturnType<typeof getLogger>

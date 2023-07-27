@@ -229,6 +229,8 @@ export const attachments = sqliteTable('attachments', {
   authorityLevel: text('authorityLevel'),
 })
 
+export type IGAttachment = InferModel<typeof attachments, 'select'>
+
 export const users = sqliteTable('users', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   original: text('_original'),

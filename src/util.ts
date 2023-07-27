@@ -1,6 +1,3 @@
-// import { randomBytes } from 'crypto'
-// import { createWriteStream } from 'fs'
-// import P, { multistream } from 'pino'
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
 
@@ -43,28 +40,6 @@ export function parseMqttPacket(data: WebSocket.RawData) {
 }
 
 export const getMqttSid = () => parseInt(Math.random().toFixed(16).split('.')[1], 10)
-
-// export const getLogger = (filename: string | undefined) => {
-//   const opts = {
-//     timestamp: () => `,"time":"${new Date().toJSON()}"`,
-//     level: texts?.isLoggingEnabled ? 'debug' : 'fatal',
-//   } as const
-//   if (filename) {
-//     return P(
-//       opts,
-//       multistream([
-//         { stream: process.stdout, level: opts.level },
-//         { stream: createWriteStream(filename, { flags: 'a' }), level: opts.level },
-//       ]),
-//     )
-//   }
-//   return P(opts)
-// }
-
-// @TODO:used for pino
-// export function generateInstanceId() {
-//   return randomBytes(2).toString('hex')
-// }
 
 export const sleep = (ms: number) => new Promise(resolve => { setTimeout(resolve, ms) })
 
