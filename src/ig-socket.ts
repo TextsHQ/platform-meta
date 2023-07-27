@@ -459,11 +459,9 @@ export default class InstagramWebSocket {
     })
   }
 
-  private getLastThreadReference(conversations: any[] = this.papi.api.cursorCache?.deleteThenInsertThread ?? []) {
-    const lastConversationInCursor = conversations?.[conversations.length - 1]
+  private getLastThreadReference() {
     return {
-      reference_thread_key: Number(lastConversationInCursor.threadId),
-      reference_activity_timestamp: lastConversationInCursor.lastSentTime,
+      ...this.papi.api.lastThreadReference,
       cursor: this.papi.api.cursor,
     }
   }

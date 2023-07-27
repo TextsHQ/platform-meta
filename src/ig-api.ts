@@ -5,7 +5,6 @@ import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
-// import pick from 'lodash/pick'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
@@ -82,11 +81,12 @@ export default class InstagramAPI {
 
   fbid: SerializedSession['fbid']
 
-  get cursor(): string {
-    return this.cursorCache?.cursor
-  }
+  cursor: string
 
-  cursorCache: Awaited<ReturnType<typeof parseRawPayload>> = null
+  lastThreadReference: {
+    reference_thread_key: string
+    reference_activity_timestamp: number
+  }
 
   private _axios: AxiosInstance
 
@@ -124,7 +124,7 @@ export default class InstagramAPI {
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
     }
-    await this.getCursor()
+    await this.getInitialPayload()
   }
 
   async getClientId() {
@@ -267,7 +267,7 @@ export default class InstagramAPI {
       .find(c => c.key === 'csrftoken')?.value
   }
 
-  async getCursor() {
+  async getInitialPayload() {
     const response = await this.apiCall('6195354443842040', {
       deviceId: this.clientId,
       requestId: 0,
@@ -280,14 +280,6 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-
-    // @TODO:remove
-    // const cursorResponse = parsePayload(
-    //   this.fbid,
-    //   response.data.data.lightspeed_web_request_for_igd.payload,
-    // )
-
-    // this.cursorCache = cursorResponse
 
     this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
   }
@@ -306,6 +298,14 @@ export default class InstagramAPI {
         ...t,
         threadKey: t.threadKey!,
       }))
+      const lastThread: schema.IGThread = threads?.length > 0 ? threads[threads.length - 1] : null
+      if (lastThread) {
+        this.lastThreadReference = {
+          reference_activity_timestamp: lastThread.lastActivityTimestampMs?.getTime(),
+          reference_thread_key: lastThread.threadKey,
+        }
+      }
+
       this.addThreads(threads)
     }
     if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
@@ -329,6 +329,12 @@ export default class InstagramAPI {
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
+
+    if (rawd.cursor) {
+      this.cursor = rawd.cursor
+    }
+
+
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
