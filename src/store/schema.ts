@@ -79,6 +79,16 @@ export const threads = sqliteTable('threads', {
   threadStatus: text('threadStatus'),
   threadSubtype: text('threadSubtype'),
   pauseThreadTimestamp: integer('pauseThreadTimestamp', { mode: 'timestamp' }),
+  nullstateDescriptionText1: text('nullstateDescriptionText1'),
+  nullstateDescriptionText2: text('nullstateDescriptionText2'),
+  nullstateDescriptionText3: text('nullstateDescriptionText3'),
+  nullstateDescriptionType1: text('nullstateDescriptionType1'),
+  nullstateDescriptionType2: text('nullstateDescriptionType2'),
+  nullstateDescriptionType3: text('nullstateDescriptionType3'),
+  viewedPluginKey: text('viewedPluginKey'),
+  viewedPluginContext: text('viewedPluginContext'),
+  clientThreadKey: text('clientThreadKey'),
+  capabilities: text('capabilities'),
 })
 
 export type IGThread = InferModel<typeof threads, 'select'>

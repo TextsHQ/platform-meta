@@ -1,103 +1,11 @@
+import type { IGThread } from './store/schema'
+
 export type IGReaction = {
   reactionSentTs: string
   reactorId: string
   reaction: string
   messageId: string
 }
-export interface IGThread {
-  threadKey: string
-  lastReadWatermarkTimestampMs?: number
-  authorityLevel?: number
-  mailboxType?: string
-  threadType?: number
-  folderName?: string
-  ongoingCallState?: string
-  parentThreadKey?: string
-  lastActivityTimestampMs?: number
-  snippet?: string
-  threadName?: string
-  threadPictureUrl?: string
-  needsAdminApprovalForNewParticipant?: boolean
-  threadPictureUrlFallback?: string
-  threadPictureUrlExpirationTimestampMs?: number
-  removeWatermarkTimestampMs?: number
-  muteExpireTimeMs?: number
-  muteMentionExpireTimeMs?: number
-  muteCallsExpireTimeMs?: number
-  groupNotificationSettings?: number
-  isAdminSnippet?: boolean
-  snippetSenderContactId?: string
-  snippetStringHash?: string
-  snippetStringArgument1?: string
-  snippetAttribution?: string
-  snippetAttributionStringHash?: string
-  disappearingSettingTtl?: number
-  disappearingSettingUpdatedTs?: number
-  disappearingSettingUpdatedBy?: string
-  cannotReplyReason?: string
-  customEmoji?: string
-  customEmojiImageUrl?: string
-  outgoingBubbleColor?: string
-  themeFbid?: string
-  nullstateDescriptionText1?: string
-  nullstateDescriptionType1?: string
-  nullstateDescriptionText2?: string
-  nullstateDescriptionType2?: string
-  nullstateDescriptionText3?: string
-  nullstateDescriptionType3?: string
-  draftMessage?: string
-  snippetHasEmoji?: boolean
-  hasPersistentMenu?: boolean
-  disableComposerInput?: boolean
-  cannotUnsendReason?: string
-  viewedPluginKey?: string
-  viewedPluginContext?: string
-  clientThreadKey?: string
-  capabilities?: string
-  shouldRoundThreadPicture?: boolean
-  proactiveWarningDismissTime?: number
-  isCustomThreadPicture?: boolean
-  otidOfFirstMessage?: string
-  normalizedSearchTerms?: string
-  additionalThreadContext?: string
-  disappearingThreadKey?: string
-  isDisappearingMode?: boolean
-  disappearingModeInitiator?: string
-  unreadDisappearingMessageCount?: number
-  lastMessageCtaId?: string
-  lastMessageCtaType?: string
-  lastMessageCtaTimestampMs?: number
-  consistentThreadFbid?: string
-  threadDescription?: string
-  unsendLimitMs?: number
-  capabilities2?: string
-  capabilities3?: string
-  syncGroup?: string
-  threadInvitesEnabled?: boolean
-  threadInviteLink?: string
-  isAllUnreadMessageMissedCallXma?: boolean
-  lastNonMissedCallXmaMessageTimestampMs?: number
-  threadInvitesEnabledV2?: boolean
-  hasPendingInvitation?: boolean
-  eventStartTimestampMs?: number
-  eventEndTimestampMs?: number
-  takedownState?: string
-  secondaryParentThreadKey?: string
-  igFolder?: string
-  inviterId?: string
-  threadTags?: string
-  threadStatus?: string
-  threadSubtype?: string
-  pauseThreadTimestamp?: number
-  avatarStickerInstructionKeyId?: string
-  avatarStickerId?: string
-  avatarStickerThumbnailImageUrl?: string
-  avatarStickerThumbnailImageMimeType?: string
-  avatarStickerOriginalImageUrl?: string
-  avatarStickerOriginalImageMimeType?: string
-  memberCount?: number
-}
-
 export interface ExtendedIGThread extends IGThread {
   unread: boolean
   participants: IGParticipant[]
