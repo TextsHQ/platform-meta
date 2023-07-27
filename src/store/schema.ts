@@ -4,7 +4,8 @@ import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
 import type { InferModel } from 'drizzle-orm'
 
 export const threads = sqliteTable('threads', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  original: text('_original'),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   threadKey: text('threadKey').notNull().primaryKey(),
   lastReadWatermarkTimestampMs: integer('lastReadWatermarkTimestampMs', { mode: 'timestamp' }),
   threadType: text('threadType'),
@@ -101,7 +102,8 @@ export const insertThreadSchema = createInsertSchema(threads).required({
 export const selectThreadSchema = createSelectSchema(threads)
 
 export const messages = sqliteTable('messages', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  original: text('_original'),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   offlineThreadingId: text('offlineThreadingId'),
   authorityLevel: integer('authorityLevel'),
@@ -110,6 +112,7 @@ export const messages = sqliteTable('messages', {
   senderId: text('senderId').notNull(),
   isAdminMessage: integer('isAdminMessage', { mode: 'boolean' }),
   sendStatus: text('sendStatus'),
+  sendStatusV2: text('sendStatusV2'),
   text: text('text'),
   subscriptErrorMessage: text('subscriptErrorMessage'),
   stickerId: text('stickerId'),
@@ -122,7 +125,48 @@ export const messages = sqliteTable('messages', {
   mentionTypes: text('mentionTypes'),
   replySourceId: text('replySourceId'),
   replySourceType: text('replySourceType'),
+  primarySortKey: text('primarySortKey'),
+  secondarySortKey: text('secondarySortKey'),
+  replyMediaExpirationTimestampMs: integer('replyMediaExpirationTimestampMs', { mode: 'timestamp' }),
+  replySourceTypeV2: text('replySourceTypeV2'),
+  replyStatus: text('replyStatus'),
+  replySnippet: text('replySnippet'),
+  replyMessageText: text('replyMessageText'),
+  replyToUserId: text('replyToUserId'),
+  replyMediaUrl: text('replyMediaUrl'),
+  replyMediaPreviewWidth: text('replyMediaPreviewWidth'),
+  replyMediaPreviewHeight: text('replyMediaPreviewHeight'),
+  replyMediaUrlMimeType: text('replyMediaUrlMimeType'),
+  replyMediaUrlFallback: text('replyMediaUrlFallback'),
+  replyCtaId: text('replyCtaId'),
+  replyCtaTitle: text('replyCtaTitle'),
+  replyAttachmentType: text('replyAttachmentType'),
+  replyAttachmentId: text('replyAttachmentId'),
+  replyAttachmentExtra: text('replyAttachmentExtra'),
+  isForwarded: integer('isForwarded', { mode: 'boolean' }),
+  forwardScore: text('forwardScore'),
+  hasQuickReplies: integer('hasQuickReplies', { mode: 'boolean' }),
+  adminMsgCtaId: text('adminMsgCtaId'),
+  adminMsgCtaTitle: text('adminMsgCtaTitle'),
+  adminMsgCtaType: text('adminMsgCtaType'),
+  cannotUnsendReason: text('cannotUnsendReason'),
+  textHasLinks: text('textHasLinks'),
+  viewFlags: text('viewFlags'),
+  displayedContentTypes: text('displayedContentTypes'),
+  viewedPluginKey: text('viewedPluginKey'),
+  viewedPluginContext: text('viewedPluginContext'),
+  quickReplyType: text('quickReplyType'),
+  hotEmojiSize: text('hotEmojiSize'),
+  replySourceTimestampMs: integer('replySourceTimestampMs', { mode: 'timestamp' }),
+  ephemeralDurationInSec: text('ephemeralDurationInSec'),
+  msUntilExpirationTs: integer('msUntilExpirationTs', { mode: 'timestamp' }),
+  ephemeralExpirationTs: integer('ephemeralExpirationTs', { mode: 'timestamp' }),
+  takedownState: text('takedownState'),
+  isCollapsed: integer('isCollapsed', { mode: 'boolean' }),
+  subthreadKey: text('subthreadKey'),
 })
+
+export type IGMessage = InferModel<typeof messages, 'select'>
 
 export const insertMessageSchema = createInsertSchema(messages)
 export const selectMessageSchema = createSelectSchema(messages)
@@ -132,7 +176,8 @@ export const messageRelations = relations(messages, ({ one }) => ({
 }))
 
 export const typingIndicators = sqliteTable('typing_indicators', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  original: text('_original'),
   threadKey: text('threadKey').notNull(),
   minTimestampMs: integer('minTimestampMs', { mode: 'timestamp' }),
   minMessageId: text('minMessageId'),
@@ -148,7 +193,8 @@ export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators)
 export const selectTypingIndicatorSchema = createSelectSchema(typingIndicators)
 
 export const attachments = sqliteTable('attachments', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  original: text('_original'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   messageId: text('messageId').notNull().references(() => messages.messageId),
   attachmentFbid: text('attachmentFbid'),
@@ -201,7 +247,8 @@ export const insertAttachmentSchema = createInsertSchema(attachments)
 export const selectAttachmentSchema = createSelectSchema(attachments)
 
 export const users = sqliteTable('users', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  original: text('_original'),
   id: text('id').notNull().primaryKey(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
@@ -212,7 +259,8 @@ export const insertUserSchema = createInsertSchema(users)
 export const selectUserSchema = createSelectSchema(users)
 
 export const participants = sqliteTable('participants', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  original: text('_original'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   userId: text('userId').notNull().references(() => users.id),
   readWatermarkTimestampMs: integer('readWatermarkTimestampMs', { mode: 'timestamp' }),
@@ -243,7 +291,8 @@ export const insertParticipantSchema = createInsertSchema(participants)
 export const selectParticipantSchema = createSelectSchema(participants)
 
 export const reactions = sqliteTable('reactions', {
-  original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
+  original: text('_original'),
+  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   // threadKey: text('threadKey').references(() => threads.threadKey),
   threadKey: text('threadKey'),
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),

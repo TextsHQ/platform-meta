@@ -325,6 +325,7 @@ export default class InstagramAPI {
       // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
         ...t,
+        original: JSON.stringify(t),
         threadKey: t.threadKey!,
       }))
       this.addThreads(threads)
@@ -362,7 +363,18 @@ export default class InstagramAPI {
       mutationType: 'upsert',
       entries: threads.map(mapThread as any), // @TODO remove any
     }])
-    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
+    const threadsWithNoBool = threads.map(thread => {
+      const newThread = { ...thread }
+      for (const key in newThread) {
+        if (typeof newThread[key] === 'boolean') {
+          newThread[key] = newThread[key] ? 1 : 0
+        }
+      }
+      return newThread
+    })
+    this.logger.info('addThreads (threadsWithNoBool)', threadsWithNoBool)
+
+    return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
   }
 
   addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
@@ -386,9 +398,22 @@ export default class InstagramAPI {
         entries: [message].map(mapMessage as any), // @TODO remove any
       }])
     }
+
+    const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
+      const newMessage = { ...message }
+      for (const key in newMessage) {
+        if (typeof newMessage[key] === 'boolean') {
+          newMessage[key] = newMessage[key] ? 1 : 0
+        }
+      }
+      return newMessage
+    })
+
+    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool)
+
     return this.papi.db
       .insert(schema.messages)
-      .values(messages)
+      .values(messagesWithNoBool)
       .onConflictDoNothing()
       .run()
   }

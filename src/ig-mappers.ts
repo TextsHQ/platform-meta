@@ -1,6 +1,5 @@
 import type { Thread, Message } from '@textshq/platform-sdk'
-import type { IGMessage } from './ig-types'
-import type { IGThread } from './store/schema'
+import type { IGThread, IGMessage } from './store/schema'
 
 export function mapThread(thread: IGThread): Thread {
   return {

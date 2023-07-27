@@ -1,4 +1,4 @@
-import type { IGThread } from './store/schema'
+import type { IGThread, IGMessage } from './store/schema'
 
 export type IGReaction = {
   reactionSentTs: string
@@ -10,69 +10,6 @@ export interface ExtendedIGThread extends IGThread {
   unread: boolean
   participants: IGParticipant[]
   lastMessageDetails: Partial<IGMessage>
-}
-
-export interface IGMessage {
-  threadKey: string
-  timestampMs: number
-  messageId: string
-  offlineThreadingId?: string
-  authorityLevel?: number
-  primarySortKey?: string
-  senderId: string
-  isAdminMessage?: boolean
-  sendStatus?: number
-  sendStatusV2?: number
-  text?: string
-  subscriptErrorMessage?: string
-  secondarySortKey?: string
-  stickerId?: string
-  messageRenderingType?: number
-  isUnsent?: boolean
-  unsentTimestampMs?: number
-  mentionOffsets?: number[]
-  mentionLengths?: number[]
-  mentionIds?: string[]
-  mentionTypes?: number[]
-  replySourceId?: string
-  replySourceType?: number
-  replySourceTypeV2?: number
-  replyStatus?: number
-  replySnippet?: string
-  replyMessageText?: string
-  replyToUserId?: string
-  replyMediaExpirationTimestampMs?: number
-  replyMediaUrl?: string
-  replyMediaPreviewWidth?: number
-  replyMediaPreviewHeight?: number
-  replyMediaUrlMimeType?: string
-  replyMediaUrlFallback?: string
-  replyCtaId?: string
-  replyCtaTitle?: string
-  replyAttachmentType?: number
-  replyAttachmentId?: string
-  replyAttachmentExtra?: string
-  isForwarded?: boolean
-  forwardScore?: number
-  hasQuickReplies?: boolean
-  adminMsgCtaId?: string
-  adminMsgCtaTitle?: string
-  adminMsgCtaType?: number
-  cannotUnsendReason?: number
-  textHasLinks?: boolean
-  viewFlags?: number
-  displayedContentTypes?: number[]
-  viewedPluginKey?: string
-  viewedPluginContext?: string
-  quickReplyType?: number
-  hotEmojiSize?: number
-  replySourceTimestampMs?: number
-  ephemeralDurationInSec?: number
-  msUntilExpirationTs?: number
-  ephemeralExpirationTs?: number
-  takedownState?: number
-  isCollapsed?: boolean
-  subthreadKey?: string
 }
 
 export interface ExtendedIGMessage extends IGMessage {
