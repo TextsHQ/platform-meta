@@ -8,10 +8,10 @@ export interface IGThread {
   threadKey: string
   lastReadWatermarkTimestampMs?: number
   authorityLevel?: number
-  mailboxType?: number
+  mailboxType?: string
   threadType?: number
   folderName?: string
-  ongoingCallState?: number
+  ongoingCallState?: string
   parentThreadKey?: string
   lastActivityTimestampMs?: number
   snippet?: string
@@ -27,33 +27,33 @@ export interface IGThread {
   groupNotificationSettings?: number
   isAdminSnippet?: boolean
   snippetSenderContactId?: string
-  snippetStringHash?: number
+  snippetStringHash?: string
   snippetStringArgument1?: string
   snippetAttribution?: string
-  snippetAttributionStringHash?: number
+  snippetAttributionStringHash?: string
   disappearingSettingTtl?: number
   disappearingSettingUpdatedTs?: number
   disappearingSettingUpdatedBy?: string
-  cannotReplyReason?: number
+  cannotReplyReason?: string
   customEmoji?: string
   customEmojiImageUrl?: string
   outgoingBubbleColor?: string
   themeFbid?: string
   nullstateDescriptionText1?: string
-  nullstateDescriptionType1?: number
+  nullstateDescriptionType1?: string
   nullstateDescriptionText2?: string
-  nullstateDescriptionType2?: number
+  nullstateDescriptionType2?: string
   nullstateDescriptionText3?: string
-  nullstateDescriptionType3?: number
+  nullstateDescriptionType3?: string
   draftMessage?: string
   snippetHasEmoji?: boolean
   hasPersistentMenu?: boolean
   disableComposerInput?: boolean
-  cannotUnsendReason?: number
+  cannotUnsendReason?: string
   viewedPluginKey?: string
   viewedPluginContext?: string
   clientThreadKey?: string
-  capabilities?: number
+  capabilities?: string
   shouldRoundThreadPicture?: boolean
   proactiveWarningDismissTime?: number
   isCustomThreadPicture?: boolean
@@ -65,14 +65,14 @@ export interface IGThread {
   disappearingModeInitiator?: string
   unreadDisappearingMessageCount?: number
   lastMessageCtaId?: string
-  lastMessageCtaType?: number
+  lastMessageCtaType?: string
   lastMessageCtaTimestampMs?: number
   consistentThreadFbid?: string
   threadDescription?: string
   unsendLimitMs?: number
-  capabilities2?: number
-  capabilities3?: number
-  syncGroup?: number
+  capabilities2?: string
+  capabilities3?: string
+  syncGroup?: string
   threadInvitesEnabled?: boolean
   threadInviteLink?: string
   isAllUnreadMessageMissedCallXma?: boolean
@@ -81,13 +81,13 @@ export interface IGThread {
   hasPendingInvitation?: boolean
   eventStartTimestampMs?: number
   eventEndTimestampMs?: number
-  takedownState?: number
+  takedownState?: string
   secondaryParentThreadKey?: string
   igFolder?: string
   inviterId?: string
-  threadTags?: string[]
-  threadStatus?: number
-  threadSubtype?: number
+  threadTags?: string
+  threadStatus?: string
+  threadSubtype?: string
   pauseThreadTimestamp?: number
   avatarStickerInstructionKeyId?: string
   avatarStickerId?: string

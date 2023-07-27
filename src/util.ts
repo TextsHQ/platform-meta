@@ -76,3 +76,7 @@ export function createPromise<T>() {
   p.promise = new Promise<T>(resolve => { p.resolve = resolve })
   return p
 }
+
+export function getAsDate(ms: string) {
+  return ms ? new Date(ms) : undefined
+}

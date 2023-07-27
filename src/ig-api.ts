@@ -324,20 +324,17 @@ export default class InstagramAPI {
       //   return
       // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
-        // ...pick(t, Object.keys(schema.threads._.columns)),
-        ...schema.insertThreadSchema.parse(t),
+        ...t,
         threadKey: t.threadKey!,
-        original: t,
       }))
       this.addThreads(threads)
     }
     if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
     if (rawd.addParticipantIdToGroupThread) {
       const participants = rawd.addParticipantIdToGroupThread.map(p => ({
-        ...schema.insertParticipantSchema.parse(p),
+        ...p,
         threadKey: p.threadKey!,
         userId: p.userId!,
-        original: p,
       }))
       this.addParticipants(participants)
     }

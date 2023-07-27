@@ -1,5 +1,6 @@
 import { sqliteTable, integer, text, blob } from 'drizzle-orm/sqlite-core'
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
+import type { InferModel } from 'drizzle-orm'
 
 export const threads = sqliteTable('threads', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
@@ -14,6 +15,7 @@ export const threads = sqliteTable('threads', {
   threadPictureUrl: text('threadPictureUrl'),
   needsAdminApprovalForNewParticipant: integer('needsAdminApprovalForNewParticipant', { mode: 'boolean' }),
   threadPictureUrlFallback: text('threadPictureUrlFallback'),
+  threadPictureUrlExpirationTimestampMs: integer('threadPictureUrlExpirationTimestampMs', { mode: 'timestamp' }),
   removeWatermarkTimestampMs: integer('removeWatermarkTimestampMs', { mode: 'timestamp' }),
   muteExpireTimeMs: integer('muteExpireTimeMs', { mode: 'timestamp' }),
   groupNotificationSettings: text('groupNotificationSettings'), // potentially blob type if it's a complex object
@@ -22,6 +24,8 @@ export const threads = sqliteTable('threads', {
   snippetStringHash: text('snippetStringHash'),
   snippetStringArgument1: text('snippetStringArgument1'),
   snippetAttribution: text('snippetAttribution'),
+  mailboxType: text('mailboxType'),
+  draftMessage: text('draftMessage'),
   snippetAttributionStringHash: text('snippetAttributionStringHash'),
   disappearingSettingTtl: integer('disappearingSettingTtl'),
   disappearingSettingUpdatedTs: integer('disappearingSettingUpdatedTs', { mode: 'timestamp' }),
@@ -31,7 +35,52 @@ export const threads = sqliteTable('threads', {
   customEmojiImageUrl: text('customEmojiImageUrl'),
   outgoingBubbleColor: text('outgoingBubbleColor'),
   themeFbid: text('themeFbid'),
+  authorityLevel: integer('authorityLevel'),
+  muteMentionExpireTimeMs: integer('muteMentionExpireTimeMs', { mode: 'timestamp' }),
+  muteCallsExpireTimeMs: integer('muteCallsExpireTimeMs', { mode: 'timestamp' }),
+  ongoingCallState: text('ongoingCallState'),
+  cannotUnsendReason: text('cannotUnsendReason'),
+  snippetHasEmoji: integer('snippetHasEmoji', { mode: 'boolean' }),
+  hasPersistentMenu: integer('hasPersistentMenu', { mode: 'boolean' }),
+  disableComposerInput: integer('disableComposerInput', { mode: 'boolean' }),
+  shouldRoundThreadPicture: integer('shouldRoundThreadPicture', { mode: 'boolean' }),
+  proactiveWarningDismissTime: integer('proactiveWarningDismissTime'),
+  isCustomThreadPicture: integer('isCustomThreadPicture', { mode: 'boolean' }),
+  otidOfFirstMessage: text('otidOfFirstMessage'),
+  normalizedSearchTerms: text('normalizedSearchTerms'),
+  additionalThreadContext: text('additionalThreadContext'),
+  disappearingThreadKey: text('disappearingThreadKey'),
+  isDisappearingMode: integer('isDisappearingMode', { mode: 'boolean' }),
+  disappearingModeInitiator: text('disappearingModeInitiator'),
+  unreadDisappearingMessageCount: integer('unreadDisappearingMessageCount'),
+  lastMessageCtaId: text('lastMessageCtaId'),
+  lastMessageCtaType: text('lastMessageCtaType'),
+  lastMessageCtaTimestampMs: integer('lastMessageCtaTimestampMs', { mode: 'timestamp' }),
+  consistentThreadFbid: text('consistentThreadFbid'),
+  threadDescription: a[70][1],
+  unsendLimitMs: integer('unsendLimitMs', { mode: 'timestamp' }),
+  capabilities2: a[79][1],
+  capabilities3: a[80][1],
+  syncGroup: a[83],
+  threadInvitesEnabled: integer('threadInvitesEnabled', { mode: 'boolean' }),
+  threadInviteLink: a[85],
+  isAllUnreadMessageMissedCallXma: Boolean(a[86]),
+  lastNonMissedCallXmaMessageTimestampMs: Number(a[87]),
+  threadInvitesEnabledV2: Boolean(a[89]),
+  hasPendingInvitation: Boolean(a[92]),
+  eventStartTimestampMs: Number(a[93]),
+  eventEndTimestampMs: Number(a[94]),
+  takedownState: a[95],
+  secondaryParentThreadKey: a[96],
+  igFolder: a[97],
+  inviterId: a[98],
+  threadTags: a[99],
+  threadStatus: a[100],
+  threadSubtype: a[101],
+  pauseThreadTimestamp: Number(a[102]),
 })
+
+export type IGThread = InferModel<typeof threads, 'select'>
 
 export const insertThreadSchema = createInsertSchema(threads).required({
   threadKey: true,
@@ -155,9 +204,11 @@ export const participants = sqliteTable('participants', {
   readActionTimestampMs: integer('readActionTimestampMs', { mode: 'timestamp' }),
   deliveredWatermarkTimestampMs: integer('deliveredWatermarkTimestampMs', { mode: 'timestamp' }),
   lastDeliveredActionTimestampMs: integer('lastDeliveredActionTimestampMs', { mode: 'timestamp' }),
+  // lastDeliveredWatermarkTimestampMs: integer('lastDeliveredWatermarkTimestampMs', { mode: 'timestamp' }),
   isAdmin: integer('isAdmin', { mode: 'boolean' }),
 })
 
+export type IGParticipant = InferModel<typeof participants, 'select'>
 export const insertParticipantSchema = createInsertSchema(participants)
 export const selectParticipantSchema = createSelectSchema(participants)
 
