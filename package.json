@@ -19,7 +19,6 @@
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "drizzle-orm": "^0.27.2",
-    "drizzle-zod": "^0.4.4",
     "http-cookie-agent": "^5.0.4",
     "lodash": "4.17.21",
     "mqtt-packet": "^8.2.0",

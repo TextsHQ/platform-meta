@@ -1,6 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { sqliteTable, integer, text, blob, primaryKey } from 'drizzle-orm/sqlite-core'
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod'
+import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
 
 export const threads = sqliteTable('threads', {
@@ -94,13 +93,6 @@ export const threads = sqliteTable('threads', {
 
 export type IGThread = InferModel<typeof threads, 'select'>
 
-export const insertThreadSchema = createInsertSchema(threads).required({
-  threadKey: true,
-  original: true,
-})
-
-export const selectThreadSchema = createSelectSchema(threads)
-
 export const messages = sqliteTable('messages', {
   original: text('_original'),
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
@@ -168,9 +160,6 @@ export const messages = sqliteTable('messages', {
 
 export type IGMessage = InferModel<typeof messages, 'select'>
 
-export const insertMessageSchema = createInsertSchema(messages)
-export const selectMessageSchema = createSelectSchema(messages)
-
 export const messageRelations = relations(messages, ({ one }) => ({
   thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
 }))
@@ -188,9 +177,6 @@ export const typingIndicators = sqliteTable('typing_indicators', {
   hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
 })
-
-export const insertTypingIndicatorSchema = createInsertSchema(typingIndicators)
-export const selectTypingIndicatorSchema = createSelectSchema(typingIndicators)
 
 export const attachments = sqliteTable('attachments', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
@@ -243,9 +229,6 @@ export const attachments = sqliteTable('attachments', {
   authorityLevel: text('authorityLevel'),
 })
 
-export const insertAttachmentSchema = createInsertSchema(attachments)
-export const selectAttachmentSchema = createSelectSchema(attachments)
-
 export const users = sqliteTable('users', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   original: text('_original'),
@@ -254,9 +237,6 @@ export const users = sqliteTable('users', {
   name: text('name'),
   username: text('username'),
 })
-
-export const insertUserSchema = createInsertSchema(users)
-export const selectUserSchema = createSelectSchema(users)
 
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
@@ -287,8 +267,6 @@ export const threadsRelation = relations(threads, ({ many }) => ({
 }))
 
 export type IGParticipant = InferModel<typeof participants, 'select'>
-export const insertParticipantSchema = createInsertSchema(participants)
-export const selectParticipantSchema = createSelectSchema(participants)
 
 export const reactions = sqliteTable('reactions', {
   original: text('_original'),
@@ -302,6 +280,3 @@ export const reactions = sqliteTable('reactions', {
   actorId: text('actorId'),
   reaction: text('reaction'),
 })
-
-export const insertReactionSchema = createInsertSchema(reactions)
-export const selectReactionSchema = createSelectSchema(reactions)

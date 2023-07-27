@@ -325,7 +325,6 @@ export default class InstagramAPI {
       // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
         ...t,
-        original: JSON.stringify(t),
         threadKey: t.threadKey!,
       }))
       this.addThreads(threads)
@@ -341,11 +340,10 @@ export default class InstagramAPI {
     }
     if (rawd.upsertMessage) {
       const messages = rawd.upsertMessage.map(m => ({
-        ...schema.insertMessageSchema.parse(m),
+        ...m,
         threadKey: m.threadKey!,
         messageId: m.messageId!,
         senderId: m.senderId!,
-        original: m,
       }))
       this.addMessages(messages)
     }
