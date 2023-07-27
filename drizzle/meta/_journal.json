@@ -1,0 +1,13 @@
+{
+  "version": "5",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1690475995139,
+      "tag": "0000_puzzling_captain_flint",
+      "breakpoints": true
+    }
+  ]
+}
