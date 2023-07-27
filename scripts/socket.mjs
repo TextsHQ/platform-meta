@@ -85,12 +85,10 @@ export const ws = new WebSocket(
 );
 
 ws.on("error", function incoming(data) {
-  console.log("Error", data);
+  console.error("Error", data);
 });
 
 ws.on("open", function open() {
-  isConnectedPromiseResolve?.();
-
   // initiate connection
   ws.send(
     mqtt.generate({
@@ -142,7 +140,7 @@ ws.on("open", function open() {
 });
 
 ws.on("message", function incoming(data) {
-  // console.log("on msg from socket", data);
+  console.error("on msg from socket", data);
   if (data.toString("hex") == "42020001") {
     // ack for app settings
 
@@ -187,16 +185,17 @@ ws.on("message", function incoming(data) {
         }),
       })
     );
+    isConnectedPromiseResolve?.();
+    console.error("resolved promise");
   } else if (data[0] != 0x42) {
     // @TODO
-    // console.error("data", data);
+    console.error("data", data);
   } else {
-    // console.error("data", data);
   }
 });
 
 ws.on("close", function close() {
-  console.log("disconnected");
+  console.error("disconnected");
 });
 
 process.on("SIGINT", () => {
@@ -224,6 +223,18 @@ export function publishTask(_tasks) {
       type: 3,
     }),
   });
+  console.error(
+    JSON.stringify({
+      app_id: "936619743392459",
+      payload: JSON.stringify({
+        tasks,
+        epoch_id,
+        version_id: "9477666248971112",
+      }),
+      request_id: 6,
+      type: 3,
+    })
+  );
   ws.send(bytesToSend);
   return bytesToSend;
 }

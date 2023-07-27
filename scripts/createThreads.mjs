@@ -1,12 +1,7 @@
-// sends a message this is a test to send messages to new users
-import WebSocket from "ws";
-import axios from "axios";
-import mqtt from "mqtt-packet";
-import { get } from "./settings.mjs";
-import fs from "fs";
+// sends a message this is a test to send messages to the user with the username specified in the username variable
 import { ws, publishTask, isConnectedPromise } from "./socket.mjs";
 import { getTimeValues, parseMqttPacket } from "./utils.mjs";
-import { parseRawPayload, parseSearchResult } from "./parsers.mjs";
+import { parseSearchResult } from "./parsers.mjs";
 import { sendMessage } from "./sendMessages.mjs";
 const username = "kishan_bagaria";
 
