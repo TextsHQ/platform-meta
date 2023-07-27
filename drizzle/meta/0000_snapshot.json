@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "d1e913a7-e590-4bbb-9ac8-4c92b7ebde5f",
+  "id": "be3a89ba-d2c9-4531-90ff-e6be46955e9a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -776,6 +776,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "threadPictureUrlExpirationTimestampMs": {
+          "name": "threadPictureUrlExpirationTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "removeWatermarkTimestampMs": {
           "name": "removeWatermarkTimestampMs",
           "type": "integer",
@@ -827,6 +834,20 @@
         },
         "snippetAttribution": {
           "name": "snippetAttribution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mailboxType": {
+          "name": "mailboxType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "draftMessage": {
+          "name": "draftMessage",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -890,6 +911,377 @@
         },
         "themeFbid": {
           "name": "themeFbid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "authorityLevel": {
+          "name": "authorityLevel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "muteMentionExpireTimeMs": {
+          "name": "muteMentionExpireTimeMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "muteCallsExpireTimeMs": {
+          "name": "muteCallsExpireTimeMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ongoingCallState": {
+          "name": "ongoingCallState",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cannotUnsendReason": {
+          "name": "cannotUnsendReason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "snippetHasEmoji": {
+          "name": "snippetHasEmoji",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hasPersistentMenu": {
+          "name": "hasPersistentMenu",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "disableComposerInput": {
+          "name": "disableComposerInput",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "shouldRoundThreadPicture": {
+          "name": "shouldRoundThreadPicture",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "proactiveWarningDismissTime": {
+          "name": "proactiveWarningDismissTime",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isCustomThreadPicture": {
+          "name": "isCustomThreadPicture",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "otidOfFirstMessage": {
+          "name": "otidOfFirstMessage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "normalizedSearchTerms": {
+          "name": "normalizedSearchTerms",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "additionalThreadContext": {
+          "name": "additionalThreadContext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "disappearingThreadKey": {
+          "name": "disappearingThreadKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isDisappearingMode": {
+          "name": "isDisappearingMode",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "disappearingModeInitiator": {
+          "name": "disappearingModeInitiator",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "unreadDisappearingMessageCount": {
+          "name": "unreadDisappearingMessageCount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastMessageCtaId": {
+          "name": "lastMessageCtaId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastMessageCtaType": {
+          "name": "lastMessageCtaType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastMessageCtaTimestampMs": {
+          "name": "lastMessageCtaTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "consistentThreadFbid": {
+          "name": "consistentThreadFbid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadDescription": {
+          "name": "threadDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "unsendLimitMs": {
+          "name": "unsendLimitMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "capabilities2": {
+          "name": "capabilities2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "capabilities3": {
+          "name": "capabilities3",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "syncGroup": {
+          "name": "syncGroup",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadInvitesEnabled": {
+          "name": "threadInvitesEnabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadInviteLink": {
+          "name": "threadInviteLink",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isAllUnreadMessageMissedCallXma": {
+          "name": "isAllUnreadMessageMissedCallXma",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastNonMissedCallXmaMessageTimestampMs": {
+          "name": "lastNonMissedCallXmaMessageTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadInvitesEnabledV2": {
+          "name": "threadInvitesEnabledV2",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hasPendingInvitation": {
+          "name": "hasPendingInvitation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "eventStartTimestampMs": {
+          "name": "eventStartTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "eventEndTimestampMs": {
+          "name": "eventEndTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "takedownState": {
+          "name": "takedownState",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "secondaryParentThreadKey": {
+          "name": "secondaryParentThreadKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "igFolder": {
+          "name": "igFolder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "inviterId": {
+          "name": "inviterId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadTags": {
+          "name": "threadTags",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadStatus": {
+          "name": "threadStatus",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "threadSubtype": {
+          "name": "threadSubtype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pauseThreadTimestamp": {
+          "name": "pauseThreadTimestamp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionText1": {
+          "name": "nullstateDescriptionText1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionText2": {
+          "name": "nullstateDescriptionText2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionText3": {
+          "name": "nullstateDescriptionText3",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionType1": {
+          "name": "nullstateDescriptionType1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionType2": {
+          "name": "nullstateDescriptionType2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nullstateDescriptionType3": {
+          "name": "nullstateDescriptionType3",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "viewedPluginKey": {
+          "name": "viewedPluginKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "viewedPluginContext": {
+          "name": "viewedPluginContext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "clientThreadKey": {
+          "name": "clientThreadKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "capabilities": {
+          "name": "capabilities",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
