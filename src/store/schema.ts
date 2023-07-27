@@ -238,6 +238,8 @@ export const users = sqliteTable('users', {
   username: text('username'),
 })
 
+export type IGUser = InferModel<typeof users, 'select'>
+
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   original: text('_original'),
@@ -280,3 +282,5 @@ export const reactions = sqliteTable('reactions', {
   actorId: text('actorId'),
   reaction: text('reaction'),
 })
+
+export type IGReaction = InferModel<typeof reactions, 'select'>

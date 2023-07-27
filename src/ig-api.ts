@@ -2,13 +2,14 @@ import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
-import type { InferModel } from 'drizzle-orm'
+import { desc, eq, type InferModel } from 'drizzle-orm'
+
 import { readFile } from 'fs/promises'
 // import pick from 'lodash/pick'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
-import { parsePayload, parseRawPayload } from './parsers'
+import { parseRawPayload } from './parsers'
 import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
@@ -85,7 +86,7 @@ export default class InstagramAPI {
     return this.cursorCache?.cursor
   }
 
-  cursorCache: Awaited<ReturnType<typeof parsePayload>> = null
+  cursorCache: Awaited<ReturnType<typeof parseRawPayload>> = null
 
   private _axios: AxiosInstance
 
@@ -513,13 +514,19 @@ export default class InstagramAPI {
   //   return messages.map(message => this.upsertMessage(message.threadID, message))
   // }
 
-  // getLastMessage(threadID: string) {
-  //   return this.papi.db.select({
-  //     threadID: schema.messages.threadID,
-  //     id: schema.messages.id,
-  //     timestamp: schema.messages.timestamp,
-  //   }).from(schema.messages).limit(1).where(eq(schema.messages.threadID, threadID)).orderBy(desc(schema.messages.timestamp)).get()
-  // }
+  getLastMessage(threadKey: string) {
+    return this.papi.db
+      .select({
+        threadKey: schema.messages.threadKey,
+        messageId: schema.messages.messageId,
+        timestampMs: schema.messages.timestampMs,
+      })
+      .from(schema.messages)
+      .limit(1)
+      .where(eq(schema.messages.threadKey, threadKey))
+      .orderBy(desc(schema.messages.timestampMs))
+      .get()
+  }
 
   // private addParticipant(participant: InferModel<typeof schema['participants'], 'insert'>) {
   //   texts.log(`addParticipant ${participant.id} ${JSON.stringify(participant, null, 2)}`)

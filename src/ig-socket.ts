@@ -481,24 +481,24 @@ export default class InstagramWebSocket {
     )
   }
 
-  // getMessages(threadID: string) {
-  //   const lastMessage = this.igApi.getLastMessage(threadID)
-  //   this.logger.info('getMessages', { threadID, lastMessage })
-  //   this.publishTask({
-  //     label: '228',
-  //     payload: JSON.stringify({
-  //       thread_key: Number(threadID),
-  //       direction: 0,
-  //       reference_timestamp_ms: Number(lastMessage.timestamp.getTime()),
-  //       reference_message_id: lastMessage.id,
-  //       sync_group: 1,
-  //       cursor: this.papi.api.cursor,
-  //     }),
-  //     queue_name: `mrq.${threadID}`,
-  //     task_id: 1,
-  //     failure_count: null,
-  //   })
-  // }
+  fetchMessages(threadID: string) {
+    const lastMessage = this.papi.api.getLastMessage(threadID)
+    this.logger.info('fetchMessages', { threadID, lastMessage })
+    this.publishTask({
+      label: '228',
+      payload: JSON.stringify({
+        thread_key: Number(threadID),
+        direction: 0,
+        reference_timestamp_ms: Number(lastMessage.timestampMs.getTime()),
+        reference_message_id: lastMessage.messageId,
+        sync_group: 1,
+        cursor: this.papi.api.cursor,
+      }),
+      queue_name: `mrq.${threadID}`,
+      task_id: 1,
+      failure_count: null,
+    })
+  }
 
   getThreads() {
     this.publishTask({
@@ -517,7 +517,7 @@ export default class InstagramWebSocket {
     })
   }
 
-  private getLastThreadReference(conversations: any[] = this.papi.api.cursorCache?.newConversations ?? []) {
+  private getLastThreadReference(conversations: any[] = this.papi.api.cursorCache?.deleteThenInsertThread ?? []) {
     const lastConversationInCursor = conversations?.[conversations.length - 1]
     return {
       reference_thread_key: Number(lastConversationInCursor.threadId),

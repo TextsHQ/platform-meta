@@ -1,6 +1,6 @@
 import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
-import type { ExtendedIGMessage, ExtendedIGThread, IGReaction } from './ig-types'
-import type { IGThread } from './store/schema'
+import type { ExtendedIGMessage, ExtendedIGThread } from './ig-types'
+import type { IGThread, IGReaction } from './store/schema'
 
 export function mapThread(thread: IGThread | ExtendedIGThread): Thread {
   return {
@@ -44,8 +44,8 @@ export function mapMessage(currentUserId: string, message: ExtendedIGMessage): M
 
   message.reaction?.forEach(reaction => {
     reactions.push({
-      id: reaction.reactorId,
-      participantID: reaction.reactorId,
+      id: `${reaction.threadKey}-${reaction.messageId}-${reaction.actorId}-${reaction.reaction}`,
+      participantID: reaction.actorId,
       reactionKey: reaction.reaction,
     })
   })
@@ -72,8 +72,8 @@ export function mapMessage(currentUserId: string, message: ExtendedIGMessage): M
 }
 export function mapReactions(reaction: IGReaction): MessageReaction {
   return {
-    id: `${reaction.reactorId}`,
-    participantID: reaction.reactorId,
+    id: `${reaction.threadKey}-${reaction.messageId}-${reaction.actorId}-${reaction.reaction}`,
+    participantID: reaction.actorId,
     reactionKey: reaction.reaction,
   }
 }

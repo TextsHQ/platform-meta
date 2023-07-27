@@ -1,11 +1,5 @@
-import type { IGThread, IGMessage } from './store/schema'
+import type { IGThread, IGMessage, IGReaction } from './store/schema'
 
-export type IGReaction = {
-  reactionSentTs: string
-  reactorId: string
-  reaction: string
-  messageId: string
-}
 export interface ExtendedIGThread extends IGThread {
   unread: boolean
   participants: IGParticipant[]
