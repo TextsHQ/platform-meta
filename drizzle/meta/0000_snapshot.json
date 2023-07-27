@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "b80bf7b6-9edc-4a6d-bad3-b5fe28da97b1",
+  "id": "6db13db9-d7ce-40e7-8f32-230c6918dc32",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -614,15 +614,15 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "participants_userId_users_threadKey_fk": {
-          "name": "participants_userId_users_threadKey_fk",
+        "participants_userId_users_id_fk": {
+          "name": "participants_userId_users_id_fk",
           "tableFrom": "participants",
           "tableTo": "users",
           "columnsFrom": [
             "userId"
           ],
           "columnsTo": [
-            "threadKey"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -983,10 +983,10 @@
           "notNull": false,
           "autoincrement": false
         },
-        "threadKey": {
-          "name": "threadKey",
+        "id": {
+          "name": "id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
@@ -1013,21 +1013,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "users_threadKey_threads_threadKey_fk": {
-          "name": "users_threadKey_threads_threadKey_fk",
-          "tableFrom": "users",
-          "tableTo": "threads",
-          "columnsFrom": [
-            "threadKey"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     }

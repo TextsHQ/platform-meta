@@ -4,7 +4,7 @@ import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
 import type { InferModel } from 'drizzle-orm'
 import { readFile } from 'fs/promises'
-import pick from 'lodash/pick'
+// import pick from 'lodash/pick'
 
 import * as schema from './store/schema'
 import type Instagram from './api'
@@ -281,12 +281,12 @@ export default class InstagramAPI {
     })
 
     // @TODO:remove
-    const cursorResponse = parsePayload(
-      this.fbid,
-      response.data.data.lightspeed_web_request_for_igd.payload,
-    )
+    // const cursorResponse = parsePayload(
+    //   this.fbid,
+    //   response.data.data.lightspeed_web_request_for_igd.payload,
+    // )
 
-    this.cursorCache = cursorResponse
+    // this.cursorCache = cursorResponse
 
     this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
 
@@ -317,6 +317,12 @@ export default class InstagramAPI {
     const rawd = parseRawPayload(payload)
     this.logger.info('rawd', rawd)
     if (rawd.deleteThenInsertThread) {
+      // try {
+      //   rawd.deleteThenInsertThread.forEach(t => schema.insertThreadSchema.parse(t))
+      // } catch (err) {
+      //   this.logger.error('handlePayload error', JSON.stringify(err, null, 2))
+      //   return
+      // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
         // ...pick(t, Object.keys(schema.threads._.columns)),
         ...schema.insertThreadSchema.parse(t),

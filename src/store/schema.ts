@@ -138,7 +138,7 @@ export const selectAttachmentSchema = createSelectSchema(attachments)
 
 export const users = sqliteTable('users', {
   original: blob('_original', { mode: 'json' }).$type<Record<string, any>>(),
-  id: text('threadKey').notNull().references(() => threads.threadKey),
+  id: text('id').notNull().primaryKey(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
   username: text('username'),

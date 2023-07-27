@@ -63,7 +63,7 @@ export default class PlatformInstagram implements PlatformAPI {
     this.db = await getDB(accountID, dataDirPath)
 
     if (!session?.jar) return
-    const { jar, ua, authMethod, clientId, dtsg, fbid, lastCursor } = session
+    const { jar, ua, authMethod, clientId, dtsg, fbid } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)
     this.api.ua = ua
     this.api.authMethod = authMethod
@@ -160,6 +160,7 @@ export default class PlatformInstagram implements PlatformAPI {
       title: thread.threadName,
       type: 'single',
     }))
+    this.logger.info('getThreads is the value', threads)
     return {
       items: threads,
       hasMore: false,

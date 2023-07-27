@@ -274,6 +274,7 @@ export function parsePayload(myUserId: string, payload: string) {
 
 const parseThread = (a: RawItem) => {
   const tmap = {
+    original: a,
     isUnread: Number(a[0][1]) > Number(a[1][1]),
     threadKey: a[7][1],
     lastReadWatermarkTimestampMs: new Date(Number(a[1][1])),
@@ -283,7 +284,7 @@ const parseThread = (a: RawItem) => {
     lastActivityTimestampMs: new Date(Number(a[0][1])),
     snippet: a[2],
     threadName: a[3][1],
-    threadPictureUrl: a[4][1],
+    threadPictureUrl: a[4],
     needsAdminApprovalForNewParticipant: a[5][1],
     threadPictureUrlFallback: a[11],
     threadPictureUrlExpirationTimestampMs: new Date(Number(a[12][1])),
@@ -383,21 +384,21 @@ const parseUser = (a: RawItem) => ({
 const parseParticipant = (a: RawItem) => ({
   threadKey: a[0][1],
   userId: a[1][1],
-  readWatermarkTimestampMs: a[2][1],
-  readActionTimestampMs: a[3][1],
-  deliveredWatermarkTimestampMs: a[4][1],
-  lastDeliveredWatermarkTimestampMs: a[5][1],
+  readWatermarkTimestampMs: new Date(Number(a[2][1])),
+  readActionTimestampMs: new Date(Number(a[3][1])),
+  deliveredWatermarkTimestampMs: new Date(Number(a[4][1])),
+  lastDeliveredWatermarkTimestampMs: new Date(Number(a[5][1])),
   isAdmin: a[6],
 })
 
 const parseMessage = (a: RawItem) => ({
   text: a[0],
   threadKey: a[3][1],
-  timestampMs: a[5][1],
+  timestampMs: new Date(Number(a[5][1])),
   messageId: a[8],
   offlineThreadingId: a[9],
   senderId: a[10][1],
-  authorityLevel: a[2][1],
+  authorityLevel: Number(a[2][1]),
   primarySortKey: a[6][1],
   isAdminMessage: a[12],
   sendStatus: a[15][1],
@@ -510,6 +511,16 @@ const parseReaction = (a: RawItem) => ({
   reaction: a[4],
 })
 
+const parseMap = {
+  deleteThenInsertThread: parseThread,
+  upsertMessage: parseMessage,
+  upsertReaction: parseReaction,
+  addParticipantIdToGroupThread: parseParticipant,
+  verifyContactRowExists: parseUser,
+  insertBlobAttachment: parseAttachment,
+  // insertSearchResult: parseSearchArguments,
+}
+
 export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
   // tasks we are interested in
@@ -546,16 +557,25 @@ export function parseRawPayload(payload: string) {
     }
   }
 
+  // make empty lsCalls or lsCalls that are not in parseMap null
+  for (const key in lsCalls) {
+    if (lsCalls[key].length === 0 || !(key in parseMap)) {
+      lsCalls[key] = null
+    } else {
+      // parse the lsCalls
+      lsCalls[key] = lsCalls[key].map(parseMap[key])
+    }
+  }
   texts.log(`lsCalls: ${JSON.stringify(lsCalls, null, 2)}`)
 
   return {
-    verifyContactRowExists: lsCalls.verifyContactRowExists.map(parseUser),
-    addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread.map(parseParticipant),
-    deleteThenInsertThread: lsCalls.deleteThenInsertThread.map(parseThread),
-    upsertMessage: lsCalls.upsertMessage.map(parseMessage),
-    upsertReaction: lsCalls.upsertReaction.map(parseReaction),
-    upsertSyncGroupThreadsRange: null,
-    insertBlobAttachment: lsCalls.insertBlobAttachment.map(parseAttachment),
+    verifyContactRowExists: lsCalls.verifyContactRowExists,
+    addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread,
+    deleteThenInsertThread: lsCalls.deleteThenInsertThread,
+    upsertMessage: lsCalls.upsertMessage,
+    upsertReaction: lsCalls.upsertReaction,
+    upsertSyncGroupThreadsRange: lsCalls.upsertSyncGroupThreadsRange,
+    insertBlobAttachment: lsCalls.insertBlobAttachment,
     cursor: j.step[2][1][3][5],
   }
 }

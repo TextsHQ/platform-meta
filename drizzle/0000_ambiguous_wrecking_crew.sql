@@ -85,7 +85,7 @@ CREATE TABLE `participants` (
 	`lastDeliveredActionTimestampMs` integer,
 	`isAdmin` integer,
 	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`userId`) REFERENCES `users`(`threadKey`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `reactions` (
@@ -144,9 +144,8 @@ CREATE TABLE `typing_indicators` (
 --> statement-breakpoint
 CREATE TABLE `users` (
 	`_original` blob,
-	`threadKey` text NOT NULL,
+	`id` text PRIMARY KEY NOT NULL,
 	`profilePictureUrl` text,
 	`name` text,
-	`username` text,
-	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action
+	`username` text
 );

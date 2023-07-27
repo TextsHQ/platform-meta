@@ -221,7 +221,7 @@ export default class InstagramWebSocket {
       )
 
       this.maybeSubscribeToDatabaseOne()
-      this.getThreads()
+      // this.getThreads()
     } else if (data[0] !== 0x42) {
       this.parseNon0x42Data(data)
     } else {
