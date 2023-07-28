@@ -373,28 +373,27 @@ export default class InstagramWebSocket {
     })
   }
 
-  // addReaction(threadID: string, messageID: string, reaction: string) {
-  //   const message = this.papi.api.db.getMessage(threadID, messageID)
-
-  //   this.publishTask({
-  //     label: '29',
-  //     payload: JSON.stringify({
-  //       thread_key: threadID,
-  //       timestamp_ms: Number(message.timestamp.getTime()),
-  //       message_id: messageID,
-  //       actor_id: this.papi.api.session.fbid,
-  //       reaction,
-  //       reacion_style: null,
-  //       sync_group: 1,
-  //     }),
-  //     queue_name: JSON.stringify([
-  //       'reaction',
-  //       messageID,
-  //     ]),
-  //     task_id: 0,
-  //     failure_count: null,
-  //   })
-  // }
+  addReaction(threadID: string, messageID: string, reaction: string) {
+    const message = this.papi.api.getMessage(threadID, messageID)
+    this.publishTask({
+      label: '29',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        timestamp_ms: Number(message.timestampMs.getTime()),
+        message_id: messageID,
+        actor_id: this.papi.api.fbid,
+        reaction,
+        reacion_style: null,
+        sync_group: 1,
+      }),
+      queue_name: JSON.stringify([
+        'reaction',
+        messageID,
+      ]),
+      task_id: 0,
+      failure_count: null,
+    })
+  }
 
   // used for get messages and get threads
   publishTask(_tasks: any) {

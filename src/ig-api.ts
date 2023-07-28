@@ -439,6 +439,20 @@ export default class InstagramAPI {
       .run()
   }
 
+  getMessage(threadKey: string, messageId: string) {
+    return this.papi.db
+      .select({
+        threadKey: schema.messages.threadKey,
+        messageId: schema.messages.messageId,
+        timestampMs: schema.messages.timestampMs,
+      })
+      .from(schema.messages)
+      .limit(1)
+      .where(eq(schema.messages.threadKey, threadKey))
+      .where(eq(schema.messages.messageId, messageId))
+      .get()
+  }
+
   getLastMessage(threadKey: string) {
     return this.papi.db
       .select({

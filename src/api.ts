@@ -288,7 +288,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
-    // this.api.socket?.addReaction?.(threadID, messageID, reactionKey)
+    this.socket.addReaction(threadID, messageID, reactionKey)
   }
 
   removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
