@@ -167,7 +167,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    this.logger.info('getMessages', pagination)
+    this.logger.info('getMessages, pagination is', pagination)
     this.socket?.fetchMessages(threadID)
     // const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
 

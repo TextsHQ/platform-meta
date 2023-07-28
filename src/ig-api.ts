@@ -2,7 +2,7 @@ import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User } from '@textshq/platform-sdk'
-import { desc, eq, type InferModel } from 'drizzle-orm'
+import { asc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
 
@@ -360,7 +360,7 @@ export default class InstagramAPI {
     } else if (rawd.upsertMessage) {
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
       const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
-      console.error('messages', messages)
+      this.logger.info('messages', messages)
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'message',
@@ -439,7 +439,7 @@ export default class InstagramAPI {
       .from(schema.messages)
       .limit(1)
       .where(eq(schema.messages.threadKey, threadKey))
-      .orderBy(desc(schema.messages.timestampMs))
+      .orderBy(asc(schema.messages.timestampMs))
       .get()
   }
 

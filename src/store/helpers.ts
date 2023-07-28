@@ -15,7 +15,6 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid): Promise<Message[]> => {
   let _whereFunc
-  console.error('queryMessages', messageIds)
   if (messageIds === 'ALL') {
     _whereFunc = (users, { eq }) => eq(users.id, 1)
   } else {
