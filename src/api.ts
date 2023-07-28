@@ -168,6 +168,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return {
       items: threads,
       hasMore: hasMoreBefore,
+      oldestCursor: `${this.api.lastThreadReference.reference_thread_key}-${this.api.lastThreadReference.reference_thread_key}`,
     }
   }
 
@@ -175,9 +176,12 @@ export default class PlatformInstagram implements PlatformAPI {
     this.logger.info('getMessages, pagination is', pagination)
     const { newMessageIds, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
     const messages = await queryMessages(this.db, newMessageIds, this.api.fbid)
+    this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
+    this.logger.info('getMessages, hasMoreBefore', hasMoreBefore)
     return {
       items: messages,
       hasMore: hasMoreBefore,
+      oldestCursor: 'test',
     }
   }
 

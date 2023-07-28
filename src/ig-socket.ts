@@ -425,7 +425,7 @@ export default class InstagramWebSocket {
 
   fetchMessages(threadID: string) {
     if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
-      this.logger.error('already fetching messages')
+      this.logger.info('already fetching messages')
       return Promise.reject(new Error('already fetching messages'))
     }
     const sendPromise = new Promise((resolve, reject) => {
@@ -447,6 +447,7 @@ export default class InstagramWebSocket {
       task_id: 1,
       failure_count: null,
     })
+    this.logger.info(`promising messages-${threadID}`)
     return sendPromise
   }
 

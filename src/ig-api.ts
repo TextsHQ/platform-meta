@@ -285,7 +285,13 @@ export default class InstagramAPI {
   }
 
   async handlePayload(payload: any) {
-    const rawd = parseRawPayload(payload)
+    let rawd
+    try {
+      rawd = parseRawPayload(payload)
+    } catch (err) {
+      this.logger.info('ig-api handlePayload error', err)
+      return
+    }
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread.map(t => ({
@@ -343,6 +349,7 @@ export default class InstagramAPI {
       if (this.papi.sendPromiseMap.has('threads')) {
         const [resolve] = this.papi.sendPromiseMap.get('threads')
         this.logger.info('resolve threads')
+        this.papi.sendPromiseMap.delete('threads')
         resolve({ newThreadIds, hasMore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
       }
       // this.papi.onEvent?.([{
@@ -357,10 +364,12 @@ export default class InstagramAPI {
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
       // const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
       this.logger.info('new message ids', newMessageIds)
+      this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
       if (this.papi.sendPromiseMap.has(`messages-${rawd.insertNewMessageRange[0].threadKey}`)) {
         const [resolve] = this.papi.sendPromiseMap.get(`messages-${rawd.insertNewMessageRange[0].threadKey}`)
         this.logger.info(`resolving messages-${rawd.insertNewMessageRange[0].threadKey}`)
-        resolve({ newMessageIds, hasMore: rawd.insertNewMessageRange[0].hasMoreBefore })
+        this.papi.sendPromiseMap.delete(`messages-${rawd.insertNewMessageRange[0].threadKey}`)
+        resolve({ newMessageIds, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
       }
       // this.papi.onEvent?.([{
       //   type: ServerEventType.STATE_SYNC,

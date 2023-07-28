@@ -14,14 +14,8 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
 })
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid): Promise<Message[]> => {
-  let _whereFunc
-  if (messageIds === 'ALL') {
-    _whereFunc = (users, { eq }) => eq(users.id, 1)
-  } else {
-    _whereFunc = () => inArray(messages.messageId, messageIds)
-  }
   const storedMessages = db.query.messages.findMany({
-    where: _whereFunc,
+    ...(messageIds !== 'ALL' && { where: inArray(messages.messageId, messageIds) }),
     columns: {
       threadKey: true,
       messageId: true,
@@ -33,26 +27,19 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
   return mapMessage(storedMessages, fbid)
 }
 
-export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid): Promise<Thread[]> => {
-  let _whereFunc
-  if (threadIDs === 'ALL') {
-    _whereFunc = (users, { eq }) => eq(1, 1)
-  } else {
-    _whereFunc = () => inArray(threads.threadKey, threadIDs)
-  }
-  return db.query.threads.findMany({
-    where: _whereFunc,
-    columns: {
-      threadKey: true,
-      lastActivityTimestampMs: true,
-      lastReadWatermarkTimestampMs: true,
-      threadName: true,
-      threadPictureUrl: true,
-      threadType: true,
+export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid): Promise<Thread[]> => db.query.threads.findMany({
+  ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
+  columns: {
+    threadKey: true,
+    lastActivityTimestampMs: true,
+    lastReadWatermarkTimestampMs: true,
+    threadName: true,
+    threadPictureUrl: true,
+    threadType: true,
 
-    },
-    with: {
-      participants:
+  },
+  with: {
+    participants:
           {
             columns: {},
             with: {
@@ -66,46 +53,45 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
               },
             },
           },
-      messages: {
-        columns: {
-          threadKey: true,
-          messageId: true,
-          timestampMs: true,
-          senderId: true,
-          text: true,
-        },
+    messages: {
+      columns: {
+        threadKey: true,
+        messageId: true,
+        timestampMs: true,
+        senderId: true,
+        text: true,
       },
     },
-  }).map(thread => {
-    const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
-    const nu: Participant[] = thread.participants.map(p => ({
-      id: p.users.id,
-      username: p.users.username,
-      fullName: p.users.name,
-      imgURL: p.users.profilePictureUrl,
-      isSelf: p.users.id === fbid,
-      displayText: p.users.name,
-      hasExited: false,
-    }))
-    const mu: Message[] = mapMessage(thread.messages, fbid)
-    const title = nu.filter(p => !p.isSelf).map(p => p.fullName).join(', ')
-    return {
-      id: thread.threadKey,
-      title,
-      isUnread,
-      isReadOnly: false,
-      imgURL: thread.threadPictureUrl,
-      type: 'single',
-      participants: {
-        items: nu,
-        hasMore: false,
-      },
-      messages: {
-        items: mu,
-        hasMore: false,
-      },
-    }
-  })
-}
+  },
+}).map(thread => {
+  const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
+  const nu: Participant[] = thread.participants.map(p => ({
+    id: p.users.id,
+    username: p.users.username,
+    fullName: p.users.name,
+    imgURL: p.users.profilePictureUrl,
+    isSelf: p.users.id === fbid,
+    displayText: p.users.name,
+    hasExited: false,
+  }))
+  const mu: Message[] = mapMessage(thread.messages, fbid)
+  const title = nu.filter(p => !p.isSelf).map(p => p.fullName).join(', ')
+  return {
+    id: thread.threadKey,
+    title,
+    isUnread,
+    isReadOnly: false,
+    imgURL: thread.threadPictureUrl,
+    type: 'single',
+    participants: {
+      items: nu,
+      hasMore: false,
+    },
+    messages: {
+      items: mu,
+      hasMore: false,
+    },
+  }
+})
 
 export const FOREVER = 4117219200000 // 2100-06-21T00:00:00.000Z
