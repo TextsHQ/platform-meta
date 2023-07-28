@@ -14,6 +14,7 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
 })
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid): Promise<Message[]> => {
+  console.log('queryMessages', messageIds)
   const storedMessages = db.query.messages.findMany({
     ...(messageIds !== 'ALL' && { where: inArray(messages.messageId, messageIds) }),
     columns: {

@@ -12,7 +12,7 @@ import getDB, { type DrizzleDB } from './store/db'
 // import * as queries from './store/queries'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { queryThreads, queryMessages } from './store/helpers'
+import { queryThreads } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
   private loginEventCallback: (data: any) => void
@@ -155,16 +155,17 @@ export default class PlatformInstagram implements PlatformAPI {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     this.logger.info('getThreads, pagination is', pagination)
-    let threadIDs
     if (pagination) {
-      threadIDs = await this.socket.getThreads()
-    } else {
-      threadIDs = 'ALL'
+      const { threads, hasMoreBefore } = await this.socket.getThreads() as any
+      return {
+        items: threads,
+        hasMore: hasMoreBefore,
+        oldestCursor: `${this.api.lastThreadReference.reference_thread_key}-${this.api.lastThreadReference.reference_thread_key}`,
+      }
     }
-    this.logger.info('querying threads', threadIDs)
-    const threads = await queryThreads(this.db, threadIDs, this.api.fbid)
+
+    const threads = await queryThreads(this.db, 'ALL', this.api.fbid)
     const { hasMoreBefore } = this.api.lastThreadReference
-    this.logger.info('got threads', hasMoreBefore)
     return {
       items: threads,
       hasMore: hasMoreBefore,
@@ -174,10 +175,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.logger.info('getMessages, pagination is', pagination)
-    const { newMessageIds, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
-    const messages = await queryMessages(this.db, newMessageIds, this.api.fbid)
+    const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
     this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
-    this.logger.info('getMessages, hasMoreBefore', hasMoreBefore)
     return {
       items: messages,
       hasMore: hasMoreBefore,

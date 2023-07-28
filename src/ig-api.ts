@@ -3,8 +3,9 @@ import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User } from '@textshq/platform-sdk'
 import { asc, eq, type InferModel } from 'drizzle-orm'
-
+import { ServerEventType } from '@textshq/platform-sdk'
 import { readFile } from 'fs/promises'
+import { queryMessages, queryThreads } from './store/helpers'
 
 // import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
@@ -346,38 +347,45 @@ export default class InstagramAPI {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
+      const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
+
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: threads,
+      }])
       if (this.papi.sendPromiseMap.has('threads')) {
         const [resolve] = this.papi.sendPromiseMap.get('threads')
         this.logger.info('resolve threads')
         this.papi.sendPromiseMap.delete('threads')
-        resolve({ newThreadIds, hasMore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
+        resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
       }
-      // this.papi.onEvent?.([{
-      //   type: ServerEventType.STATE_SYNC,
-      //   objectName: 'thread',
-      //   objectIDs: {},
-      //   mutationType: 'upsert',
-      //   entries: threads,
-      // }])
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
-      // const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
-      this.logger.info('new message ids', newMessageIds)
+      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+
+      this.logger.info('new messages are', messages)
       this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
-      if (this.papi.sendPromiseMap.has(`messages-${rawd.insertNewMessageRange[0].threadKey}`)) {
-        const [resolve] = this.papi.sendPromiseMap.get(`messages-${rawd.insertNewMessageRange[0].threadKey}`)
-        this.logger.info(`resolving messages-${rawd.insertNewMessageRange[0].threadKey}`)
-        this.papi.sendPromiseMap.delete(`messages-${rawd.insertNewMessageRange[0].threadKey}`)
-        resolve({ newMessageIds, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
+      const threadID = rawd.insertNewMessageRange[0].threadKey
+      this.logger.info('thread id in ig-papi is', threadID)
+
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: threadID! },
+        mutationType: 'upsert',
+        entries: messages,
+      }])
+
+      if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
+        const [resolve] = this.papi.sendPromiseMap.get(`messages-${threadID}`)
+        this.logger.info(`resolving messages-${threadID}`)
+        this.papi.sendPromiseMap.delete(`messages-${threadID}`)
+        resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
       }
-      // this.papi.onEvent?.([{
-      //   type: ServerEventType.STATE_SYNC,
-      //   objectName: 'message',
-      //   objectIDs: {},
-      //   mutationType: 'upsert',
-      //   entries: messages,
-      // }])
     }
   }
 
