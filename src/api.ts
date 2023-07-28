@@ -2,13 +2,13 @@ import { AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
-import { eq } from 'drizzle-orm'
+// import { eq } from 'drizzle-orm'
 
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
-import * as schema from './store/schema'
+// import * as schema from './store/schema'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 
@@ -151,24 +151,87 @@ export default class PlatformInstagram implements PlatformAPI {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     // this.api.socket?.getThreads?.()
-    const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
-      id: thread.threadKey,
-      isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
-      isReadOnly: false,
-      participants: null,
-      messages: null,
-      title: thread.threadName,
-      type: 'single',
-    }))
-    const threadsTest = this.db.query.threads.findMany(
-      {
-        with: {
-          participants: true,
-          messages: true,
+    // const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
+    //   id: thread.threadKey,
+    //   isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
+    //   isReadOnly: false,
+    //   participants: null,
+    //   messages: null,
+    //   title: thread.threadName,
+    //   type: 'single',
+    // }))
+    const threads: Thread[] = this.db.query.threads.findMany({
+      columns: {
+        threadKey: true,
+        lastActivityTimestampMs: true,
+        lastReadWatermarkTimestampMs: true,
+        threadName: true,
+        threadPictureUrl: true,
+        threadType: true,
+
+      },
+      with: {
+        participants:
+          {
+            columns: {},
+            with: {
+              users: {
+                columns: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  profilePictureUrl: true,
+                },
+              },
+            },
+          },
+        messages: {
+          columns: {
+            threadKey: true,
+            messageId: true,
+            timestampMs: true,
+            senderId: true,
+            text: true,
+          },
         },
       },
-    )
-    this.logger.info('getThreads is the value', threadsTest)
+    }).map(thread => {
+      const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
+      const nu: Participant[] = thread.participants.map(p => ({
+        id: p.users.id,
+        username: p.users.username,
+        fullName: p.users.name,
+        imgURL: p.users.profilePictureUrl,
+        isSelf: p.users.id === this.api.fbid,
+        displayText: p.users.name,
+        hasExited: false,
+      }))
+      const mu: Message[] = thread.messages.map(m => ({
+        id: m.messageId,
+        timestamp: m.timestampMs,
+        senderID: m.senderId,
+        text: m.text,
+
+      }))
+      const title = nu.filter(p => !p.isSelf).map(p => p.fullName).join(', ')
+      return {
+        id: thread.threadKey,
+        title,
+        isUnread,
+        isReadOnly: false,
+        imgURL: thread.threadPictureUrl,
+        type: 'single',
+        participants: {
+          items: nu,
+          hasMore: false,
+        },
+        messages: {
+          items: mu,
+          hasMore: false,
+        },
+      }
+    })
+    this.logger.error('getThreads is the value', JSON.stringify(threads, null, 2))
     return {
       items: threads,
       hasMore: false,
@@ -177,16 +240,32 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.logger.info('getMessages', threadID, pagination)
-    this.socket?.fetchMessages(threadID)
-    const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
+    // this.socket?.fetchMessages(threadID)
+    // const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
 
     // turn messages into a Message[]
-    const mappedMessages: Message[] = messages.map(message => ({
-      id: message.messageId,
-      timestamp: message.timestampMs,
-      senderID: message.senderId,
-      text: message.text,
+    // const mappedMessages: Message[] = messages.map(message => ({
+    //   id: message.messageId,
+    //   timestamp: message.timestampMs,
+    //   senderID: message.senderId,
+    //   text: message.text,
+    // }))
+
+    const mappedMessages: Message[] = this.db.query.messages.findMany({
+      columns: {
+        threadKey: true,
+        messageId: true,
+        timestampMs: true,
+        senderId: true,
+        text: true,
+      },
+    }).map(m => ({
+      id: m.messageId,
+      timestamp: m.timestampMs,
+      senderID: m.senderId,
+      text: m.text,
     }))
+    this.logger.info('mappedMessages', mappedMessages)
     return {
       items: mappedMessages,
       hasMore: false,

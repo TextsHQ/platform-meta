@@ -1,7 +1,7 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
+import { texts, type User } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
@@ -9,7 +9,6 @@ import { readFile } from 'fs/promises'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
-import { mapMessage, mapThread } from './mapper'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
 
@@ -286,14 +285,8 @@ export default class InstagramAPI {
 
   handlePayload(payload: any) {
     const rawd = parseRawPayload(payload)
-    this.logger.info('rawd', rawd)
+    // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
-      // try {
-      //   rawd.deleteThenInsertThread.forEach(t => schema.insertThreadSchema.parse(t))
-      // } catch (err) {
-      //   this.logger.error('handlePayload error', JSON.stringify(err, null, 2))
-      //   return
-      // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
         ...t,
         threadKey: t.threadKey!,
@@ -334,18 +327,27 @@ export default class InstagramAPI {
       this.cursor = rawd.cursor
     }
 
+    // todo:
+    // once all payloads are handled, we can emit server events and get data from the store
 
+    if (rawd.deleteThenInsertThread) {
+      // there are new threads to send to the platform
+      const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
+    }
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
     this.logger.info('addThreads', threads)
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: {},
-      mutationType: 'upsert',
-      entries: threads.map(mapThread as any), // @TODO remove any
-    }])
+
+    // probably don't want to emit event here since threads schema doesn't have all fields
+    // such as messages (Paginated<Message>) or Paginated<Participant>
+    // this.papi.onEvent?.([{
+    //   type: ServerEventType.STATE_SYNC,
+    //   objectName: 'thread',
+    //   objectIDs: {},
+    //   mutationType: 'upsert',
+    //   entries: threads.map(mapThread as any), // @TODO remove any
+    // }])
     const threadsWithNoBool = threads.map(thread => {
       const newThread = { ...thread }
       for (const key in newThread) {
@@ -372,15 +374,15 @@ export default class InstagramAPI {
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
     this.logger.info('addMessages', messages)
-    for (const message of messages) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadKey },
-        mutationType: 'upsert',
-        entries: [message].map(mapMessage as any), // @TODO remove any
-      }])
-    }
+    // for (const message of messages) {
+    //   this.papi.onEvent?.([{
+    //     type: ServerEventType.STATE_SYNC,
+    //     objectName: 'message',
+    //     objectIDs: { threadID: message.threadKey },
+    //     mutationType: 'upsert',
+    //     entries: [message].map(mapMessage as any), // @TODO remove any
+    //   }])
+    // }
 
     const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
       const newMessage = { ...message }
@@ -408,10 +410,6 @@ export default class InstagramAPI {
       .values(reactions)
       .onConflictDoNothing()
       .run()
-  }
-
-  mapMessage(message: any) {
-    return mapMessage(this.fbid, message)
   }
 
   getLastMessage(threadKey: string) {
