@@ -4,6 +4,7 @@ import { sql, inArray } from 'drizzle-orm'
 import { Thread, Participant, Message } from '@textshq/platform-sdk'
 import type { DrizzleDB } from './db'
 import { messages, threads } from './schema'
+import { mapMessage } from '../mappers'
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 
@@ -14,13 +15,13 @@ export const hasSomeCachedData = async (db: DrizzleDB) => ({
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid): Promise<Message[]> => {
   let _whereFunc
+  console.error('queryMessages', messageIds)
   if (messageIds === 'ALL') {
-    _whereFunc = () => true
-    // _whereFunc = (users, { eq }) => eq(users.id, 1)
+    _whereFunc = (users, { eq }) => eq(users.id, 1)
   } else {
     _whereFunc = () => inArray(messages.messageId, messageIds)
   }
-  return db.query.messages.findMany({
+  const storedMessages = db.query.messages.findMany({
     where: _whereFunc,
     columns: {
       threadKey: true,
@@ -29,20 +30,14 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
       senderId: true,
       text: true,
     },
-  }).map(m => ({
-    id: m.messageId,
-    timestamp: m.timestampMs,
-    senderID: m.senderId,
-    text: m.text,
-    isSender: m.senderId === fbid,
-  }))
+  })
+  return mapMessage(storedMessages, fbid)
 }
 
 export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid): Promise<Thread[]> => {
   let _whereFunc
   if (threadIDs === 'ALL') {
-    _whereFunc = () => true
-    // _whereFunc = (users, { eq }) => eq(users.id, 1)
+    _whereFunc = (users, { eq }) => eq(1, 1)
   } else {
     _whereFunc = () => inArray(threads.threadKey, threadIDs)
   }
@@ -93,14 +88,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       displayText: p.users.name,
       hasExited: false,
     }))
-    const mu: Message[] = thread.messages.map(m => ({
-      id: m.messageId,
-      timestamp: m.timestampMs,
-      senderID: m.senderId,
-      text: m.text,
-      isSender: m.senderId === fbid,
-
-    }))
+    const mu: Message[] = mapMessage(thread.messages, fbid)
     const title = nu.filter(p => !p.isSelf).map(p => p.fullName).join(', ')
     return {
       id: thread.threadKey,

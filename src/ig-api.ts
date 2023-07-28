@@ -10,7 +10,6 @@ import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
-import { mapMessage, mapThread } from './mappers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
 import { queryThreads, queryMessages } from './store/helpers'
@@ -88,6 +87,7 @@ export default class InstagramAPI {
   lastThreadReference: {
     reference_thread_key: string
     reference_activity_timestamp: number
+    hasMoreBefore: boolean
   }
 
   private _axios: AxiosInstance
@@ -298,10 +298,11 @@ export default class InstagramAPI {
         this.lastThreadReference = {
           reference_activity_timestamp: lastThread.lastActivityTimestampMs?.getTime(),
           reference_thread_key: lastThread.threadKey,
+          hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore!,
         }
       }
 
-      this.addThreads(threads)
+      await this.addThreads(threads)
     }
 
     if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
@@ -312,7 +313,7 @@ export default class InstagramAPI {
         threadKey: p.threadKey!,
         userId: p.userId!,
       }))
-      this.addParticipants(participants)
+      await this.addParticipants(participants)
     }
 
     if (rawd.upsertMessage) {
@@ -322,11 +323,11 @@ export default class InstagramAPI {
         messageId: m.messageId!,
         senderId: m.senderId!,
       }))
-      this.addMessages(messages)
+      await this.addMessages(messages)
     }
 
     if (rawd.upsertReaction) {
-      this.addReactions(rawd.upsertReaction)
+      await this.addReactions(rawd.upsertReaction)
     }
 
     if (rawd.cursor) {
@@ -336,10 +337,19 @@ export default class InstagramAPI {
     // todo:
     // once all payloads are handled, we can emit server events and get data from the store
 
-    if (rawd.upsertSyncGroupThreadsRange) {
+    if (rawd.upsertSyncGroupThreadsRange) { // can also check for deleteThenInsertThread
       // there are new threads to send to the platform
+      this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
       const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
+      if (this.papi.sendPromiseMap.has('threads')) {
+        const [resolve] = this.papi.sendPromiseMap.get('threads')
+        this.logger.info('resolve threads')
+        resolve({
+          threads,
+          hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore!,
+        })
+      }
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
@@ -347,10 +357,10 @@ export default class InstagramAPI {
         mutationType: 'upsert',
         entries: threads,
       }])
-    }
-    if (rawd.upsertMessage) {
+    } else if (rawd.upsertMessage) {
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
       const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+      console.error('messages', messages)
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'message',
@@ -390,15 +400,6 @@ export default class InstagramAPI {
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
     this.logger.info('addMessages', messages)
-    for (const message of messages) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadKey },
-        mutationType: 'upsert',
-        entries: [message].map(mapMessage), // @TODO remove any
-      }])
-    }
 
     const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
       const newMessage = { ...message }
