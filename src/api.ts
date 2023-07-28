@@ -9,6 +9,7 @@ import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import * as schema from './store/schema'
+// import * as queries from './store/queries'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 
@@ -150,20 +151,25 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+    this.logger.info('getThreads', _folderName, pagination)
     // this.api.socket?.getThreads?.()
-    const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
-      id: thread.threadKey,
-      isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
-      isReadOnly: false,
-      participants: null,
-      messages: null,
-      title: thread.threadName,
-      type: 'single',
-    }))
+    // const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
+    //   id: thread.threadKey,
+    //   isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
+    //   isReadOnly: false,
+    //   participants: null,
+    //   messages: null,
+    //   title: thread.threadName,
+    //   type: 'single',
+    // }))
     const threadsTest = this.db.query.threads.findMany(
       {
         with: {
-          participants: true,
+          participants: {
+            with: {
+              user: true,
+            },
+          },
           messages: true,
         },
       },
