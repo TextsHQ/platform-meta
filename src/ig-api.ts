@@ -9,7 +9,7 @@ import { readFile } from 'fs/promises'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
-import { mapMessage, mapThread } from './mapper'
+import { mapMessage, mapThread } from './mappers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
 
@@ -378,7 +378,7 @@ export default class InstagramAPI {
         objectName: 'message',
         objectIDs: { threadID: message.threadKey },
         mutationType: 'upsert',
-        entries: [message].map(mapMessage as any), // @TODO remove any
+        entries: [message].map(mapMessage), // @TODO remove any
       }])
     }
 
