@@ -258,7 +258,7 @@ export const participants = sqliteTable('participants', {
 }))
 export const participantRelations = relations(participants, ({ one }) => ({
   thread: one(threads, { fields: [participants.threadKey], references: [threads.threadKey] }),
-  user: one(users, { fields: [participants.userId], references: [users.id] }),
+  users: one(users, { fields: [participants.userId], references: [users.id] }),
 }))
 
 export const userRelations = relations(users, ({ many }) => ({

@@ -1,7 +1,6 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
-import { texts } from '@textshq/platform-sdk'
 import type { IGThread, IGMessage, IGParticipant, IGUser } from './store/schema'
 import { getAsDate } from './util'
 
@@ -20,7 +19,7 @@ const parseThread = (a: RawItem): IGThread => {
     lastActivityTimestampMs: getAsDate(a[0][1]),
     snippet: a[2],
     threadName: a[3][1],
-    threadPictureUrl: a[4][1],
+    threadPictureUrl: a[4],
     needsAdminApprovalForNewParticipant: Boolean(a[5][1]),
     threadPictureUrlFallback: a[11],
     threadPictureUrlExpirationTimestampMs: getAsDate(a[12][1]),
@@ -251,6 +250,12 @@ const parseReaction = (a: RawItem) => ({
   reaction: a[4],
 })
 
+const parseUpsertSyncGroupThreadsRange = (a: RawItem) => ({
+  hasMoreBefore: Boolean(a[3]),
+  minLastActivityTimestampMs: getAsDate(a[2][1]),
+  minThreadKey: getAsDate(a[5][1]),
+})
+
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -258,6 +263,7 @@ const parseMap = {
   addParticipantIdToGroupThread: parseParticipant,
   verifyContactRowExists: parseUser,
   insertBlobAttachment: parseAttachment,
+  upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
   // insertSearchResult: parseSearchArguments,
 }
 
@@ -303,10 +309,10 @@ export function parseRawPayload(payload: string) {
       lsCalls[key] = null
     } else {
       // parse the lsCalls
+
       lsCalls[key] = lsCalls[key].map(parseMap[key])
     }
   }
-  texts.log(`lsCalls: ${JSON.stringify(lsCalls, null, 2)}`)
 
   return {
     verifyContactRowExists: lsCalls.verifyContactRowExists,

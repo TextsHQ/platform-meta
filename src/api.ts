@@ -2,12 +2,13 @@ import { AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
-import { eq } from 'drizzle-orm'
+// import { eq } from 'drizzle-orm'
 
 import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
+// import * as schema from './store/schema'
 import * as schema from './store/schema'
 // import * as queries from './store/queries'
 import { PAPIReturn, SerializedSession } from './types'
@@ -151,7 +152,25 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+    this.logger.info('getThreads', pagination)
+    if (pagination) {
+      this.logger.info('pagination is not null')
+      return {
+        hasMore: false,
+        items: [],
+      }
+    }
+    // return {
+    //   items: [],
+    //   hasMore: false,
+    // }
+
     this.logger.info('getThreads', _folderName, pagination)
+
+    return {
+      hasMore: false,
+      items: [],
+    }
     // this.api.socket?.getThreads?.()
     // const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
     //   id: thread.threadKey,
@@ -162,37 +181,44 @@ export default class PlatformInstagram implements PlatformAPI {
     //   title: thread.threadName,
     //   type: 'single',
     // }))
-    const threadsTest = this.db.query.threads.findMany(
-      {
-        with: {
-          participants: {
-            with: {
-              user: true,
-            },
-          },
-          messages: true,
-        },
-      },
-    )
-    this.logger.info('getThreads is the value', threadsTest)
-    return {
-      items: threads,
-      hasMore: false,
-    }
+    // const threadsTest = this.db.query.threads.findMany(
+    //   {
+    //     with: {
+    //       participants: {
+    //         with: {
+    //           user: true,
+    //         },
+    //       },
+    //       messages: true,
+    //     },
+    //   },
+    // )
+    // this.logger.info('getThreads is the value', threadsTest)
+    // return {
+    //   items: threads,
+    //   hasMore: false,
+    // }
+    // return {
+    //   items: [],
+    //   hasMore: false,
+    // }
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    this.logger.info('getMessages', threadID, pagination)
+    this.logger.info('getMessages', pagination)
     this.socket?.fetchMessages(threadID)
-    const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
+    // const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
 
     // turn messages into a Message[]
-    const mappedMessages: Message[] = messages.map(message => ({
-      id: message.messageId,
-      timestamp: message.timestampMs,
-      senderID: message.senderId,
-      text: message.text,
-    }))
+    // const mappedMessages: Message[] = messages.map(message => ({
+    //   id: message.messageId,
+    //   timestamp: message.timestampMs,
+    //   senderID: message.senderId,
+    //   text: message.text,
+    // }))
+
+    const mappedMessages: Message[] = []
+    this.logger.info('mappedMessages', mappedMessages)
     return {
       items: mappedMessages,
       hasMore: false,

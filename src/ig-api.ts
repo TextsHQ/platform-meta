@@ -1,17 +1,19 @@
 import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
-import { texts, type User, ServerEventType } from '@textshq/platform-sdk'
+import { texts, type User } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
 
+import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
 import { mapMessage, mapThread } from './mappers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
+import { queryThreads, queryMessages } from './store/helpers'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -280,20 +282,13 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-
-    this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
   }
 
-  handlePayload(payload: any) {
+  async handlePayload(payload: any) {
     const rawd = parseRawPayload(payload)
-    this.logger.info('rawd', rawd)
+    // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
-      // try {
-      //   rawd.deleteThenInsertThread.forEach(t => schema.insertThreadSchema.parse(t))
-      // } catch (err) {
-      //   this.logger.error('handlePayload error', JSON.stringify(err, null, 2))
-      //   return
-      // }
       const threads = rawd.deleteThenInsertThread.map(t => ({
         ...t,
         threadKey: t.threadKey!,
@@ -308,7 +303,9 @@ export default class InstagramAPI {
 
       this.addThreads(threads)
     }
+
     if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+
     if (rawd.addParticipantIdToGroupThread) {
       const participants = rawd.addParticipantIdToGroupThread.map(p => ({
         ...p,
@@ -317,6 +314,7 @@ export default class InstagramAPI {
       }))
       this.addParticipants(participants)
     }
+
     if (rawd.upsertMessage) {
       const messages = rawd.upsertMessage.map(m => ({
         ...m,
@@ -326,6 +324,7 @@ export default class InstagramAPI {
       }))
       this.addMessages(messages)
     }
+
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
@@ -334,18 +333,37 @@ export default class InstagramAPI {
       this.cursor = rawd.cursor
     }
 
+    // todo:
+    // once all payloads are handled, we can emit server events and get data from the store
 
+    if (rawd.upsertSyncGroupThreadsRange) {
+      // there are new threads to send to the platform
+      const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
+      const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: threads,
+      }])
+    }
+    if (rawd.upsertMessage) {
+      const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
+      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: messages,
+      }])
+    }
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
     this.logger.info('addThreads', threads)
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: {},
-      mutationType: 'upsert',
-      entries: threads.map(mapThread as any), // @TODO remove any
-    }])
+
     const threadsWithNoBool = threads.map(thread => {
       const newThread = { ...thread }
       for (const key in newThread) {
@@ -408,10 +426,6 @@ export default class InstagramAPI {
       .values(reactions)
       .onConflictDoNothing()
       .run()
-  }
-
-  mapMessage(message: any) {
-    return mapMessage(this.fbid, message)
   }
 
   getLastMessage(threadKey: string) {
