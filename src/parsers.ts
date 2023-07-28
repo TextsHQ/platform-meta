@@ -250,6 +250,12 @@ const parseReaction = (a: RawItem) => ({
   reaction: a[4],
 })
 
+const parseUpsertSyncGroupThreadsRange = (a: RawItem) => ({
+  hasMoreBefore: Boolean(a[3]),
+  minLastActivityTimestampMs: getAsDate(a[2][1]),
+  minThreadKey: getAsDate(a[5][1]),
+})
+
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -257,6 +263,7 @@ const parseMap = {
   addParticipantIdToGroupThread: parseParticipant,
   verifyContactRowExists: parseUser,
   insertBlobAttachment: parseAttachment,
+  upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
   // insertSearchResult: parseSearchArguments,
 }
 
@@ -302,6 +309,7 @@ export function parseRawPayload(payload: string) {
       lsCalls[key] = null
     } else {
       // parse the lsCalls
+
       lsCalls[key] = lsCalls[key].map(parseMap[key])
     }
   }

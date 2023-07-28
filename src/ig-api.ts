@@ -6,11 +6,13 @@ import { desc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
 
+import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
+import { queryThreads, queryMessages } from './store/helpers'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -279,11 +281,10 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-
-    this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
   }
 
-  handlePayload(payload: any) {
+  async handlePayload(payload: any) {
     const rawd = parseRawPayload(payload)
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
@@ -301,7 +302,9 @@ export default class InstagramAPI {
 
       this.addThreads(threads)
     }
+
     if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+
     if (rawd.addParticipantIdToGroupThread) {
       const participants = rawd.addParticipantIdToGroupThread.map(p => ({
         ...p,
@@ -310,6 +313,7 @@ export default class InstagramAPI {
       }))
       this.addParticipants(participants)
     }
+
     if (rawd.upsertMessage) {
       const messages = rawd.upsertMessage.map(m => ({
         ...m,
@@ -319,6 +323,7 @@ export default class InstagramAPI {
       }))
       this.addMessages(messages)
     }
+
     if (rawd.upsertReaction) {
       this.addReactions(rawd.upsertReaction)
     }
@@ -330,24 +335,34 @@ export default class InstagramAPI {
     // todo:
     // once all payloads are handled, we can emit server events and get data from the store
 
-    if (rawd.deleteThenInsertThread) {
+    if (rawd.upsertSyncGroupThreadsRange) {
       // there are new threads to send to the platform
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
+      const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: threads,
+      }])
+    }
+    if (rawd.upsertMessage) {
+      const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
+      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: {},
+        mutationType: 'upsert',
+        entries: messages,
+      }])
     }
   }
 
   addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
     this.logger.info('addThreads', threads)
 
-    // probably don't want to emit event here since threads schema doesn't have all fields
-    // such as messages (Paginated<Message>) or Paginated<Participant>
-    // this.papi.onEvent?.([{
-    //   type: ServerEventType.STATE_SYNC,
-    //   objectName: 'thread',
-    //   objectIDs: {},
-    //   mutationType: 'upsert',
-    //   entries: threads.map(mapThread as any), // @TODO remove any
-    // }])
     const threadsWithNoBool = threads.map(thread => {
       const newThread = { ...thread }
       for (const key in newThread) {
@@ -374,15 +389,6 @@ export default class InstagramAPI {
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
     this.logger.info('addMessages', messages)
-    // for (const message of messages) {
-    //   this.papi.onEvent?.([{
-    //     type: ServerEventType.STATE_SYNC,
-    //     objectName: 'message',
-    //     objectIDs: { threadID: message.threadKey },
-    //     mutationType: 'upsert',
-    //     entries: [message].map(mapMessage as any), // @TODO remove any
-    //   }])
-    // }
 
     const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
       const newMessage = { ...message }
