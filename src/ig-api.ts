@@ -6,13 +6,12 @@ import { asc, eq, type InferModel } from 'drizzle-orm'
 
 import { readFile } from 'fs/promises'
 
-import { ServerEventType } from '@textshq/platform-sdk'
+// import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
-import { queryThreads, queryMessages } from './store/helpers'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -341,33 +340,35 @@ export default class InstagramAPI {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
-      const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
       if (this.papi.sendPromiseMap.has('threads')) {
         const [resolve] = this.papi.sendPromiseMap.get('threads')
         this.logger.info('resolve threads')
-        resolve({
-          threads,
-          hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore!,
-        })
+        resolve({ newThreadIds, hasMore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
       }
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: {},
-        mutationType: 'upsert',
-        entries: threads,
-      }])
-    } else if (rawd.upsertMessage) {
+      // this.papi.onEvent?.([{
+      //   type: ServerEventType.STATE_SYNC,
+      //   objectName: 'thread',
+      //   objectIDs: {},
+      //   mutationType: 'upsert',
+      //   entries: threads,
+      // }])
+    } else if (rawd.insertNewMessageRange) {
+      // new messages to send to the platform
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
-      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
-      this.logger.info('messages', messages)
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: {},
-        mutationType: 'upsert',
-        entries: messages,
-      }])
+      // const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+      this.logger.info('new message ids', newMessageIds)
+      if (this.papi.sendPromiseMap.has(`messages-${rawd.insertNewMessageRange[0].threadKey}`)) {
+        const [resolve] = this.papi.sendPromiseMap.get(`messages-${rawd.insertNewMessageRange[0].threadKey}`)
+        this.logger.info(`resolving messages-${rawd.insertNewMessageRange[0].threadKey}`)
+        resolve({ newMessageIds, hasMore: rawd.insertNewMessageRange[0].hasMoreBefore })
+      }
+      // this.papi.onEvent?.([{
+      //   type: ServerEventType.STATE_SYNC,
+      //   objectName: 'message',
+      //   objectIDs: {},
+      //   mutationType: 'upsert',
+      //   entries: messages,
+      // }])
     }
   }
 

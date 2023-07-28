@@ -12,7 +12,7 @@ import getDB, { type DrizzleDB } from './store/db'
 // import * as queries from './store/queries'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { queryThreads } from './store/helpers'
+import { queryThreads, queryMessages } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
   private loginEventCallback: (data: any) => void
@@ -154,12 +154,17 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
-    this.logger.info('getThreads, paginiation is ', pagination)
+    this.logger.info('getThreads, pagination is', pagination)
+    let threadIDs
     if (pagination) {
-      return this.socket.getThreads() as PAPIReturn<'getThreads'>
+      threadIDs = await this.socket.getThreads()
+    } else {
+      threadIDs = 'ALL'
     }
-    const threads = await queryThreads(this.db, 'ALL', this.api.fbid)
+    this.logger.info('querying threads', threadIDs)
+    const threads = await queryThreads(this.db, threadIDs, this.api.fbid)
     const { hasMoreBefore } = this.api.lastThreadReference
+    this.logger.info('got threads', hasMoreBefore)
     return {
       items: threads,
       hasMore: hasMoreBefore,
@@ -168,22 +173,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.logger.info('getMessages, pagination is', pagination)
-    this.socket?.fetchMessages(threadID)
-    // const messages = this.db.select().from(schema.messages).where(eq(schema.messages.threadKey, threadID)).all()
-
-    // turn messages into a Message[]
-    // const mappedMessages: Message[] = messages.map(message => ({
-    //   id: message.messageId,
-    //   timestamp: message.timestampMs,
-    //   senderID: message.senderId,
-    //   text: message.text,
-    // }))
-
-    const mappedMessages: Message[] = []
-    this.logger.info('mappedMessages', mappedMessages)
+    const { newMessageIds, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
+    const messages = await queryMessages(this.db, newMessageIds, this.api.fbid)
     return {
-      items: mappedMessages,
-      hasMore: false,
+      items: messages,
+      hasMore: hasMoreBefore,
     }
   }
 
