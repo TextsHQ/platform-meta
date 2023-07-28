@@ -9,6 +9,8 @@ import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 // import * as schema from './store/schema'
+import * as schema from './store/schema'
+// import * as queries from './store/queries'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 
@@ -158,6 +160,44 @@ export default class PlatformInstagram implements PlatformAPI {
         items: [],
       }
     }
+    // return {
+    //   items: [],
+    //   hasMore: false,
+    // }
+
+    this.logger.info('getThreads', _folderName, pagination)
+
+    return {
+      hasMore: false,
+      items: [],
+    }
+    // this.api.socket?.getThreads?.()
+    // const threads: Thread[] = this.db.select().from(schema.threads).all().map(thread => ({
+    //   id: thread.threadKey,
+    //   isUnread: thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs,
+    //   isReadOnly: false,
+    //   participants: null,
+    //   messages: null,
+    //   title: thread.threadName,
+    //   type: 'single',
+    // }))
+    // const threadsTest = this.db.query.threads.findMany(
+    //   {
+    //     with: {
+    //       participants: {
+    //         with: {
+    //           user: true,
+    //         },
+    //       },
+    //       messages: true,
+    //     },
+    //   },
+    // )
+    // this.logger.info('getThreads is the value', threadsTest)
+    // return {
+    //   items: threads,
+    //   hasMore: false,
+    // }
     // return {
     //   items: [],
     //   hasMore: false,

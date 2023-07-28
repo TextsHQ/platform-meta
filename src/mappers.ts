@@ -1,8 +1,21 @@
-import { type Message, type Thread, type MessageReaction, type AttachmentWithURL, AttachmentType } from '@textshq/platform-sdk'
+import type { Message, Thread, MessageReaction, AttachmentWithURL, AttachmentType, User } from '@textshq/platform-sdk'
 import type { ExtendedIGMessage, ExtendedIGThread } from './ig-types'
-import type { IGThread, IGReaction } from './store/schema'
+import type { IGThread, IGReaction, IGParticipant } from './store/schema'
 
-export function mapThread(thread: IGThread | ExtendedIGThread): Thread {
+export function mapUser(user: IGUser): User {
+  return {
+    _original: JSON.stringify(user),
+}
+
+export function mapParticipant(participant: IGParticipant): Participant {
+  return {
+    _original: JSON.stringify(participant),
+    id: participant.userId,
+    username: participant.username,
+  }
+}
+
+export function mapThread(thread: IGThread, participants: IGParticipant): Thread {
   return {
     _original: JSON.stringify(thread),
     id: thread.threadKey,

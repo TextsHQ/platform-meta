@@ -10,6 +10,7 @@ import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import type Instagram from './api'
 import { parseRawPayload } from './parsers'
+import { mapMessage, mapThread } from './mappers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
 import { queryThreads, queryMessages } from './store/helpers'
@@ -389,6 +390,15 @@ export default class InstagramAPI {
 
   addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
     this.logger.info('addMessages', messages)
+    for (const message of messages) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadKey },
+        mutationType: 'upsert',
+        entries: [message].map(mapMessage), // @TODO remove any
+      }])
+    }
 
     const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
       const newMessage = { ...message }
