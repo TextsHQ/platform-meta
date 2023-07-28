@@ -443,6 +443,15 @@ export default class InstagramWebSocket {
   }
 
   getThreads() {
+    if (this.papi.sendPromiseMap.has('threads')) {
+      this.logger.info('already fetching threads')
+      return this.papi.sendPromiseMap.get('threads')[0]
+    }
+
+    const sendPromise = new Promise((resolve, reject) => {
+      // this.sendPromiseMap.set(offlineThreadingId, [resolve, reject])
+      this.papi.sendPromiseMap.set('threads', [resolve, reject])
+    })
     this.publishTask({
       label: '145',
       payload: JSON.stringify({
@@ -457,6 +466,7 @@ export default class InstagramWebSocket {
       task_id: 1,
       failure_count: null,
     })
+    return sendPromise
   }
 
   private getLastThreadReference() {
