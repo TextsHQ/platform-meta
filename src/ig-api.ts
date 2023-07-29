@@ -293,6 +293,7 @@ export default class InstagramAPI {
       this.logger.info('ig-api handlePayload error', err)
       return
     }
+    this.logger.info('ig-api handlePayload', rawd)
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread.map(t => ({
@@ -330,6 +331,24 @@ export default class InstagramAPI {
         senderId: m.senderId!,
       }))
       await this.addMessages(messages)
+    }
+    if (rawd.insertMessage) {
+      const rawm = rawd.insertMessage.map(m => ({
+        ...m,
+        threadKey: m.threadKey!,
+        messageId: m.messageId!,
+        senderId: m.senderId!,
+      }))
+      await this.addMessages(rawm)
+      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid)
+      this.logger.info('insertMessage: queryMessages', messages)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: rawm[0].threadKey! },
+        mutationType: 'upsert',
+        entries: messages,
+      }])
     }
 
     if (rawd.upsertReaction) {

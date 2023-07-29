@@ -271,64 +271,113 @@ const parseMap = {
   upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
   // insertSearchResult: parseSearchArguments,
   insertNewMessageRange: parseInsertNewMessageRange,
+  insertMessage: parseMessage,
+}
+
+// export function parseRawPayload(payload: string) {
+//   const j = JSON.parse(payload)
+//   // tasks we are interested in
+//   const lsCalls = {
+//     verifyContactRowExists: [],
+//     addParticipantIdToGroupThread: [],
+//     deleteThenInsertThread: [],
+//     upsertMessage: [],
+//     upsertReaction: [],
+//     insertBlobAttachment: [],
+//     insertAttachmentItem: [],
+//     upsertSyncGroupThreadsRange: [],
+//     clearPinnedMessages: [],
+//     writeThreadCapabilities: [],
+//     deleteThenInsertIgThreadInfo: [],
+//     setMessageDisplayedContentTypes: [],
+//     setForwardScore: [],
+//     updateReadReceipt: [],
+//     insertXmaAttachment: [],
+//     getFirstAvailableAttachmentCTAID: [],
+//     insertAttachmentCta: [],
+//     updateAttachmentItemCtaAtIndex: [],
+//     updateAttachmentCtaAtIndexIgnoringAuthority: [],
+//     deleteExistingMessageRanges: [],
+//     insertNewMessageRange: [],
+//     upsertFolderSeenTimestamp: [],
+//     insertMessage: [],
+//   }
+
+//   // loop through the tasks
+//   for (const item of j.step[2][2][2].slice(1)) {
+//     // if we are interested in the task then add it to the lsCalls object
+//     if (item[1][1] in lsCalls) {
+//       lsCalls[item[1][1]].push(item[1].slice(2))
+//     }
+//   }
+
+//   // make empty lsCalls or lsCalls that are not in parseMap null
+//   for (const key in lsCalls) {
+//     if (lsCalls[key].length === 0 || !(key in parseMap)) {
+//       lsCalls[key] = null
+//     } else {
+//       // parse the lsCalls
+
+//       lsCalls[key] = lsCalls[key].map(parseMap[key])
+//     }
+//   }
+
+//   // return {
+//   //   verifyContactRowExists: lsCalls.verifyContactRowExists,
+//   //   addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread,
+//   //   deleteThenInsertThread: lsCalls.deleteThenInsertThread,
+//   //   upsertMessage: lsCalls.upsertMessage,
+//   //   upsertReaction: lsCalls.upsertReaction,
+//   //   upsertSyncGroupThreadsRange: lsCalls.upsertSyncGroupThreadsRange,
+//   //   insertBlobAttachment: lsCalls.insertBlobAttachment,
+//   //   insertNewMessageRange: lsCalls.insertNewMessageRange,
+//   //   insertMessage: lsCalls.insertMessage,
+//   //   cursor: j.step[2][1][3][5],
+//   // }
+//   return {
+//     ...lsCalls,
+//     cursor: j.step[2][1][3][5],
+//   }
+// }
+
+function interestedOperation(operation) {
+  if (operation[0] === 5 && operation[1] in parseMap) {
+    return parseMap[operation[1]](operation.slice(2))
+  }
+}
+
+function recursiveParse(arr) {
+  const res = {}
+  for (const item of arr) {
+    if (Array.isArray(item)) {
+      const interested = interestedOperation(item)
+      if (interested) {
+        if (res[item[1]]) {
+          res[item[1]].push(interested)
+        }
+        res[item[1]] = [interested]
+      } else {
+        const result = recursiveParse(item)
+        if (Object.keys(result).length > 0) {
+          //  for each key in result if the key is in res then concat the arrays
+          for (const key in result) {
+            if (res[key]) {
+              res[key] = res[key].concat(result[key])
+            } else {
+              res[key] = result[key]
+            }
+          }
+        }
+      }
+    }
+  }
+  return res
 }
 
 export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
-  // tasks we are interested in
-  const lsCalls = {
-    verifyContactRowExists: [],
-    addParticipantIdToGroupThread: [],
-    deleteThenInsertThread: [],
-    upsertMessage: [],
-    upsertReaction: [],
-    insertBlobAttachment: [],
-    insertAttachmentItem: [],
-    upsertSyncGroupThreadsRange: [],
-    clearPinnedMessages: [],
-    writeThreadCapabilities: [],
-    deleteThenInsertIgThreadInfo: [],
-    setMessageDisplayedContentTypes: [],
-    setForwardScore: [],
-    updateReadReceipt: [],
-    insertXmaAttachment: [],
-    getFirstAvailableAttachmentCTAID: [],
-    insertAttachmentCta: [],
-    updateAttachmentItemCtaAtIndex: [],
-    updateAttachmentCtaAtIndexIgnoringAuthority: [],
-    deleteExistingMessageRanges: [],
-    insertNewMessageRange: [],
-    upsertFolderSeenTimestamp: [],
-  }
-
-  // loop through the tasks
-  for (const item of j.step[2][2][2].slice(1)) {
-    // if we are interested in the task then add it to the lsCalls object
-    if (item[1][1] in lsCalls) {
-      lsCalls[item[1][1]].push(item[1].slice(2))
-    }
-  }
-
-  // make empty lsCalls or lsCalls that are not in parseMap null
-  for (const key in lsCalls) {
-    if (lsCalls[key].length === 0 || !(key in parseMap)) {
-      lsCalls[key] = null
-    } else {
-      // parse the lsCalls
-
-      lsCalls[key] = lsCalls[key].map(parseMap[key])
-    }
-  }
-
   return {
-    verifyContactRowExists: lsCalls.verifyContactRowExists,
-    addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread,
-    deleteThenInsertThread: lsCalls.deleteThenInsertThread,
-    upsertMessage: lsCalls.upsertMessage,
-    upsertReaction: lsCalls.upsertReaction,
-    upsertSyncGroupThreadsRange: lsCalls.upsertSyncGroupThreadsRange,
-    insertBlobAttachment: lsCalls.insertBlobAttachment,
-    insertNewMessageRange: lsCalls.insertNewMessageRange,
+    ...recursiveParse(j.step),
     cursor: j.step[2][1][3][5],
   }
 }
