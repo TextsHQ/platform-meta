@@ -332,24 +332,6 @@ export default class InstagramAPI {
       }))
       await this.addMessages(messages)
     }
-    if (rawd.insertMessage) {
-      const rawm = rawd.insertMessage.map(m => ({
-        ...m,
-        threadKey: m.threadKey!,
-        messageId: m.messageId!,
-        senderId: m.senderId!,
-      }))
-      await this.addMessages(rawm)
-      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid)
-      this.logger.info('insertMessage: queryMessages', messages)
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: rawm[0].threadKey! },
-        mutationType: 'upsert',
-        entries: messages,
-      }])
-    }
 
     if (rawd.upsertReaction) {
       await this.addReactions(rawd.upsertReaction)
@@ -404,6 +386,30 @@ export default class InstagramAPI {
         this.logger.info(`resolving messages-${threadID}`)
         this.papi.sendPromiseMap.delete(`messages-${threadID}`)
         resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
+      }
+    } else if (rawd.insertMessage) {
+      // new message to send to the platform
+      const rawm = rawd.insertMessage.map(m => ({
+        ...m,
+        threadKey: m.threadKey!,
+        messageId: m.messageId!,
+        senderId: m.senderId!,
+      }))
+      await this.addMessages(rawm)
+      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid)
+      this.logger.info('insertMessage: queryMessages', messages)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: rawm[0].threadKey! },
+        mutationType: 'upsert',
+        entries: messages,
+      }])
+      if (this.papi.sendPromiseMap.has('sendmessage')) {
+        const [resolve] = this.papi.sendPromiseMap.get('sendmessage')
+        this.logger.info('resolve sendmessage')
+        this.papi.sendPromiseMap.delete('sendmessage')
+        resolve(messages)
       }
     }
   }

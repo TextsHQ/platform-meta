@@ -4,6 +4,7 @@ import mqtt from 'mqtt-packet'
 // import type { Logger } from 'pino'
 // import { ServerEventType } from '@textshq/platform-sdk'
 
+import { Message } from '@textshq/platform-sdk'
 import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 // import { parsePayload } from './parsers'
 // import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
@@ -300,6 +301,12 @@ export default class InstagramWebSocket {
   }
 
   sendMessage(threadID: string, text: string) {
+    if (this.papi.sendPromiseMap.has('sendmessage')) {
+      return Promise.reject(new Error('already sending messages'))
+    }
+    const sendPromise = new Promise<Message[]>((resolve, reject) => {
+      this.papi.sendPromiseMap.set('sendmessage', [resolve, reject])
+    })
     const { epoch_id, otid, timestamp } = getTimeValues()
     const hmm = JSON.stringify({
       app_id: '936619743392459',
@@ -352,6 +359,7 @@ export default class InstagramWebSocket {
         payload: hmm,
       }),
     )
+    return sendPromise
   }
 
   sendImage(threadID: string, imageID: string) {
