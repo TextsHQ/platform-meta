@@ -37,7 +37,6 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     threadName: true,
     threadPictureUrl: true,
     threadType: true,
-
   },
   with: {
     participants:

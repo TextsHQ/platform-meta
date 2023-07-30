@@ -5,7 +5,7 @@ import mqtt from 'mqtt-packet'
 // import { ServerEventType } from '@textshq/platform-sdk'
 
 import { Message } from '@textshq/platform-sdk'
-import { getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 // import { parsePayload } from './parsers'
 // import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
 // import { parsePayload } from './parsers'
@@ -17,6 +17,14 @@ const MAX_RETRY_ATTEMPTS = 12
 
 const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
+
+type IGSocketTask = {
+  label: string
+  payload: string
+  queue_name: string
+  failure_count: null
+  task_id: number
+}
 
 export default class InstagramWebSocket {
   private retryAttempt = 0
@@ -96,6 +104,9 @@ export default class InstagramWebSocket {
 
     this.ws.onclose = ev => {
       this.logger.info('ws: onclose', ev)
+      this.mqttSid = getMqttSid()
+      this.lastTaskId = 0
+      this.lastRequestId = 0
       clearInterval(this.pingInterval)
       this.pingInterval = null
       if (!this.stop) retry()
@@ -120,11 +131,12 @@ export default class InstagramWebSocket {
       this.logger.info('waiting 5ms to send')
       await sleep(5)
     }
-    this.send(data)
+    return this.send(data)
   }
 
   readonly send = (data: ArrayBufferLike) => {
     if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(data)
+    this.logger.debug('sending', data)
     this.ws.send(data)
   }
 
@@ -249,17 +261,15 @@ export default class InstagramWebSocket {
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
     if (payload.request_id !== null) {
-      this.logger.info('request_id is not null', payload)
+      this.requestResolvers?.get(Number(payload.request_id))?.(payload)
     }
 
-    this.logger.info('INSTAGRAM', { payload })
-
-    this.papi.api.handlePayload(payload.payload)
+    await this.papi.api.handlePayload(payload.payload)
   }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
     if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')
-    this.publishTask({
+    return this.publishTask({
       label: '228',
       payload: JSON.stringify({
         thread_key: Number(threadId),
@@ -270,7 +280,7 @@ export default class InstagramWebSocket {
         cursor: this.papi.api.cursor,
       }),
       queue_name: `mrq.${threadId}`,
-      task_id: 1,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
   }
@@ -326,7 +336,7 @@ export default class InstagramWebSocket {
               text_has_links: 0,
             }),
             queue_name: threadID.toString(),
-            task_id: 0,
+            task_id: this.genTaskId(),
             failure_count: null,
           },
           {
@@ -337,7 +347,7 @@ export default class InstagramWebSocket {
               sync_group: 1,
             }),
             queue_name: threadID.toString(),
-            task_id: 1,
+            task_id: this.genTaskId(),
             failure_count: null,
           },
         ],
@@ -364,7 +374,7 @@ export default class InstagramWebSocket {
 
   sendImage(threadID: string, imageID: string) {
     const { otid } = getTimeValues()
-    this.publishTask({
+    return this.publishTask({
       label: '46',
       payload: JSON.stringify({
         thread_id: Number(threadID),
@@ -376,14 +386,14 @@ export default class InstagramWebSocket {
         attachment_fbids: [imageID],
       }),
       queue_name: threadID.toString(),
-      task_id: 2,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
   }
 
   addReaction(threadID: string, messageID: string, reaction: string) {
     const message = this.papi.api.getMessage(threadID, messageID)
-    this.publishTask({
+    return this.publishTask({
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -391,24 +401,48 @@ export default class InstagramWebSocket {
         message_id: messageID,
         actor_id: this.papi.api.fbid,
         reaction,
-        reacion_style: null,
+        reaction_style: null,
         sync_group: 1,
       }),
       queue_name: JSON.stringify([
         'reaction',
         messageID,
       ]),
-      task_id: 0,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
   }
 
+  private lastTaskId = 0
+
+  private genTaskId() {
+    return ++this.lastTaskId
+  }
+
+  // private taskResolvers: Map<[number, number], () => void> = new Map()
+
+  private lastRequestId = 0
+
+  private genRequestId() {
+    return ++this.lastRequestId
+  }
+
+  private requestResolvers: Map<number, (value?: any) => void> = new Map()
+
   // used for get messages and get threads
-  publishTask(_tasks: any) {
+  publishTask(_tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
+    const { promise, resolve } = createPromise()
+    const request_id = this.genRequestId()
+    this.logger.info(`[REQUEST #${request_id}] start`)
 
-    this.send(
+    this.requestResolvers.set(request_id, response => {
+      this.logger.info(`[REQUEST #${request_id}]`, 'got response', response)
+      resolve(response)
+    })
+
+    await this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 6,
@@ -423,11 +457,13 @@ export default class InstagramWebSocket {
             epoch_id,
             version_id: '9477666248971112',
           }),
-          request_id: 6,
+          request_id,
           type: 3,
         }),
       }),
     )
+
+    return promise
   }
 
   fetchMessages(threadID: string) {
@@ -451,7 +487,7 @@ export default class InstagramWebSocket {
         cursor: this.papi.api.cursor,
       }),
       queue_name: `mrq.${threadID}`,
-      task_id: 1,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
     this.logger.info(`promising messages-${threadID}`)
@@ -478,7 +514,7 @@ export default class InstagramWebSocket {
         sync_group: 1,
       }),
       queue_name: 'trq',
-      task_id: 1,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
     this.logger.info('promising threads')
