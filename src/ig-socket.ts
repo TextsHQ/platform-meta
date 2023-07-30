@@ -136,18 +136,18 @@ export default class InstagramWebSocket {
 
   readonly send = (data: ArrayBufferLike) => {
     if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(data)
-    this.logger.debug('sending', data)
+    this.logger.debug('sending')
     this.ws.send(data)
   }
 
-  private onOpen() {
+  private async onOpen() {
     this.afterConnect()
     this.sendAppSettings()
     this.startPing()
   }
 
   // initiate connection
-  private afterConnect() {
+  private async afterConnect() {
     this.send(
       mqtt.generate({
         cmd: 'connect',
@@ -269,7 +269,7 @@ export default class InstagramWebSocket {
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
     if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')
-    return this.publishTask({
+    return this.publishTask('load more messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: Number(threadId),
@@ -286,7 +286,7 @@ export default class InstagramWebSocket {
   }
 
   async sendTypingIndicator(threadID: string) {
-    const { promise, request_id } = this.createRequest()
+    const { promise, request_id } = this.createRequest('send typing indicator')
 
     await this.send(
       mqtt.generate({
@@ -318,7 +318,7 @@ export default class InstagramWebSocket {
     if (this.papi.sendPromiseMap.has('sendmessage')) {
       return Promise.reject(new Error('already sending messages'))
     }
-    const { promise, request_id } = this.createRequest()
+    const { promise, request_id } = this.createRequest('send message')
 
     const sendPromise = new Promise<Message[]>((resolve, reject) => {
       this.papi.sendPromiseMap.set('sendmessage', [resolve, reject])
@@ -380,7 +380,7 @@ export default class InstagramWebSocket {
 
   sendImage(threadID: string, imageID: string) {
     const { otid } = getTimeValues()
-    return this.publishTask({
+    return this.publishTask('send image', {
       label: '46',
       payload: JSON.stringify({
         thread_id: Number(threadID),
@@ -399,7 +399,7 @@ export default class InstagramWebSocket {
 
   addReaction(threadID: string, messageID: string, reaction: string) {
     const message = this.papi.api.getMessage(threadID, messageID)
-    return this.publishTask({
+    return this.publishTask('add reaction', {
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -435,22 +435,22 @@ export default class InstagramWebSocket {
 
   private requestResolvers: Map<number, (value?: any) => void> = new Map()
 
-  private createRequest() {
+  private createRequest(tag: string) {
     const request_id = this.genRequestId()
     const { promise, resolve } = createPromise()
-    this.logger.info(`[REQUEST #${request_id}] create`)
+    this.logger.info(`[REQUEST #${request_id}][${tag}] create `)
     this.requestResolvers.set(request_id, response => {
-      this.logger.info(`[REQUEST #${request_id}] got response`, response)
+      this.logger.info(`[REQUEST #${request_id}][${tag}] got response`, response)
       resolve(response)
     })
     return { request_id, promise }
   }
 
   // used for get messages and get threads
-  async publishTask(_tasks: IGSocketTask | IGSocketTask[]) {
+  async publishTask(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
-    const { promise, request_id } = this.createRequest()
+    const { promise, request_id } = this.createRequest(`publish task: ${tag}`)
 
     await this.send(
       mqtt.generate({
@@ -476,7 +476,7 @@ export default class InstagramWebSocket {
     return promise
   }
 
-  fetchMessages(threadID: string) {
+  async fetchMessages(threadID: string) {
     if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
       this.logger.info('already fetching messages')
       return Promise.reject(new Error('already fetching messages'))
@@ -486,7 +486,7 @@ export default class InstagramWebSocket {
     })
     const lastMessage = this.papi.api.getLastMessage(threadID)
     this.logger.info('fetchMessages', { threadID, lastMessage })
-    this.publishTask({
+    await this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: Number(threadID),
@@ -513,7 +513,7 @@ export default class InstagramWebSocket {
     const sendPromise = new Promise((resolve, reject) => {
       this.papi.sendPromiseMap.set('threads', [resolve, reject])
     })
-    this.publishTask({
+    this.publishTask('get threads', {
       label: '145',
       payload: JSON.stringify({
         ...this.getLastThreadReference(),
