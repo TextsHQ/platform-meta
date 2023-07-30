@@ -284,6 +284,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('removeReaction', { threadID, messageID, reactionKey })
+    // a message can only have a single reaction from a single participant
+    this.socket.addReaction(threadID, messageID, '')
   }
 
   getLinkPreview = async (link: string): Promise<MessageLink> => {
