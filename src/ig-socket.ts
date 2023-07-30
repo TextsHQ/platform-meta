@@ -285,8 +285,10 @@ export default class InstagramWebSocket {
     })
   }
 
-  sendTypingIndicator(threadID: string) {
-    this.send(
+  async sendTypingIndicator(threadID: string) {
+    const { promise, request_id } = this.createRequest()
+
+    await this.send(
       mqtt.generate({
         cmd: 'publish',
         messageId: 9,
@@ -303,17 +305,21 @@ export default class InstagramWebSocket {
             }),
             version: '6243569662359088',
           }),
-          request_id: 45,
+          request_id,
           type: 4,
         }),
       } as any),
     ) // @TODO: fix mqtt-packet types
+
+    await promise
   }
 
-  sendMessage(threadID: string, text: string) {
+  async sendMessage(threadID: string, text: string) {
     if (this.papi.sendPromiseMap.has('sendmessage')) {
       return Promise.reject(new Error('already sending messages'))
     }
+    const { promise, request_id } = this.createRequest()
+
     const sendPromise = new Promise<Message[]>((resolve, reject) => {
       this.papi.sendPromiseMap.set('sendmessage', [resolve, reject])
     })
@@ -354,11 +360,11 @@ export default class InstagramWebSocket {
         epoch_id: Number(epoch_id),
         version_id: '6243569662359088',
       }),
-      request_id: 4,
+      request_id,
       type: 3,
     })
 
-    this.send(
+    await this.send(
       mqtt.generate({
         cmd: 'publish',
         dup: false,
@@ -429,18 +435,22 @@ export default class InstagramWebSocket {
 
   private requestResolvers: Map<number, (value?: any) => void> = new Map()
 
-  // used for get messages and get threads
-  publishTask(_tasks: IGSocketTask | IGSocketTask[]) {
-    const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
-    const { epoch_id } = getTimeValues()
-    const { promise, resolve } = createPromise()
+  private createRequest() {
     const request_id = this.genRequestId()
-    this.logger.info(`[REQUEST #${request_id}] start`)
-
+    const { promise, resolve } = createPromise()
+    this.logger.info(`[REQUEST #${request_id}] create`)
     this.requestResolvers.set(request_id, response => {
-      this.logger.info(`[REQUEST #${request_id}]`, 'got response', response)
+      this.logger.info(`[REQUEST #${request_id}] got response`, response)
       resolve(response)
     })
+    return { request_id, promise }
+  }
+
+  // used for get messages and get threads
+  async publishTask(_tasks: IGSocketTask | IGSocketTask[]) {
+    const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
+    const { epoch_id } = getTimeValues()
+    const { promise, request_id } = this.createRequest()
 
     await this.send(
       mqtt.generate({
