@@ -27,7 +27,7 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
     with: {
       attachments: {
         columns: {
-          playableUrl: true,
+          previewUrl: true,
         },
       },
     },
@@ -71,7 +71,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       with: {
         attachments: {
           columns: {
-            playableUrl: true,
+            previewUrl: true,
           },
         },
       },

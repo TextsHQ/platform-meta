@@ -46,6 +46,7 @@ CREATE TABLE `attachments` (
 	`samplingFrequencyHz` integer,
 	`waveformData` text,
 	`authorityLevel` text,
+	PRIMARY KEY(`attachmentFbid`, `messageId`, `threadKey`),
 	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`messageId`) REFERENCES `messages`(`messageId`) ON UPDATE no action ON DELETE no action
 );

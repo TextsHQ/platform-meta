@@ -165,6 +165,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
 
     const threads = await queryThreads(this.db, 'ALL', this.api.fbid)
+    this.logger.info('getThreads, returning threads', threads)
     const { hasMoreBefore } = this.api.lastThreadReference
     return {
       items: threads,

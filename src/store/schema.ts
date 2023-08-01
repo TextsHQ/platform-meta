@@ -223,7 +223,9 @@ export const attachments = sqliteTable('attachments', {
   samplingFrequencyHz: integer('samplingFrequencyHz'),
   waveformData: text('waveformData'),
   authorityLevel: text('authorityLevel'),
-})
+}, table => ({
+  pk: primaryKey(table.threadKey, table.messageId, table.attachmentFbid),
+}))
 
 export const attachmentRelations = relations(attachments, ({ one }) => ({
   message: one(messages, { fields: [attachments.messageId], references: [messages.messageId] }),

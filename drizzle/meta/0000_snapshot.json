@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "2cc35932-20ac-424a-91b6-7e129603cfaa",
+  "id": "18c6ee58-d913-4031-b386-b0a7a9c98ec1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -366,7 +366,15 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "attachments_threadKey_messageId_attachmentFbid_pk": {
+          "columns": [
+            "attachmentFbid",
+            "messageId",
+            "threadKey"
+          ]
+        }
+      },
       "uniqueConstraints": {}
     },
     "messages": {
