@@ -484,7 +484,7 @@ export default class InstagramWebSocket {
     const sendPromise = new Promise((resolve, reject) => {
       this.papi.sendPromiseMap.set(`messages-${threadID}`, [resolve, reject])
     })
-    const lastMessage = this.papi.api.getLastMessage(threadID)
+    const lastMessage = this.papi.api.getNewestMessage(threadID)
     this.logger.info('fetchMessages', { threadID, lastMessage })
     await this.publishTask('fetch messages', {
       label: '228',

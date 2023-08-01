@@ -195,51 +195,51 @@ const parseMessage = (a: RawItem): IGMessage => ({
 
 const parseAttachment = (a: RawItem) => ({
   filename: a[0],
-  threadKey: a[27],
+  threadKey: a[27][1],
   messageId: a[32],
   previewUrl: a[8],
   previewUrlFallback: a[9],
-  previewUrlExpirationTimestampMs: a[10],
-  previewUrlMimeType: a[11],
-  previewWidth: a[14],
-  previewHeight: a[15],
-  timestampMs: a[31],
-  attachmentType: a[29],
+  previewUrlExpirationTimestampMs: getAsDate(a[10][1]),
+  previewUrlMimeType: getAsDate(a[11][1]),
+  previewWidth: Number(a[14][1]),
+  previewHeight: Number(a[15][1]),
+  timestampMs: getAsDate(a[31][1]),
+  attachmentType: a[29][1],
   attachmentFbid: a[34],
-  filesize: a[1],
-  hasMedia: a[2],
+  filesize: a[1][1],
+  hasMedia: Boolean(a[2]),
   playableUrl: a[3],
   playableUrlFallback: a[4],
-  playableUrlExpirationTimestampMs: a[5],
+  playableUrlExpirationTimestampMs: getAsDate(a[5][1]),
   playableUrlMimeType: a[6],
-  dashManifest: a[7],
-  miniPreview: a[13],
-  attributionAppId: a[16],
-  attributionAppName: a[17],
-  isSharable: !1,
-  attributionAppIcon: a[18],
-  attributionAppIconFallback: a[19],
-  attributionAppIconUrlExpirationTimestampMs: a[20],
-  localPlayableUrl: a[21],
-  playableDurationMs: a[22],
-  attachmentIndex: a[23],
-  accessibilitySummaryText: a[24],
-  isPreviewImage: a[25],
-  originalFileHash: a[26],
-  offlineAttachmentId: a[33],
-  hasXma: a[35],
-  xmaLayoutType: a[36],
-  xmasTemplateType: a[37],
-  titleText: a[38],
-  subtitleText: a[39],
-  descriptionText: a[40],
-  sourceText: a[41],
-  faviconUrlExpirationTimestampMs: a[42],
-  isBorderless: a[44],
-  previewUrlLarge: a[45],
-  samplingFrequencyHz: a[46],
-  waveformData: a[47],
-  authorityLevel: a[48],
+  // dashManifest: a[7],
+  // miniPreview: a[13],
+  // attributionAppId: a[16],
+  // attributionAppName: a[17],
+  // isSharable: !1,
+  // attributionAppIcon: a[18],
+  // attributionAppIconFallback: a[19],
+  // attributionAppIconUrlExpirationTimestampMs: a[20],
+  // localPlayableUrl: a[21],
+  // playableDurationMs: a[22],
+  // attachmentIndex: a[23],
+  // accessibilitySummaryText: a[24],
+  // isPreviewImage: a[25],
+  // originalFileHash: a[26],
+  // offlineAttachmentId: a[33],
+  // hasXma: a[35],
+  // xmaLayoutType: a[36],
+  // xmasTemplateType: a[37],
+  // titleText: a[38],
+  // subtitleText: a[39],
+  // descriptionText: a[40],
+  // sourceText: a[41],
+  // faviconUrlExpirationTimestampMs: a[42],
+  // isBorderless: a[44],
+  // previewUrlLarge: a[45],
+  // samplingFrequencyHz: a[46],
+  // waveformData: a[47],
+  // authorityLevel: a[48],
 })
 
 const parseReaction = (a: RawItem) => ({
@@ -273,72 +273,6 @@ const parseMap = {
   insertNewMessageRange: parseInsertNewMessageRange,
   insertMessage: parseMessage,
 }
-
-// export function parseRawPayload(payload: string) {
-//   const j = JSON.parse(payload)
-//   // tasks we are interested in
-//   const lsCalls = {
-//     verifyContactRowExists: [],
-//     addParticipantIdToGroupThread: [],
-//     deleteThenInsertThread: [],
-//     upsertMessage: [],
-//     upsertReaction: [],
-//     insertBlobAttachment: [],
-//     insertAttachmentItem: [],
-//     upsertSyncGroupThreadsRange: [],
-//     clearPinnedMessages: [],
-//     writeThreadCapabilities: [],
-//     deleteThenInsertIgThreadInfo: [],
-//     setMessageDisplayedContentTypes: [],
-//     setForwardScore: [],
-//     updateReadReceipt: [],
-//     insertXmaAttachment: [],
-//     getFirstAvailableAttachmentCTAID: [],
-//     insertAttachmentCta: [],
-//     updateAttachmentItemCtaAtIndex: [],
-//     updateAttachmentCtaAtIndexIgnoringAuthority: [],
-//     deleteExistingMessageRanges: [],
-//     insertNewMessageRange: [],
-//     upsertFolderSeenTimestamp: [],
-//     insertMessage: [],
-//   }
-
-//   // loop through the tasks
-//   for (const item of j.step[2][2][2].slice(1)) {
-//     // if we are interested in the task then add it to the lsCalls object
-//     if (item[1][1] in lsCalls) {
-//       lsCalls[item[1][1]].push(item[1].slice(2))
-//     }
-//   }
-
-//   // make empty lsCalls or lsCalls that are not in parseMap null
-//   for (const key in lsCalls) {
-//     if (lsCalls[key].length === 0 || !(key in parseMap)) {
-//       lsCalls[key] = null
-//     } else {
-//       // parse the lsCalls
-
-//       lsCalls[key] = lsCalls[key].map(parseMap[key])
-//     }
-//   }
-
-//   // return {
-//   //   verifyContactRowExists: lsCalls.verifyContactRowExists,
-//   //   addParticipantIdToGroupThread: lsCalls.addParticipantIdToGroupThread,
-//   //   deleteThenInsertThread: lsCalls.deleteThenInsertThread,
-//   //   upsertMessage: lsCalls.upsertMessage,
-//   //   upsertReaction: lsCalls.upsertReaction,
-//   //   upsertSyncGroupThreadsRange: lsCalls.upsertSyncGroupThreadsRange,
-//   //   insertBlobAttachment: lsCalls.insertBlobAttachment,
-//   //   insertNewMessageRange: lsCalls.insertNewMessageRange,
-//   //   insertMessage: lsCalls.insertMessage,
-//   //   cursor: j.step[2][1][3][5],
-//   // }
-//   return {
-//     ...lsCalls,
-//     cursor: j.step[2][1][3][5],
-//   }
-// }
 
 function interestedOperation(operation) {
   if (operation[0] === 5 && operation[1] in parseMap) {

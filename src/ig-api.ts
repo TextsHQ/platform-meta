@@ -2,7 +2,7 @@ import { CookieJar } from 'tough-cookie'
 import axios, { type AxiosInstance } from 'axios'
 import { HttpCookieAgent, HttpsCookieAgent } from 'http-cookie-agent/http'
 import { texts, type User } from '@textshq/platform-sdk'
-import { asc, eq, type InferModel } from 'drizzle-orm'
+import { desc, eq, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import { readFile } from 'fs/promises'
 import { queryMessages, queryThreads } from './store/helpers'
@@ -337,6 +337,10 @@ export default class InstagramAPI {
       await this.addReactions(rawd.upsertReaction)
     }
 
+    if (rawd.insertBlobAttachment) {
+      await this.addAttachments(rawd.insertBlobAttachment)
+    }
+
     if (rawd.cursor) {
       this.cursor = rawd.cursor
     }
@@ -344,7 +348,7 @@ export default class InstagramAPI {
     // todo:
     // once all payloads are handled, we can emit server events and get data from the store
 
-    if (rawd.upsertSyncGroupThreadsRange) { // can also check for deleteThenInsertThread
+    if (rawd.deleteThenInsertThread) { // can also check for deleteThenInsertThread
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
@@ -472,6 +476,26 @@ export default class InstagramAPI {
       .run()
   }
 
+  addAttachments(attachments: InferModel<typeof schema['attachments'], 'insert'>[]) {
+    this.logger.info('addAttachments', attachments)
+    const attachmentsWithNoBool = attachments.map(attachment => {
+      const newAttachments = { ...attachment }
+      for (const key in newAttachments) {
+        if (typeof newAttachments[key] === 'boolean') {
+          newAttachments[key] = newAttachments[key] ? 1 : 0
+        }
+      }
+      return newAttachments
+    })
+    this.logger.info('addAttachments (attachmentsWithNoBool)', attachmentsWithNoBool)
+
+    return this.papi.db
+      .insert(schema.attachments)
+      .values(attachmentsWithNoBool)
+      .onConflictDoNothing()
+      .run()
+  }
+
   getMessage(threadKey: string, messageId: string) {
     return this.papi.db
       .select({
@@ -486,7 +510,7 @@ export default class InstagramAPI {
       .get()
   }
 
-  getLastMessage(threadKey: string) {
+  getNewestMessage(threadKey: string) {
     return this.papi.db
       .select({
         threadKey: schema.messages.threadKey,
@@ -496,7 +520,7 @@ export default class InstagramAPI {
       .from(schema.messages)
       .limit(1)
       .where(eq(schema.messages.threadKey, threadKey))
-      .orderBy(asc(schema.messages.timestampMs))
+      .orderBy(desc(schema.messages.timestampMs))
       .get()
   }
 

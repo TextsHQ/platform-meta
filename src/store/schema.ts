@@ -160,10 +160,6 @@ export const messages = sqliteTable('messages', {
 
 export type IGMessage = InferModel<typeof messages, 'select'>
 
-export const messageRelations = relations(messages, ({ one }) => ({
-  thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
-}))
-
 export const typingIndicators = sqliteTable('typing_indicators', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   original: text('_original'),
@@ -228,6 +224,15 @@ export const attachments = sqliteTable('attachments', {
   waveformData: text('waveformData'),
   authorityLevel: text('authorityLevel'),
 })
+
+export const attachmentRelations = relations(attachments, ({ one }) => ({
+  message: one(messages, { fields: [attachments.messageId], references: [messages.messageId] }),
+}))
+
+export const messageRelations = relations(messages, ({ one, many }) => ({
+  thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
+  attachments: many(attachments),
+}))
 
 export type IGAttachment = InferModel<typeof attachments, 'select'>
 
