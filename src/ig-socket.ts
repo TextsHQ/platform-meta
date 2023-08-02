@@ -1,19 +1,14 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
-import mqtt from 'mqtt-packet'
-// import type { Logger } from 'pino'
-// import { ServerEventType } from '@textshq/platform-sdk'
+import mqtt, { type Packet } from 'mqtt-packet'
+import type { Message } from '@textshq/platform-sdk'
 
-import { Message } from '@textshq/platform-sdk'
 import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
-// import { parsePayload } from './parsers'
-// import { MessageReaction, ServerEventType, texts } from '@textshq/platform-sdk'
-// import { parsePayload } from './parsers'
 import { getLogger } from './logger'
 import type PlatformInstagram from './api'
-// import { mapThread } from './mapper'
 
 const MAX_RETRY_ATTEMPTS = 12
+const VERSION_ID = 6552526831451374
 
 const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
@@ -26,6 +21,15 @@ type IGSocketTask = {
   task_id: number
 }
 
+const lsAppSettings = {
+  qos: 1,
+  topic: '/ls_app_settings',
+  payload: JSON.stringify({
+    ls_fdid: '',
+    ls_sv: VERSION_ID, // version id
+  }),
+} as const
+
 export default class InstagramWebSocket {
   private retryAttempt = 0
 
@@ -35,7 +39,9 @@ export default class InstagramWebSocket {
 
   private logger = getLogger('ig-socket')
 
-  private mqttSid = getMqttSid()
+  private mqttSid: number
+
+  private isInitialConnection = true
 
   constructor(private readonly papi: PlatformInstagram) {}
 
@@ -46,8 +52,13 @@ export default class InstagramWebSocket {
     try {
       this.ws?.close()
     } catch (err) {
-      this.logger.error('ws transport: connect', err)
+      this.logger.error('ws transport: connect error', err)
     }
+
+    this.mqttSid = getMqttSid()
+    this.lastTaskId = 0
+    this.lastRequestId = 0
+
     this.ws = new WebSocket(
       `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.clientId}`,
       {
@@ -104,9 +115,6 @@ export default class InstagramWebSocket {
 
     this.ws.onclose = ev => {
       this.logger.info('ws: onclose', ev)
-      this.mqttSid = getMqttSid()
-      this.lastTaskId = 0
-      this.lastRequestId = 0
       clearInterval(this.pingInterval)
       this.pingInterval = null
       if (!this.stop) retry()
@@ -126,101 +134,104 @@ export default class InstagramWebSocket {
 
   private connectTimeout: ReturnType<typeof setTimeout>
 
-  private readonly waitAndSend = async (data: any) => {
+  private readonly waitAndSend = async (p: Packet) => {
     while (this.ws?.readyState !== WebSocket.OPEN) {
       this.logger.info('waiting 5ms to send')
       await sleep(5)
     }
-    return this.send(data)
+    return this.send(p)
   }
 
-  readonly send = (data: ArrayBufferLike) => {
-    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(data)
-    this.logger.debug('sending')
-    this.ws.send(data)
+  readonly send = (p: Packet) => {
+    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
+    this.logger.debug('sending', p)
+    this.ws.send(mqtt.generate(p))
   }
 
   private async onOpen() {
-    this.afterConnect()
-    this.sendAppSettings()
+    await this.afterConnect()
+    await this.sendAppSettings()
     this.startPing()
   }
 
-  // initiate connection
-  private async afterConnect() {
-    this.send(
-      mqtt.generate({
-        cmd: 'connect',
-        protocolId: 'MQIsdp',
-        clientId: 'mqttwsclient',
-        protocolVersion: 3,
-        clean: true,
-        keepalive: 10,
-        username: JSON.stringify({
-          // u: "17841418030588216", // doesnt seem to matter
-          u: this.papi.api.fbid,
-          s: this.mqttSid,
-          cp: 3,
-          ecp: 10,
-          chat_on: true,
-          fg: false,
-          d: this.papi.api.clientId, // client id
-          ct: 'cookie_auth',
-          mqtt_sid: '', // @TODO: should we use the one from the cookie?
-          aid: 936619743392459, // app id
-          st: [],
-          pm: [],
-          dc: '',
-          no_auto_fg: true,
-          gas: null,
-          pack: [],
-          php_override: '',
-          p: null,
-          a: this.papi.api.ua, // user agent
-          aids: null,
-        }),
+  private afterConnect() {
+    const st = this.isInitialConnection ? [] as const : [
+      '/ls_foreground_state',
+      '/ls_resp',
+    ] as const
+    const pm = this.isInitialConnection ? [] as const : [
+      {
+        ...lsAppSettings,
+        messageId: 65536,
+      } as const,
+    ]
+
+    const p = this.send({
+      cmd: 'connect',
+      protocolId: 'MQIsdp',
+      clientId: 'mqttwsclient',
+      protocolVersion: 3,
+      clean: true,
+      keepalive: 10,
+      username: JSON.stringify({
+        // u: "17841418030588216", // doesnt seem to matter
+        u: this.papi.api.fbid,
+        s: this.mqttSid,
+        cp: 3,
+        ecp: 10,
+        chat_on: true,
+        fg: false,
+        d: this.papi.api.clientId, // client id
+        ct: 'cookie_auth',
+        mqtt_sid: '', // @TODO: should we use the one from the cookie?
+        aid: 936619743392459, // app id
+        st,
+        pm,
+        dc: '',
+        no_auto_fg: true,
+        gas: null,
+        pack: [],
+        php_override: '',
+        p: null,
+        a: this.papi.api.ua, // user agent
+        aids: null,
       }),
-    )
+    })
+
+    this.isInitialConnection = false
+    return p
   }
 
   private pingInterval: NodeJS.Timeout
 
   private startPing() {
-    this.pingInterval = setInterval(() => this.sendPing(), 5000)
+    // instagram.com does it every 10 seconds
+    this.pingInterval = setInterval(() => this.sendPing(), 10000 - 100)
   }
 
   private sendPing() {
-    this.send(
-      mqtt.generate({
-        cmd: 'pingreq',
-      }),
-    )
+    return this.send({
+      cmd: 'pingreq',
+    })
   }
 
   private sendAppSettings() {
     // send app settings
     // need to wait for the ack before sending the subscribe
-    this.send(
-      mqtt.generate({
-        cmd: 'publish',
-        messageId: 1,
-        qos: 1,
-        topic: '/ls_app_settings',
-        payload: JSON.stringify({
-          ls_fdid: '',
-          ls_sv: '9477666248971112', // version id
-        }),
-      } as any), // @TODO: fix mqtt-packet types
-    )
+    return this.send({
+      cmd: 'publish',
+      messageId: 1,
+      ...lsAppSettings,
+    } as any)
   }
 
-  private onMessage(data: WebSocket.RawData) {
+  private async onMessage(data: WebSocket.RawData) {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
-      // subscribe to /ls_resp
-      this.send(
-        mqtt.generate({
+      if (this.isInitialConnection) {
+        // subscribe to /ls_resp
+        await this.send({
           cmd: 'subscribe',
           qos: 1,
           subscriptions: [
@@ -230,13 +241,13 @@ export default class InstagramWebSocket {
             },
           ],
           messageId: 3,
-        } as any), // @TODO: fix mqtt-packet types
-      )
+        } as any)
+      }
 
-      this.maybeSubscribeToDatabaseOne()
+      await this.maybeSubscribeToDatabaseOne()
       // this.getThreads()
     } else if (data[0] !== 0x42) {
-      this.parseNon0x42Data(data)
+      await this.parseNon0x42Data(data)
     } else {
       this.logger.info('unhandled message (1)', data)
     }
@@ -288,28 +299,26 @@ export default class InstagramWebSocket {
   async sendTypingIndicator(threadID: string) {
     const { promise, request_id } = this.createRequest('send typing indicator')
 
-    await this.send(
-      mqtt.generate({
-        cmd: 'publish',
-        messageId: 9,
-        topic: '/ls_req',
+    await this.send({
+      cmd: 'publish',
+      messageId: 9,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: '936619743392459',
         payload: JSON.stringify({
-          app_id: '936619743392459',
+          label: '3',
           payload: JSON.stringify({
-            label: '3',
-            payload: JSON.stringify({
-              thread_key: threadID,
-              is_group_thread: 0,
-              is_typing: 1,
-              attribution: 0,
-            }),
-            version: '6243569662359088',
+            thread_key: threadID,
+            is_group_thread: 0,
+            is_typing: 1,
+            attribution: 0,
           }),
-          request_id,
-          type: 4,
+          version: '6243569662359088',
         }),
-      } as any),
-    ) // @TODO: fix mqtt-packet types
+        request_id,
+        type: 4,
+      }),
+    } as any)
 
     await promise
   }
@@ -364,17 +373,15 @@ export default class InstagramWebSocket {
       type: 3,
     })
 
-    await this.send(
-      mqtt.generate({
-        cmd: 'publish',
-        dup: false,
-        qos: 1,
-        retain: false,
-        topic: '/ls_req',
-        messageId: 4,
-        payload: hmm,
-      }),
-    )
+    await this.send({
+      cmd: 'publish',
+      dup: false,
+      qos: 1,
+      retain: false,
+      topic: '/ls_req',
+      messageId: 4,
+      payload: hmm,
+    })
     return sendPromise
   }
 
@@ -452,26 +459,24 @@ export default class InstagramWebSocket {
     const { epoch_id } = getTimeValues()
     const { promise, request_id } = this.createRequest(`publish task: ${tag}`)
 
-    await this.send(
-      mqtt.generate({
-        cmd: 'publish',
-        messageId: 6,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: '/ls_req',
+    await this.send({
+      cmd: 'publish',
+      messageId: 6,
+      qos: 1,
+      dup: false,
+      retain: false,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: '936619743392459',
         payload: JSON.stringify({
-          app_id: '936619743392459',
-          payload: JSON.stringify({
-            tasks,
-            epoch_id,
-            version_id: '9477666248971112',
-          }),
-          request_id,
-          type: 3,
+          tasks,
+          epoch_id,
+          version_id: VERSION_ID,
         }),
+        request_id,
+        type: 3,
       }),
-    )
+    })
 
     return promise
   }
@@ -543,28 +548,26 @@ export default class InstagramWebSocket {
   // may need similar code to get messages.
   private maybeSubscribeToDatabaseOne() {
     const { epoch_id } = getTimeValues()
-    this.send(
-      mqtt.generate({
-        cmd: 'publish',
-        messageId: 5,
-        qos: 1,
-        dup: false,
-        retain: false,
-        topic: '/ls_req',
+    return this.send({
+      cmd: 'publish',
+      messageId: 5,
+      qos: 1,
+      dup: false,
+      retain: false,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: '936619743392459',
         payload: JSON.stringify({
-          app_id: '936619743392459',
-          payload: JSON.stringify({
-            database: 1,
-            epoch_id,
-            failure_count: null,
-            last_applied_cursor: this.papi.api.cursor,
-            sync_params: null,
-            version: 9477666248971112,
-          }),
-          request_id: 5,
-          type: 2,
+          database: 1,
+          epoch_id,
+          failure_count: null,
+          last_applied_cursor: this.papi.api.cursor,
+          sync_params: null,
+          version: VERSION_ID,
         }),
+        request_id: 5,
+        type: 2,
       }),
-    )
+    })
   }
 }

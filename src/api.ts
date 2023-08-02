@@ -52,17 +52,7 @@ export default class PlatformInstagram implements PlatformAPI {
     this.dataDirPath = dataDirPath
     this.nativeArchiveSync = nativeArchiveSync
 
-    // const logPath = path.join(dataDirPath, 'platform-instagram.log')
-
-    // this.logger = getLogger()
-    // .child({
-    //   stream: 'pi-' + this.accountID,
-    //   instance: generateInstanceId(),
-    // })
-
-    // texts.log('ig log path', logPath)
-    texts.log('is logging enabled', texts.isLoggingEnabled, dataDirPath)
-    // if (texts.isLoggingEnabled) this.logger.info('ig log path', { logPath })
+    if (texts.isLoggingEnabled) this.logger.info('starting ig', { dataDirPath, accountID })
 
     this.db = await getDB(accountID, dataDirPath)
 
