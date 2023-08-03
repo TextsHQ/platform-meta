@@ -239,7 +239,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
       this.logger.info('sendMessage', filePath)
       this.logger.info('sendMessage', 'called send image')
-      this.api.sendImage(threadID, { fileName, filePath })
+      await this.api.sendImage(threadID, { fileName, filePath })
       const userMessage: Message = {
         id: pendingMessageID,
         timestamp: new Date(),
@@ -253,7 +253,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
       return [userMessage]
     }
-    return this.socket.sendMessage(threadID, text)
+    return this.socket.sendMessage(threadID, { text }, { pendingMessageID })
   }
 
   sendActivityIndicator = (threadID: string) => {

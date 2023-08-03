@@ -3,6 +3,7 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 import type { Message } from '@textshq/platform-sdk'
 
+import { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { getLogger } from './logger'
 import type PlatformInstagram from './api'
@@ -20,6 +21,10 @@ type IGSocketTask = {
   failure_count: null
   task_id: number
 }
+
+export type RequestResolverType = '_ignored' | `sendMessage-${string}` | 'sendTypingIndicator'
+export type RequestResolverResolver = (response?: any) => void
+export type RequestResolver = [RequestResolverType, RequestResolverResolver]
 
 const lsAppSettings = {
   qos: 1,
@@ -43,17 +48,25 @@ export default class InstagramWebSocket {
 
   private isInitialConnection = true
 
+  private isSubscribedToLsResp = false
+
   constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
-    this.logger.info('connecting')
+    this.logger.debug('[ws connection]', 'connecting')
     await this.papi.initPromise // wait for api to be ready
-    this.logger.info('connecting to ws')
+    this.logger.debug('[ws connection]', 'connecting to ws')
     try {
       this.ws?.close()
     } catch (err) {
-      this.logger.error('ws transport: connect error', err)
+      this.logger.error('[ws connection]', 'connect error', err)
     }
+
+    this.logger.debug('[ws connection] previous data', {
+      mqttSid: this.mqttSid,
+      lastTaskId: this.lastTaskId,
+      lastRequestId: this.lastRequestId,
+    })
 
     this.mqttSid = getMqttSid()
     this.lastTaskId = 0
@@ -86,6 +99,11 @@ export default class InstagramWebSocket {
     })
 
     const retry = debounce(() => {
+      this.logger.debug('[ws connection]', {
+        retryAttempt: this.retryAttempt,
+        MAX_RETRY_ATTEMPTS,
+        stop: this.stop,
+      })
       if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
         clearTimeout(this.connectTimeout)
         this.connectTimeout = setTimeout(this.connect, getRetryTimeout(this.retryAttempt))
@@ -100,7 +118,7 @@ export default class InstagramWebSocket {
     }, 25)
 
     this.ws.onopen = () => {
-      this.logger.info('ws: onopen', {
+      this.logger.info('[ws connection] onopen', {
         retryAttempt: this.retryAttempt,
       })
       if (this.retryAttempt) this.onReconnected()
@@ -109,12 +127,12 @@ export default class InstagramWebSocket {
     }
 
     this.ws.onerror = ev => {
-      this.logger.error('ws: onerror', ev)
+      this.logger.error('[ws connection] onerror', ev)
       if (!this.stop) retry()
     }
 
     this.ws.onclose = ev => {
-      this.logger.info('ws: onclose', ev)
+      this.logger.info('[ws connection] onclose', ev)
       clearInterval(this.pingInterval)
       this.pingInterval = null
       if (!this.stop) retry()
@@ -122,21 +140,23 @@ export default class InstagramWebSocket {
   }
 
   private dispose() {
-    this.logger.info('ws: disposing')
+    this.logger.info('[ws connection] disposing', {
+      stop: this.stop,
+    })
     this.stop = true
     this.ws?.close()
     clearTimeout(this.connectTimeout)
   }
 
   private onReconnected() {
-    this.logger.info('ws: reconnected')
+    this.logger.info('[ws connection] reconnected')
   }
 
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (p: Packet) => {
     while (this.ws?.readyState !== WebSocket.OPEN) {
-      this.logger.info('waiting 5ms to send')
+      this.logger.info('[ws connection] waiting 5ms to send')
       await sleep(5)
     }
     return this.send(p)
@@ -155,10 +175,18 @@ export default class InstagramWebSocket {
   }
 
   private afterConnect() {
+    this.logger.info('[ws connection] after connect', {
+      isInitialConnection: this.isInitialConnection,
+      isSubscribedToLsResp: this.isSubscribedToLsResp,
+    })
+
     const st = this.isInitialConnection ? [] as const : [
       '/ls_foreground_state',
       '/ls_resp',
     ] as const
+    // this.isSubscribedToLsResp && '/ls_resp',
+    // ].filter(Boolean) as const
+
     const pm = this.isInitialConnection ? [] as const : [
       {
         ...lsAppSettings,
@@ -205,6 +233,7 @@ export default class InstagramWebSocket {
   private pingInterval: NodeJS.Timeout
 
   private startPing() {
+    this.logger.debug('ping started')
     // instagram.com does it every 10 seconds
     this.pingInterval = setInterval(() => this.sendPing(), 10000 - 100)
   }
@@ -229,7 +258,7 @@ export default class InstagramWebSocket {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
-      if (this.isInitialConnection) {
+      if (!this.isSubscribedToLsResp) {
         // subscribe to /ls_resp
         await this.send({
           cmd: 'subscribe',
@@ -242,6 +271,7 @@ export default class InstagramWebSocket {
           ],
           messageId: 3,
         } as any)
+        this.isSubscribedToLsResp = true
       }
 
       await this.maybeSubscribeToDatabaseOne()
@@ -271,11 +301,9 @@ export default class InstagramWebSocket {
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
-    if (payload.request_id !== null) {
-      this.requestResolvers?.get(Number(payload.request_id))?.(payload)
-    }
-
-    await this.papi.api.handlePayload(payload.payload)
+    const requestId = payload.request_id ? Number(payload.request_id) : null
+    const [requestType, requestResolver] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
+    await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver)
   }
 
   loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
@@ -297,7 +325,7 @@ export default class InstagramWebSocket {
   }
 
   async sendTypingIndicator(threadID: string) {
-    const { promise, request_id } = this.createRequest('send typing indicator')
+    const { promise, request_id } = this.createRequest('sendTypingIndicator')
 
     await this.send({
       cmd: 'publish',
@@ -323,15 +351,8 @@ export default class InstagramWebSocket {
     await promise
   }
 
-  async sendMessage(threadID: string, text: string) {
-    if (this.papi.sendPromiseMap.has('sendmessage')) {
-      return Promise.reject(new Error('already sending messages'))
-    }
-    const { promise, request_id } = this.createRequest('send message')
-
-    const sendPromise = new Promise<Message[]>((resolve, reject) => {
-      this.papi.sendPromiseMap.set('sendmessage', [resolve, reject])
-    })
+  async sendMessage(threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) {
+    const { promise, request_id } = this.createRequest<Message[]>(`sendMessage-${pendingMessageID}`)
     const { epoch_id, otid, timestamp } = getTimeValues()
     const hmm = JSON.stringify({
       app_id: '936619743392459',
@@ -382,7 +403,7 @@ export default class InstagramWebSocket {
       messageId: 4,
       payload: hmm,
     })
-    return sendPromise
+    return promise
   }
 
   sendImage(threadID: string, imageID: string) {
@@ -440,16 +461,19 @@ export default class InstagramWebSocket {
     return ++this.lastRequestId
   }
 
-  private requestResolvers: Map<number, (value?: any) => void> = new Map()
+  private requestResolvers: Map<number, RequestResolver> = new Map()
 
-  private createRequest(tag: string) {
+  // Promise resolves to a parsed and mapped version of the response based on the type
+  private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
     const request_id = this.genRequestId()
-    const { promise, resolve } = createPromise()
-    this.logger.info(`[REQUEST #${request_id}][${tag}] create `)
-    this.requestResolvers.set(request_id, response => {
-      this.logger.info(`[REQUEST #${request_id}][${tag}] got response`, response)
+    const { promise, resolve } = createPromise<Response>()
+    const logPrefix = `[REQUEST #${request_id}][${type}]` + (debugLabel ? `[${debugLabel}]` : '')
+    this.logger.info(logPrefix, 'create')
+    const resolver = (response: Response) => {
+      this.logger.info(logPrefix, 'got response', response)
       resolve(response)
-    })
+    }
+    this.requestResolvers.set(request_id, [type, resolver])
     return { request_id, promise }
   }
 
@@ -457,7 +481,7 @@ export default class InstagramWebSocket {
   async publishTask(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
-    const { promise, request_id } = this.createRequest(`publish task: ${tag}`)
+    const { promise, request_id } = this.createRequest('_ignored', `publish task: ${tag}`)
 
     await this.send({
       cmd: 'publish',

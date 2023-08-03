@@ -275,14 +275,27 @@ const parseMap = {
   insertMessage: parseMessage,
 }
 
+type ParseFunctions = typeof parseMap
+
+// Infer the return types of parse functions
+type ParseReturnTypes = {
+  [K in keyof ParseFunctions]: ParseFunctions[K] extends (...args: any[]) => infer R ? R : never;
+}
+
+// ResultType is an object with the same keys as parseMap,
+// and each value is an array of the inferred return type of the corresponding parse function.
+type ResultType = {
+  [K in keyof ParseReturnTypes]: ParseReturnTypes[K][];
+}
+
 function interestedOperation(operation) {
   if (operation[0] === 5 && operation[1] in parseMap) {
     return parseMap[operation[1]](operation.slice(2))
   }
 }
 
-function recursiveParse(arr) {
-  const res = {}
+function recursiveParse(arr: any[]) {
+  const res: Partial<ResultType> = {}
   for (const item of arr) {
     if (Array.isArray(item)) {
       const interested = interestedOperation(item)
@@ -313,6 +326,6 @@ export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
   return {
     ...recursiveParse(j.step),
-    cursor: j.step[2][1][3][5],
+    cursor: j.step[2][1][3][5] as string,
   }
 }

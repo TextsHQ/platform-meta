@@ -13,6 +13,7 @@ import type Instagram from './api'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
+import { RequestResolver, RequestResolverResolver, RequestResolverType } from './ig-socket'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -285,8 +286,8 @@ export default class InstagramAPI {
     return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
   }
 
-  async handlePayload(payload: any) {
-    let rawd
+  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver) {
+    let rawd: ReturnType<typeof parseRawPayload>
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
@@ -294,6 +295,10 @@ export default class InstagramAPI {
       return
     }
     this.logger.info('ig-api handlePayload', rawd)
+
+    if (requestId && requestType) this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
+    if (requestType === '_ignored') requestResolver()
+
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread.map(t => ({
@@ -409,11 +414,9 @@ export default class InstagramAPI {
         mutationType: 'upsert',
         entries: messages,
       }])
-      if (this.papi.sendPromiseMap.has('sendmessage')) {
-        const [resolve] = this.papi.sendPromiseMap.get('sendmessage')
-        this.logger.info('resolve sendmessage')
-        this.papi.sendPromiseMap.delete('sendmessage')
-        resolve(messages)
+      if (requestType.startsWith('sendMessage-')) {
+        this.logger.info('requestResolver(messages)', messages)
+        requestResolver(messages)
       }
     }
   }
@@ -576,7 +579,7 @@ export default class InstagramAPI {
       const res = await this.uploadPhoto(filePath, fileName)
       this.logger.info('sendImage', res)
       const imageId = res.payload.metadata[0].image_id
-      this.papi.socket.sendImage(threadID, imageId)
+      await this.papi.socket.sendImage(threadID, imageId)
     } catch (err) {
       this.logger.error('ig-api sendImage error', err)
     }
