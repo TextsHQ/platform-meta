@@ -261,7 +261,10 @@ const parseInsertNewMessageRange = (a: RawItem) => ({
   threadKey: a[0][1],
   hasMoreBefore: Boolean(a[7]),
 })
-
+const parseThreadMuteSetting = (a: RawItem) => ({
+  threadKey: a[0][1],
+  muteExpireTimeMs: getAsDate(a[1][1]),
+})
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -273,6 +276,7 @@ const parseMap = {
   // insertSearchResult: parseSearchArguments,
   insertNewMessageRange: parseInsertNewMessageRange,
   insertMessage: parseMessage,
+  updateThreadMuteSetting: parseThreadMuteSetting,
 }
 
 type ParseFunctions = typeof parseMap

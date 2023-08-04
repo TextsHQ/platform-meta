@@ -560,6 +560,21 @@ export default class InstagramWebSocket {
     return sendPromise
   }
 
+  async muteThread(threadID: string) {
+    this.publishTask('mute thread', {
+      label: '144',
+      payload: JSON.stringify({ thread_key: threadID,
+        mailbox_type: 0, // 0 = inbox
+        mute_expiration_time_ms: -1, // for infinity
+        sync_group: 1,
+      }),
+      queue_name: threadID.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    // listen for the response updateThreadMuteSetting
+  }
+
   private getLastThreadReference() {
     return {
       ...this.papi.api.lastThreadReference,
