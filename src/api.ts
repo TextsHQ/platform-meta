@@ -256,7 +256,8 @@ export default class PlatformInstagram implements PlatformAPI {
     return this.socket.sendMessage(threadID, { text }, { pendingMessageID })
   }
 
-  sendActivityIndicator = (threadID: string) => {
+  sendActivityIndicator = (type: string, threadID: string) => {
+    this.logger.info('sendActivityIndicator', threadID, type)
     this.socket.sendTypingIndicator(threadID)
   }
 

@@ -326,7 +326,7 @@ export default class InstagramWebSocket {
 
   async sendTypingIndicator(threadID: string) {
     const { promise, request_id } = this.createRequest('sendTypingIndicator')
-
+    this.logger.info(`sending typing indicator ${threadID}`)
     await this.send({
       cmd: 'publish',
       messageId: 9,
