@@ -13,7 +13,7 @@ import type Instagram from './api'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { SerializedSession } from './types'
-import { RequestResolver, RequestResolverResolver, RequestResolverType } from './ig-socket'
+import { RequestResolverResolver, RequestResolverType } from './ig-socket'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
