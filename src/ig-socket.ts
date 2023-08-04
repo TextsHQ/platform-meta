@@ -10,6 +10,7 @@ import type PlatformInstagram from './api'
 
 const MAX_RETRY_ATTEMPTS = 12
 const VERSION_ID = 6552526831451374
+const APP_ID = '936619743392459'
 
 const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
@@ -332,7 +333,7 @@ export default class InstagramWebSocket {
       messageId: 9,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: '936619743392459',
+        app_id: APP_ID,
         payload: JSON.stringify({
           label: '3',
           payload: JSON.stringify({
@@ -360,7 +361,7 @@ export default class InstagramWebSocket {
     }>(`sendMessage-${pendingMessageID}`)
     const { epoch_id, otid, timestamp, now } = getTimeValues()
     const hmm = JSON.stringify({
-      app_id: '936619743392459',
+      app_id: APP_ID,
       payload: JSON.stringify({
         tasks: [
           {
@@ -503,7 +504,7 @@ export default class InstagramWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: '936619743392459',
+        app_id: APP_ID,
         payload: JSON.stringify({
           tasks,
           epoch_id,
@@ -667,7 +668,7 @@ export default class InstagramWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: '936619743392459',
+        app_id: APP_ID,
         payload: JSON.stringify({
           database: 1,
           epoch_id,
