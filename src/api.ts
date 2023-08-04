@@ -253,7 +253,15 @@ export default class PlatformInstagram implements PlatformAPI {
       }
       return [userMessage]
     }
-    return this.socket.sendMessage(threadID, { text }, { pendingMessageID })
+    const { timestamp, messageId } = await this.socket.sendMessage(threadID, { text }, { pendingMessageID })
+
+    return [{
+      id: messageId || pendingMessageID,
+      timestamp,
+      text,
+      senderID: this.api.fbid,
+      isSender: true,
+    }]
   }
 
   sendActivityIndicator = (type: ActivityType, threadID: string) => {

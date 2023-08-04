@@ -296,8 +296,10 @@ export default class InstagramAPI {
     }
     this.logger.info('ig-api handlePayload', rawd)
 
-    if (requestId && requestType) this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-    if (requestType === '_ignored') requestResolver()
+    if (requestId && requestType) {
+      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
+      requestResolver(requestType === '_ignored' ? rawd : undefined)
+    }
 
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
@@ -414,10 +416,6 @@ export default class InstagramAPI {
         mutationType: 'upsert',
         entries: messages,
       }])
-      if (requestType.startsWith('sendMessage-')) {
-        this.logger.info('requestResolver(messages)', messages)
-        requestResolver(messages)
-      }
     }
   }
 

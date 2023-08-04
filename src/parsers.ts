@@ -279,6 +279,12 @@ const parseupdateThreadParticipantAdminStatus = (a: RawItem) => ({
   participantId: a[1][1],
   isAdmin: Boolean(a[2]),
 })
+
+const parseReplaceOptimsiticMessage = (a: RawItem) => ({
+  offlineThreadingId: a[0],
+  messageId: a[1],
+})
+
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -294,6 +300,7 @@ const parseMap = {
   syncUpdateThreadName: parseUpdateThreadName,
   updateThreadParticipantAdminStatus: parseupdateThreadParticipantAdminStatus,
   removeParticipantFromThread: parseremoveParticipantFromThread,
+  replaceOptimsiticMessage: parseReplaceOptimsiticMessage,
 }
 
 type ParseFunctions = typeof parseMap

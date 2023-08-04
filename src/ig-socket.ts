@@ -352,8 +352,13 @@ export default class InstagramWebSocket {
   }
 
   async sendMessage(threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) {
-    const { promise, request_id } = this.createRequest<Message[]>(`sendMessage-${pendingMessageID}`)
-    const { epoch_id, otid, timestamp } = getTimeValues()
+    const { promise, request_id } = this.createRequest<{
+      replaceOptimsiticMessage: {
+        offlineThreadingId: string
+        messageId: string
+      }
+    }>(`sendMessage-${pendingMessageID}`)
+    const { epoch_id, otid, timestamp, now } = getTimeValues()
     const hmm = JSON.stringify({
       app_id: '936619743392459',
       payload: JSON.stringify({
@@ -403,7 +408,14 @@ export default class InstagramWebSocket {
       messageId: 4,
       payload: hmm,
     })
-    return promise
+    const result = await promise
+
+    this.logger.info('got result from send message', result)
+    return {
+      timestamp: new Date(now),
+      offlineThreadingId: otid,
+      messageId: result?.replaceOptimsiticMessage?.messageId,
+    }
   }
 
   sendImage(threadID: string, imageID: string) {
