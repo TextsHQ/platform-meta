@@ -355,7 +355,7 @@ export default class InstagramWebSocket {
       replaceOptimsiticMessage: {
         offlineThreadingId: string
         messageId: string
-      }
+      }[]
     }>(`sendMessage-${pendingMessageID}`)
     const { epoch_id, otid, timestamp, now } = getTimeValues()
     const hmm = JSON.stringify({
@@ -411,8 +411,8 @@ export default class InstagramWebSocket {
 
     return {
       timestamp: new Date(now),
-      offlineThreadingId: otid,
-      messageId: result?.replaceOptimsiticMessage?.messageId,
+      offlineThreadingId: String(otid),
+      messageId: result?.replaceOptimsiticMessage?.[0]?.messageId,
     }
   }
 
@@ -471,7 +471,7 @@ export default class InstagramWebSocket {
     return ++this.lastRequestId
   }
 
-  private requestResolvers: Map<number, RequestResolver> = new Map()
+  private requestResolvers: Map<number, [RequestResolverType, RequestResolverResolver]> = new Map()
 
   // Promise resolves to a parsed and mapped version of the response based on the type
   private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
