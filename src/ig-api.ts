@@ -298,7 +298,7 @@ export default class InstagramAPI {
 
     if (requestId && requestType) {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-      requestResolver(requestType === '_ignored' ? rawd : undefined)
+      requestResolver(requestType !== '_ignored' && rawd)
     }
 
     // add all parsed fields to the ig-api store

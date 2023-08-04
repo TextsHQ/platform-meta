@@ -1,7 +1,6 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
-import type { Message } from '@textshq/platform-sdk'
 
 import { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
@@ -25,7 +24,6 @@ type IGSocketTask = {
 
 export type RequestResolverType = '_ignored' | `sendMessage-${string}` | 'sendTypingIndicator'
 export type RequestResolverResolver = (response?: any) => void
-export type RequestResolver = [RequestResolverType, RequestResolverResolver]
 
 const lsAppSettings = {
   qos: 1,
@@ -411,7 +409,6 @@ export default class InstagramWebSocket {
     })
     const result = await promise
 
-    this.logger.info('got result from send message', result)
     return {
       timestamp: new Date(now),
       offlineThreadingId: otid,
