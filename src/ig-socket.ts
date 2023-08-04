@@ -590,6 +590,51 @@ export default class InstagramWebSocket {
     // listen for the response syncUpdateThreadName
   }
 
+  async makeAdmin(threadID: number, userID: number, makeAdmin: boolean) {
+    this.publishTask('make admin', {
+      label: '25',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        contact_id: userID,
+        is_admin: makeAdmin ? 1 : 0,
+      }),
+      queue_name: 'admin_status',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+
+    // listen for the response updateThreadParticipantAdminStatus
+  }
+
+  async addParticipants(threadID: number, userIDs: number[]) {
+    this.publishTask('add participants', {
+      label: '23',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        contact_ids: userIDs,
+        sync_group: 1,
+      }),
+      queue_name: threadID.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    // listen for the response addParticipantIdToGroupThread
+  }
+
+  async removeParticipant(threadID: number, userID: number) {
+    this.publishTask('remove participant', {
+      label: '140',
+      payload: JSON.stringify({
+        thread_id: threadID,
+        contact_id: userID,
+      }),
+      queue_name: 'remove_participant_v2',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    // listen for the response removeParticipantFromThread
+  }
+
   private getLastThreadReference() {
     return {
       ...this.papi.api.lastThreadReference,

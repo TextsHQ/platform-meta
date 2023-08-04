@@ -270,6 +270,15 @@ const parseUpdateThreadName = (a: RawItem) => ({
   threadName: a[0],
   threadKey: a[1][1],
 })
+const parseremoveParticipantFromThread = (a: RawItem) => ({
+  threadKey: a[0][1],
+  contactId: a[1][1],
+})
+const parseupdateThreadParticipantAdminStatus = (a: RawItem) => ({
+  threadKey: a[0][1],
+  participantId: a[1][1],
+  isAdmin: Boolean(a[2]),
+})
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -283,6 +292,8 @@ const parseMap = {
   insertMessage: parseMessage,
   updateThreadMuteSetting: parseThreadMuteSetting,
   syncUpdateThreadName: parseUpdateThreadName,
+  updateThreadParticipantAdminStatus: parseupdateThreadParticipantAdminStatus,
+  removeParticipantFromThread: parseremoveParticipantFromThread,
 }
 
 type ParseFunctions = typeof parseMap
