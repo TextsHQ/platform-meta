@@ -560,7 +560,7 @@ export default class InstagramWebSocket {
     return sendPromise
   }
 
-  async muteThread(threadID: string) {
+  async muteThread(threadID: number) {
     this.publishTask('mute thread', {
       label: '144',
       payload: JSON.stringify({ thread_key: threadID,
@@ -573,6 +573,21 @@ export default class InstagramWebSocket {
       failure_count: null,
     })
     // listen for the response updateThreadMuteSetting
+  }
+
+  // sets the thread name in a group thread
+  async setThreadName(threadID: number, name: string) {
+    this.publishTask('set thread name', {
+      label: '32',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        thread_name: name,
+      }),
+      queue_name: threadID.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    // listen for the response syncUpdateThreadName
   }
 
   private getLastThreadReference() {
