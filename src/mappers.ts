@@ -1,6 +1,6 @@
 import type { Message } from '@textshq/platform-sdk'
 
-export function mapMessage(messages, fbid): Message[] {
+export function mapMessage(messages: any[], fbid): Message[] {
   console.log('mapping message from', JSON.stringify(messages, null, 2))
   return messages.map(m => ({ id: m.messageId,
     timestamp: m.timestampMs,

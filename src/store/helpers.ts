@@ -1,7 +1,7 @@
 import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
 import { sql, inArray } from 'drizzle-orm'
-
 import { Thread, Participant, Message } from '@textshq/platform-sdk'
+
 import type { DrizzleDB } from './db'
 import { messages, threads } from './schema'
 import { mapMessage } from '../mappers'
@@ -77,9 +77,9 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       },
     },
   },
-}).map(thread => {
+}).map<Thread>(thread => {
   const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
-  const nu: Participant[] = thread.participants.map(p => ({
+  const participants: Participant[] = thread.participants.map(p => ({
     id: p.users.id,
     username: p.users.username,
     fullName: p.users.name,
@@ -89,16 +89,15 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     hasExited: false,
   }))
   const mu: Message[] = mapMessage(thread.messages, fbid)
-  const title = nu.filter(p => !p.isSelf).map(p => p.fullName).join(', ')
   return {
     id: thread.threadKey,
-    title,
+    // title: TODO set for groups
     isUnread,
     isReadOnly: false,
     imgURL: thread.threadPictureUrl,
-    type: 'single',
+    type: thread.threadType === '1' ? 'single' : 'group',
     participants: {
-      items: nu,
+      items: participants,
       hasMore: false,
     },
     messages: {
