@@ -1,4 +1,4 @@
-import { AttachmentType, texts } from '@textshq/platform-sdk'
+import { ActivityType, AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import { mkdir } from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
@@ -256,9 +256,10 @@ export default class PlatformInstagram implements PlatformAPI {
     return this.socket.sendMessage(threadID, { text }, { pendingMessageID })
   }
 
-  sendActivityIndicator = (type: string, threadID: string) => {
+  sendActivityIndicator = (type: ActivityType, threadID: string) => {
     this.logger.info('sendActivityIndicator', threadID, type)
-    this.socket.sendTypingIndicator(threadID)
+    if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
+    return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }
 
   deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {

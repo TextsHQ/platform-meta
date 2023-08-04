@@ -324,7 +324,7 @@ export default class InstagramWebSocket {
     })
   }
 
-  async sendTypingIndicator(threadID: string) {
+  async sendTypingIndicator(threadID: string, isTyping: boolean) {
     const { promise, request_id } = this.createRequest('sendTypingIndicator')
     this.logger.info(`sending typing indicator ${threadID}`)
     await this.send({
@@ -338,7 +338,7 @@ export default class InstagramWebSocket {
           payload: JSON.stringify({
             thread_key: threadID,
             is_group_thread: 0,
-            is_typing: 1,
+            is_typing: isTyping ? 1 : 0,
             attribution: 0,
           }),
           version: '6243569662359088',
