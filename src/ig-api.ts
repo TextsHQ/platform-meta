@@ -464,7 +464,7 @@ export default class InstagramAPI {
 
     return this.papi.db
       .insert(schema.messages)
-      .values(pick(messagesWithNoBool, Object.keys(schema.messages._.columns)))
+      .values(messagesWithNoBool)
       .onConflictDoNothing()
       .run()
   }
