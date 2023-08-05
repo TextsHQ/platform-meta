@@ -416,18 +416,18 @@ export default class InstagramWebSocket {
     }
   }
 
-  async sendImage(threadID: string, imageID: string) {
+  async sendMedia(threadID: string, mediaID: string) {
     const { otid, now } = getTimeValues()
-    const result = (await this.publishTask('send image', {
+    const result = (await this.publishTask('send media', {
       label: '46',
       payload: JSON.stringify({
         thread_id: Number(threadID),
         otid: otid.toString(),
-        source: 65537,
+        source: (2 ** 16) + 1,
         send_type: 3,
         sync_group: 1,
         text: null,
-        attachment_fbids: [imageID],
+        attachment_fbids: [mediaID],
       }),
       queue_name: threadID.toString(),
       task_id: this.genTaskId(),
@@ -439,8 +439,7 @@ export default class InstagramWebSocket {
       }[]
     }
 
-    this.logger.info('got send image response', result)
-
+    this.logger.info('got send media response', result)
     return {
       timestamp: new Date(now),
       offlineThreadingId: String(otid),

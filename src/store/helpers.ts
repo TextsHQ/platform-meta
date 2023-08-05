@@ -4,7 +4,7 @@ import { Thread, Participant, Message } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
 import { messages, threads } from './schema'
-import { mapMessage } from '../mappers'
+import { mapMessages } from '../mappers'
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 
@@ -32,7 +32,7 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
       },
     },
   })
-  return mapMessage(storedMessages, fbid)
+  return mapMessages(storedMessages, fbid)
 }
 
 export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid): Promise<Thread[]> => db.query.threads.findMany({
@@ -87,7 +87,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     displayText: p.users.name,
     hasExited: false,
   }))
-  const mu: Message[] = mapMessage(thread.messages, fbid)
+  const messages: Message[] = mapMessages(thread.messages, fbid)
   return {
     id: thread.threadKey,
     // title: TODO set for groups
@@ -100,7 +100,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       hasMore: false,
     },
     messages: {
-      items: mu,
+      items: messages,
       hasMore: false,
     },
   }

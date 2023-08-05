@@ -230,18 +230,11 @@ export default class PlatformInstagram implements PlatformAPI {
     return true
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
-    if (!threadID) return false
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text) {
-      // image
-      if (fileBuffer || isRecordedAudio || isGif || !filePath) {
-        this.logger.info('sendMessage', fileBuffer, isRecordedAudio, isGif, filePath)
-        this.logger.info('sendMessage', 'second not')
-        return false
-      }
+      if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
       this.logger.info('sendMessage', filePath)
-      this.logger.info('sendMessage', 'called send image')
-      const { timestamp, messageId } = await this.api.sendImage(threadID, { fileName, filePath })
+      const { timestamp, messageId } = await this.api.sendMedia(threadID, { fileName, filePath })
       this.logger.info('sendMessage got it', {
         timestamp,
         messageId,
@@ -253,7 +246,7 @@ export default class PlatformInstagram implements PlatformAPI {
         isSender: true,
         attachments: [{
           id: pendingMessageID,
-          type: AttachmentType.IMG,
+          type: mimeType.startsWith('video/') ? AttachmentType.VIDEO : AttachmentType.IMG,
           srcURL: url.pathToFileURL(filePath).href,
         }],
       }

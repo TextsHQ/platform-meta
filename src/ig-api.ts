@@ -508,7 +508,7 @@ export default class InstagramAPI {
       .get()
   }
 
-  private async uploadPhoto(threadID: string, filePath: string, fileName?: string) {
+  private async uploadFile(threadID: string, filePath: string, fileName?: string) {
     const file = await fs.readFile(filePath)
     const formData = new FormData()
     formData.append('farr', file, { filename: fileName })
@@ -547,11 +547,11 @@ export default class InstagramAPI {
     return parsedData
   }
 
-  async sendImage(threadID: string, { filePath, fileName }: { filePath: string, fileName: string }) {
-    this.logger.info('sendImage about to call uploadPhoto')
-    const res = await this.uploadPhoto(threadID, filePath, fileName)
-    this.logger.info('sendImage', res)
-    const imageId = res.payload.metadata[0].image_id
-    return this.papi.socket.sendImage(threadID, imageId)
+  async sendMedia(threadID: string, { filePath, fileName }: { filePath: string, fileName: string }) {
+    this.logger.info('sendMedia about to call uploadFile')
+    const res = await this.uploadFile(threadID, filePath, fileName)
+    const metadata = res.payload.metadata[0]
+    this.logger.info('sendMedia', res, metadata)
+    return this.papi.socket.sendMedia(threadID, metadata.image_id || metadata.video_id)
   }
 }
