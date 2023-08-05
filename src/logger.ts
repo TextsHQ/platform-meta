@@ -2,7 +2,7 @@ import { texts } from '@textshq/platform-sdk'
 
 export const getLogger = (_p?: string) => {
   const logger = (method: 'log' | 'error', type: 'debug' | 'info' | 'warn' | 'error' | 'fatal') => (...args: (string | object | boolean)[]) =>
-    texts[method]([`[instagram ${_p ? `(${_p})` : ''}]`, type, new Date(), ...args].map(arg => {
+    texts[method]([new Date().toISOString(), `[instagram ${_p ? `(${_p})` : ''}]`, type, ...args].map(arg => {
       if (typeof arg === 'object') {
         return JSON.stringify(arg, null, 2)
       }
