@@ -239,11 +239,15 @@ export default class PlatformInstagram implements PlatformAPI {
       }
       this.logger.info('sendMessage', filePath)
       this.logger.info('sendMessage', 'called send image')
-      await this.api.sendImage(threadID, { fileName, filePath })
+      const { timestamp, messageId } = await this.api.sendImage(threadID, { fileName, filePath })
+      this.logger.info('sendMessage got it', {
+        timestamp,
+        messageId,
+      })
       const userMessage: Message = {
-        id: pendingMessageID,
-        timestamp: new Date(),
-        senderID: this.currentUser.id,
+        id: messageId || pendingMessageID,
+        timestamp,
+        senderID: this.api.fbid,
         isSender: true,
         attachments: [{
           id: pendingMessageID,

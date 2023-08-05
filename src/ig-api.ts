@@ -5,6 +5,7 @@ import { texts, type User } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import { readFile } from 'fs/promises'
+import { pick } from 'lodash'
 import { queryMessages, queryThreads } from './store/helpers'
 
 // import { ServerEventType } from '@textshq/platform-sdk'
@@ -298,7 +299,7 @@ export default class InstagramAPI {
 
     if (requestId && requestType) {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-      requestResolver(requestType !== '_ignored' && rawd)
+      requestResolver(rawd)
     }
 
     // add all parsed fields to the ig-api store
@@ -459,11 +460,11 @@ export default class InstagramAPI {
       return newMessage
     })
 
-    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool)
+    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool, Object.keys(schema.messages._.columns))
 
     return this.papi.db
       .insert(schema.messages)
-      .values(messagesWithNoBool)
+      .values(pick(messagesWithNoBool, Object.keys(schema.messages._.columns)))
       .onConflictDoNothing()
       .run()
   }
@@ -577,7 +578,7 @@ export default class InstagramAPI {
       const res = await this.uploadPhoto(filePath, fileName)
       this.logger.info('sendImage', res)
       const imageId = res.payload.metadata[0].image_id
-      await this.papi.socket.sendImage(threadID, imageId)
+      return this.papi.socket.sendImage(threadID, imageId)
     } catch (err) {
       this.logger.error('ig-api sendImage error', err)
     }

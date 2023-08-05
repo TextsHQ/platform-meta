@@ -416,9 +416,9 @@ export default class InstagramWebSocket {
     }
   }
 
-  sendImage(threadID: string, imageID: string) {
-    const { otid } = getTimeValues()
-    return this.publishTask('send image', {
+  async sendImage(threadID: string, imageID: string) {
+    const { otid, now } = getTimeValues()
+    const result = (await this.publishTask('send image', {
       label: '46',
       payload: JSON.stringify({
         thread_id: Number(threadID),
@@ -432,7 +432,20 @@ export default class InstagramWebSocket {
       queue_name: threadID.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    })) as {
+      replaceOptimsiticMessage: {
+        offlineThreadingId: string
+        messageId: string
+      }[]
+    }
+
+    this.logger.info('got send image response', result)
+
+    return {
+      timestamp: new Date(now),
+      offlineThreadingId: String(otid),
+      messageId: result?.replaceOptimsiticMessage?.[0]?.messageId,
+    }
   }
 
   addReaction(threadID: string, messageID: string, reaction: string) {
@@ -478,7 +491,7 @@ export default class InstagramWebSocket {
     const request_id = this.genRequestId()
     const { promise, resolve } = createPromise<Response>()
     const logPrefix = `[REQUEST #${request_id}][${type}]` + (debugLabel ? `[${debugLabel}]` : '')
-    this.logger.info(logPrefix, 'create')
+    this.logger.info(logPrefix, 'sent')
     const resolver = (response: Response) => {
       this.logger.info(logPrefix, 'got response', response)
       resolve(response)
