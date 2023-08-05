@@ -1,6 +1,7 @@
 import { ActivityType, AttachmentType, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
-import { mkdir } from 'fs/promises'
+import fs from 'fs/promises'
+import url from 'url'
 import { CookieJar } from 'tough-cookie'
 // import { eq } from 'drizzle-orm'
 
@@ -47,7 +48,7 @@ export default class PlatformInstagram implements PlatformAPI {
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
-    await mkdir(dataDirPath, { recursive: true })
+    await fs.mkdir(dataDirPath, { recursive: true })
 
     this.dataDirPath = dataDirPath
     this.nativeArchiveSync = nativeArchiveSync
@@ -253,7 +254,7 @@ export default class PlatformInstagram implements PlatformAPI {
         attachments: [{
           id: pendingMessageID,
           type: AttachmentType.IMG,
-          srcURL: filePath,
+          srcURL: url.pathToFileURL(filePath).href,
         }],
       }
       return [userMessage]
