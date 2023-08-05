@@ -459,7 +459,7 @@ export default class InstagramAPI {
       return newMessage
     })
 
-    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool, Object.keys(schema.messages._.columns))
+    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool)
 
     return this.papi.db
       .insert(schema.messages)
