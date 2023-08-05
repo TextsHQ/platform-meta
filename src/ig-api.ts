@@ -5,7 +5,6 @@ import { texts, type User } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import { readFile } from 'fs/promises'
-import { pick } from 'lodash'
 import { queryMessages, queryThreads } from './store/helpers'
 
 // import { ServerEventType } from '@textshq/platform-sdk'
