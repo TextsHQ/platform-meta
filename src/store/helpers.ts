@@ -1,20 +1,22 @@
-import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
-import { sql, inArray } from 'drizzle-orm'
-import { Thread, Participant, Message } from '@textshq/platform-sdk'
+import { inArray } from 'drizzle-orm'
+import type { Participant, ThreadType } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
 import { messages, threads } from './schema'
 import { mapMessages } from '../mappers'
+import { getLogger } from '../logger'
 
-const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
+const logger = getLogger('helpers')
 
-export const hasSomeCachedData = async (db: DrizzleDB) => ({
-  hasThreads: hasData(db, threads),
-  hasMessages: hasData(db, messages),
-})
+// const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 
-export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid): Promise<Message[]> => {
-  console.log('queryMessages', messageIds)
+// export const hasSomeCachedData = async (db: DrizzleDB) => ({
+//   hasThreads: hasData(db, threads),
+//   hasMessages: hasData(db, messages),
+// })
+
+export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string) => {
+  logger.debug('queryMessages', messageIds)
   const storedMessages = db.query.messages.findMany({
     ...(messageIds !== 'ALL' && { where: inArray(messages.messageId, messageIds) }),
     columns: {
@@ -22,12 +24,12 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
       messageId: true,
       timestampMs: true,
       senderId: true,
-      text: true,
+      message: true,
     },
     with: {
       attachments: {
         columns: {
-          previewUrl: true,
+          attachment: true,
         },
       },
     },
@@ -35,15 +37,11 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
   return mapMessages(storedMessages, fbid)
 }
 
-export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid): Promise<Thread[]> => db.query.threads.findMany({
+export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
   columns: {
     threadKey: true,
-    lastActivityTimestampMs: true,
-    lastReadWatermarkTimestampMs: true,
-    threadName: true,
-    threadPictureUrl: true,
-    threadType: true,
+    thread: true,
   },
   with: {
     participants: {
@@ -65,20 +63,20 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         messageId: true,
         timestampMs: true,
         senderId: true,
-        text: true,
+        message: true,
       },
       with: {
         attachments: {
           columns: {
-            previewUrl: true,
+            attachment: true,
           },
         },
       },
     },
   },
-}).map<Thread>(thread => {
-  const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
-  const participants: Participant[] = thread.participants.map<Participant>(p => ({
+}).map(t => {
+  const isUnread = t.thread.lastActivityTimestampMs > t.thread.lastReadWatermarkTimestampMs
+  const participants: Participant[] = t.participants.map(p => ({
     id: p.users.id,
     username: p.users.username,
     fullName: p.users.name,
@@ -87,20 +85,22 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     displayText: p.users.name,
     hasExited: false,
   }))
-  const messages: Message[] = mapMessages(thread.messages, fbid)
+
+  const type: ThreadType = t.thread.threadType === '1' ? 'single' : 'group'
+
   return {
-    id: thread.threadKey,
-    // title: TODO set for groups
+    id: t.threadKey,
+    title: t.thread.threadType !== '1' && t.thread.threadName,
     isUnread,
     isReadOnly: false,
-    imgURL: thread.threadPictureUrl,
-    type: thread.threadType === '1' ? 'single' : 'group',
+    imgURL: t.thread.threadPictureUrl,
+    type,
     participants: {
       items: participants,
       hasMore: false,
     },
     messages: {
-      items: messages,
+      items: mapMessages(t.messages, fbid),
       hasMore: false,
     },
   }

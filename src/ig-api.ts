@@ -14,41 +14,13 @@ import { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
+import type { IGMessage, IGParsedViewerConfig } from './ig-types'
+import { DBThreadInsert } from './store/schema'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
-
-interface InstagramParsedViewerConfig {
-  biography: string
-  business_address_json: null
-  business_contact_method: string
-  business_email: null
-  business_phone_number: null
-  can_see_organic_insights: boolean
-  category_name: null
-  external_url: null
-  fbid: string
-  full_name: string
-  has_phone_number: boolean
-  has_profile_pic: boolean
-  has_tabbed_inbox: boolean
-  hide_like_and_view_counts: boolean
-  id: string
-  is_business_account: boolean
-  is_joined_recently: boolean
-  is_supervised_user: boolean
-  guardian_id: null
-  is_private: boolean
-  is_professional_account: boolean
-  is_supervision_enabled: boolean
-  profile_pic_url: string
-  profile_pic_url_hd: string
-  should_show_category: boolean
-  should_show_public_contacts: boolean
-  username: string
-}
 
 const commonHeaders = {
   authority: 'www.instagram.com',
@@ -64,7 +36,7 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
-  viewerConfig: InstagramParsedViewerConfig
+  viewerConfig: IGParsedViewerConfig
 
   private logger = getLogger('ig-api')
 
@@ -144,7 +116,7 @@ export default class InstagramAPI {
     const lsd = body.match(/"LSD",\[\],\{"token":"([^"]+)"\}/)?.[1]
     const sharedData = body.match(/"XIGSharedData",\[\],({.*?})/s)[1]
     // @TODO: this is disgusting
-    const config: InstagramParsedViewerConfig = JSON.parse(
+    const config: IGParsedViewerConfig = JSON.parse(
       `${
         sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
       // eslint-disable-next-line no-useless-escape
@@ -290,10 +262,10 @@ export default class InstagramAPI {
         ...t,
         threadKey: t.threadKey!,
       }))
-      const lastThread: schema.IGThread = threads?.length > 0 ? threads[threads.length - 1] : null
+      const lastThread = threads?.length > 0 ? threads[threads.length - 1] : null
       if (lastThread) {
         this.lastThreadReference = {
-          reference_activity_timestamp: lastThread.lastActivityTimestampMs?.getTime(),
+          reference_activity_timestamp: lastThread.lastActivityTimestampMs,
           reference_thread_key: lastThread.threadKey,
           hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore!,
         }
@@ -429,17 +401,28 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
-  addMessages(messages: InferModel<typeof schema['messages'], 'insert'>[]) {
+  addMessages(messages: IGMessage[]) {
     this.logger.info('addMessages', messages)
 
-    const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(message => {
-      const newMessage = { ...message }
-      for (const key in newMessage) {
-        if (typeof newMessage[key] === 'boolean') {
-          newMessage[key] = newMessage[key] ? 1 : 0
+    const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(m => {
+      const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, ...message } = m
+
+      // @TODO: parsers should handle this before we come here
+      for (const key in message) {
+        if (typeof message[key] === 'boolean') {
+          message[key] = message[key] ? 1 : 0
         }
       }
-      return newMessage
+
+      return {
+        raw,
+        threadKey,
+        messageId,
+        offlineThreadingId,
+        timestampMs: new Date(timestampMs),
+        senderId,
+        message,
+      } as const
     })
 
     this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool)

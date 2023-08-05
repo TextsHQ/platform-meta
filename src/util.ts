@@ -56,3 +56,7 @@ export function createPromise<T>() {
 export function getAsDate(ms: string) {
   return ms ? new Date(Number(ms)) : undefined
 }
+
+export function getAsMS(ms: string) {
+  return ms ? Number(ms) : undefined
+}

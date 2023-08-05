@@ -84,7 +84,7 @@ export default class InstagramWebSocket {
           Origin: 'https://www.instagram.com',
           'Sec-WebSocket-Version': '13',
           'Accept-Encoding': 'gzip, deflate, br',
-          'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+          'Accept-Language': 'en',
           'User-Agent': this.papi.api.ua,
           Cookie: this.papi.api.getCookies(),
         },
@@ -418,7 +418,12 @@ export default class InstagramWebSocket {
 
   async sendMedia(threadID: string, mediaID: string) {
     const { otid, now } = getTimeValues()
-    const result = (await this.publishTask('send media', {
+    const result = await this.publishTask<{
+      replaceOptimsiticMessage: {
+        offlineThreadingId: string
+        messageId: string
+      }[]
+    }>('send media', {
       label: '46',
       payload: JSON.stringify({
         thread_id: Number(threadID),
@@ -432,12 +437,7 @@ export default class InstagramWebSocket {
       queue_name: threadID.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })) as {
-      replaceOptimsiticMessage: {
-        offlineThreadingId: string
-        messageId: string
-      }[]
-    }
+    })
 
     this.logger.info('got send media response', result)
     return {
@@ -475,8 +475,6 @@ export default class InstagramWebSocket {
     return ++this.lastTaskId
   }
 
-  // private taskResolvers: Map<[number, number], () => void> = new Map()
-
   private lastRequestId = 0
 
   private genRequestId() {
@@ -494,16 +492,17 @@ export default class InstagramWebSocket {
     const resolver = (response: Response) => {
       this.logger.info(logPrefix, 'got response', response)
       resolve(response)
+      this.requestResolvers.delete(request_id)
     }
     this.requestResolvers.set(request_id, [type, resolver])
     return { request_id, promise }
   }
 
   // used for get messages and get threads
-  async publishTask(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
+  async publishTask<R extends {}>(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
     const { epoch_id } = getTimeValues()
-    const { promise, request_id } = this.createRequest('_ignored', `publish task: ${tag}`)
+    const { promise, request_id } = this.createRequest<R>('_ignored', `publish task: ${tag}`)
 
     await this.send({
       cmd: 'publish',
@@ -583,7 +582,7 @@ export default class InstagramWebSocket {
   }
 
   async muteThread(threadID: number) {
-    this.publishTask('mute thread', {
+    await this.publishTask('mute thread', {
       label: '144',
       payload: JSON.stringify({ thread_key: threadID,
         mailbox_type: 0, // 0 = inbox
@@ -599,7 +598,7 @@ export default class InstagramWebSocket {
 
   // sets the thread name in a group thread
   async setThreadName(threadID: number, name: string) {
-    this.publishTask('set thread name', {
+    await this.publishTask('set thread name', {
       label: '32',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -613,7 +612,7 @@ export default class InstagramWebSocket {
   }
 
   async makeAdmin(threadID: number, userID: number, makeAdmin: boolean) {
-    this.publishTask('make admin', {
+    await this.publishTask('make admin', {
       label: '25',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -629,7 +628,7 @@ export default class InstagramWebSocket {
   }
 
   async addParticipants(threadID: number, userIDs: number[]) {
-    this.publishTask('add participants', {
+    await this.publishTask('add participants', {
       label: '23',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -644,7 +643,7 @@ export default class InstagramWebSocket {
   }
 
   async removeParticipant(threadID: number, userID: number) {
-    this.publishTask('remove participant', {
+    await this.publishTask('remove participant', {
       label: '140',
       payload: JSON.stringify({
         thread_id: threadID,
@@ -664,7 +663,7 @@ export default class InstagramWebSocket {
     }
   }
 
-  // not sure exactly what this does but it's required.
+  // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
   private maybeSubscribeToDatabaseOne() {
