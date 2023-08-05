@@ -15,7 +15,6 @@ import { APP_ID } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig } from './ig-types'
-import { DBThreadInsert } from './store/schema'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -526,14 +525,16 @@ export default class InstagramAPI {
     const response = res.body
     const jsonStartIndex = response.indexOf('{')
     const jsonResponse = response.substring(jsonStartIndex)
-    const parsedData = JSON.parse(jsonResponse)
-    return parsedData
+    return JSON.parse(jsonResponse)
   }
 
   async sendMedia(threadID: string, { filePath, fileName }: { filePath: string, fileName: string }) {
     this.logger.info('sendMedia about to call uploadFile')
     const res = await this.uploadFile(threadID, filePath, fileName)
-    const metadata = res.payload.metadata[0]
+    const metadata = res.payload.metadata[0] as {
+      image_id?: string
+      video_id?: string
+    }
     this.logger.info('sendMedia', res, metadata)
     return this.papi.socket.sendMedia(threadID, metadata.image_id || metadata.video_id)
   }
