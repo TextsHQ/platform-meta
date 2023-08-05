@@ -106,6 +106,7 @@ export default class PlatformInstagram implements PlatformAPI {
     authMethod: this.api.authMethod ?? 'login-window',
     clientId: this.api.clientId,
     dtsg: this.api.dtsg,
+    lsd: this.api.lsd,
     fbid: this.api.fbid,
     lastCursor: this.api.cursor,
   })
@@ -283,13 +284,12 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('addReaction', { threadID, messageID, reactionKey })
-    this.socket.addReaction(threadID, messageID, reactionKey)
+    await this.socket.addReaction(threadID, messageID, reactionKey)
   }
 
   removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
     this.logger.info('removeReaction', { threadID, messageID, reactionKey })
-    // a message can only have a single reaction from a single participant
-    this.socket.addReaction(threadID, messageID, '')
+    await this.socket.addReaction(threadID, messageID, '')
   }
 
   getLinkPreview = async (link: string): Promise<MessageLink> => {

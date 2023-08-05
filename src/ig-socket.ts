@@ -5,11 +5,11 @@ import mqtt, { type Packet } from 'mqtt-packet'
 import { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { getLogger } from './logger'
+import { APP_ID } from './constants'
 import type PlatformInstagram from './api'
 
 const MAX_RETRY_ATTEMPTS = 12
 const VERSION_ID = 6552526831451374
-const APP_ID = '936619743392459'
 
 const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)

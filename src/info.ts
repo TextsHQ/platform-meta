@@ -6,13 +6,11 @@ const info: PlatformInfo = {
   name: 'instagram',
   version: '3.0.0',
   displayName: 'Instagram',
-  tags: ['Unstable'],
   icon,
   loginMode: ['browser-extension', 'browser'],
   browserLogin: {
     url: 'https://instagram.com',
     authCookieName: 'sessionid',
-
   },
   deletionMode: MessageDeletionMode.UNSUPPORTED,
   attributes: new Set([
