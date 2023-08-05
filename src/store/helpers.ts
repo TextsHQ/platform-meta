@@ -46,20 +46,19 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     threadType: true,
   },
   with: {
-    participants:
-          {
-            columns: {},
-            with: {
-              users: {
-                columns: {
-                  id: true,
-                  name: true,
-                  username: true,
-                  profilePictureUrl: true,
-                },
-              },
-            },
+    participants: {
+      columns: {},
+      with: {
+        users: {
+          columns: {
+            id: true,
+            name: true,
+            username: true,
+            profilePictureUrl: true,
           },
+        },
+      },
+    },
     messages: {
       columns: {
         threadKey: true,
@@ -79,7 +78,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   },
 }).map<Thread>(thread => {
   const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
-  const participants: Participant[] = thread.participants.map(p => ({
+  const participants: Participant[] = thread.participants.map<Participant>(p => ({
     id: p.users.id,
     username: p.users.username,
     fullName: p.users.name,
