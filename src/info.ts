@@ -1,4 +1,4 @@
-import { type PlatformInfo, MessageDeletionMode } from '@textshq/platform-sdk'
+import { type PlatformInfo, MessageDeletionMode, Attribute } from '@textshq/platform-sdk'
 import icon from './icon'
 import { genClientContext } from './util'
 
@@ -12,8 +12,14 @@ const info: PlatformInfo = {
     url: 'https://instagram.com',
     authCookieName: 'sessionid',
   },
-  deletionMode: MessageDeletionMode.UNSUPPORTED,
+  deletionMode: MessageDeletionMode.UNSEND,
   attributes: new Set([
+    Attribute.SUPPORTS_DELETE_THREAD,
+    Attribute.SUPPORTS_REQUESTS_INBOX,
+    Attribute.SUPPORTS_MOVING_THREAD_TO_INBOX,
+    Attribute.SUPPORTS_QUOTED_MESSAGES,
+    Attribute.SUPPORTS_GROUP_PARTICIPANT_ROLE_CHANGE,
+    Attribute.SUPPORTS_FORWARD,
   ]),
   reactions: {
     supported: {
@@ -26,6 +32,10 @@ const info: PlatformInfo = {
     },
     canReactWithAllEmojis: true,
     allowsMultipleReactionsToSingleMessage: false,
+  },
+  attachments: {
+    noSupportForFiles: true,
+    gifMimeType: 'video/mp4',
   },
   typingDurationMs: 10_000,
   generateUniqueMessageID: () => genClientContext().toString(),

@@ -222,6 +222,7 @@ export default class PlatformInstagram implements PlatformAPI {
       title,
       messageText,
     })
+    await this.socket.sendMessage(userIDs[0], { text: 'test' }, { pendingMessageID: 'test' })
     throw new Error('Method not implemented.')
   }
 
@@ -231,8 +232,8 @@ export default class PlatformInstagram implements PlatformAPI {
     if (updates.title) {
       promises.push(this.socket.setThreadName(threadID, updates.title))
     }
-    if (updates.mutedUntil) {
-      const mutedUntil = updates.mutedUntil === 'forever' ? -1 : updates.mutedUntil.getTime()
+    if (typeof updates.mutedUntil !== 'undefined') {
+      const mutedUntil = updates.mutedUntil === 'forever' ? -1 : (!updates.mutedUntil ? 0 : updates.mutedUntil.getTime())
       promises.push(this.socket.muteThread(threadID, mutedUntil))
     }
     await Promise.all(promises)
