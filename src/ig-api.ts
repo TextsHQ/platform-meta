@@ -83,7 +83,8 @@ export default class InstagramAPI {
     this.lsd = lsd
 
     this.papi.currentUser = {
-      id: config.id,
+      // id: config.id, // this is the instagram id but fbid is instead used for chat
+      id: fbid,
       fullName: config.full_name,
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
