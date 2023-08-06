@@ -1,6 +1,6 @@
 CREATE TABLE `attachments` (
-	`attachment` blob,
 	`raw` text,
+	`attachment` text,
 	`threadKey` text NOT NULL,
 	`messageId` text NOT NULL,
 	`attachmentFbid` text,

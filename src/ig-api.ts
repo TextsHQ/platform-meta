@@ -14,7 +14,7 @@ import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGMessage, IGParsedViewerConfig } from './ig-types'
+import type { IGMessage, IGParsedViewerConfig, IGThread } from './ig-types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -373,10 +373,29 @@ export default class InstagramAPI {
     }
   }
 
-  addThreads(threads: InferModel<typeof schema['threads'], 'insert'>[]) {
+  addThreads(threads: IGThread[]) {
     this.logger.info('addThreads', threads)
 
-    const threadsWithNoBool = threads.map(thread => {
+    const threadsWithNoBool = threads.map(t => {
+      const { raw, threadKey, ...thread } = t
+
+      // @TODO: parsers should handle this before we come here
+      for (const key in thread) {
+        if (typeof thread[key] === 'boolean') {
+          thread[key] = thread[key] ? 1 : 0
+        }
+      }
+
+      return {
+        raw,
+        threadKey,
+        messageId,
+        offlineThreadingId,
+        timestampMs: new Date(timestampMs),
+        senderId,
+        message: JSON.stringify(message),
+      } as const
+
       const newThread = { ...thread }
       for (const key in newThread) {
         if (typeof newThread[key] === 'boolean') {
