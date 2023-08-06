@@ -3,7 +3,7 @@
 
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS } from './util'
+import { getAsDate, getAsMS, getAsString } from './util'
 
 type RawItem = string[]
 
@@ -20,7 +20,7 @@ const parseThread = (a: RawItem): IGThread => {
     lastActivityTimestampMs: getAsMS(a[0][1]),
     snippet: a[2],
     threadName: a[3][1],
-    threadPictureUrl: a[4],
+    threadPictureUrl: getAsString(a[4]),
     needsAdminApprovalForNewParticipant: Boolean(a[5][1]),
     threadPictureUrlFallback: a[11],
     threadPictureUrlExpirationTimestampMs: getAsMS(a[12][1]),
