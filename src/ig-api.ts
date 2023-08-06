@@ -369,6 +369,17 @@ export default class InstagramAPI {
         mutationType: 'upsert',
         entries: messages,
       }])
+    } else if (rawd.updateThreadMuteSetting) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: { },
+        mutationType: 'update',
+        entries: [{
+          id: rawd.updateThreadMuteSetting[0].threadKey!,
+          mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === 0 ? null : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
+        }],
+      }])
     }
   }
 
