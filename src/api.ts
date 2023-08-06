@@ -229,13 +229,15 @@ export default class PlatformInstagram implements PlatformAPI {
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
     this.logger.info('updateThread', threadID, updates)
     const promises: Promise<void>[] = []
-    if (updates.title) {
+
+    if ('title' in updates) {
       promises.push(this.socket.setThreadName(threadID, updates.title))
     }
-    if (typeof updates.mutedUntil !== 'undefined') {
-      const mutedUntil = updates.mutedUntil === 'forever' ? -1 : (!updates.mutedUntil ? 0 : updates.mutedUntil.getTime())
-      promises.push(this.socket.muteThread(threadID, mutedUntil))
+
+    if ('mutedUntil' in updates) {
+      promises.push(this.socket.muteThread(threadID, updates.mutedUntil === 'forever' ? -1 : 0))
     }
+
     await Promise.all(promises)
   }
 
