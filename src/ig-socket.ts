@@ -579,9 +579,9 @@ export default class InstagramWebSocket {
     await this.publishTask('mute thread', {
       label: '144',
       payload: JSON.stringify({
-        thread_key,
+        thread_key: Number(thread_key),
         mailbox_type: 0, // 0 = inbox
-        mute_expiration_time_ms,
+        mute_expire_time_ms: mute_expiration_time_ms,
         sync_group: 1,
       }),
       queue_name: thread_key.toString(),
