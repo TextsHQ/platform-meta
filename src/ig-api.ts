@@ -377,7 +377,7 @@ export default class InstagramAPI {
         mutationType: 'update',
         entries: [{
           id: rawd.updateThreadMuteSetting[0].threadKey!,
-          mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === 0 ? null : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
+          mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
         }],
       }])
     }
