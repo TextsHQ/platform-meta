@@ -13,7 +13,7 @@ CREATE TABLE `attachments` (
 --> statement-breakpoint
 CREATE TABLE `messages` (
 	`raw` text,
-	`message` blob,
+	`message` text,
 	`threadKey` text NOT NULL,
 	`messageId` text PRIMARY KEY NOT NULL,
 	`offlineThreadingId` text,
@@ -47,7 +47,7 @@ CREATE TABLE `reactions` (
 --> statement-breakpoint
 CREATE TABLE `threads` (
 	`threadKey` text PRIMARY KEY NOT NULL,
-	`thread` blob,
+	`thread` text,
 	`raw` text
 );
 --> statement-breakpoint
@@ -65,7 +65,7 @@ CREATE TABLE `typing_indicators` (
 );
 --> statement-breakpoint
 CREATE TABLE `users` (
-	`_original` text,
+	`raw` text,
 	`id` text PRIMARY KEY NOT NULL,
 	`profilePictureUrl` text,
 	`name` text,

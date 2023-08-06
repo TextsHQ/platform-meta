@@ -1,6 +1,6 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { FetchOptions, texts, type User } from '@textshq/platform-sdk'
+import { texts, type FetchOptions, type User } from '@textshq/platform-sdk'
 import { desc, eq, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
@@ -10,7 +10,7 @@ import { queryMessages, queryThreads } from './store/helpers'
 import * as schema from './store/schema'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
-import { RequestResolverResolver, RequestResolverType } from './ig-socket'
+import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
@@ -420,7 +420,7 @@ export default class InstagramAPI {
         offlineThreadingId,
         timestampMs: new Date(timestampMs),
         senderId,
-        message,
+        message: JSON.stringify(message),
       } as const
     })
 

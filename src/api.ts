@@ -230,7 +230,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return true
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
       this.logger.info('sendMessage', filePath)

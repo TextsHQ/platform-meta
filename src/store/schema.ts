@@ -1,22 +1,30 @@
 import { relations } from 'drizzle-orm'
-import { sqliteTable, integer, text, primaryKey, blob } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
+export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey'>
+
 export const threads = sqliteTable('threads', {
   threadKey: text('threadKey').notNull().primaryKey(),
-  thread: blob('thread', { mode: 'json' }).$type<Omit<IGThread, 'raw' | 'threadKey'>>(),
+  // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
+  thread: text('thread'),
   raw: text('raw'),
 })
 
 export type DBThreadSelect = InferModel<typeof threads, 'select'>
 export type DBThreadInsert = InferModel<typeof threads, 'insert'>
-
-type RawMessage = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'senderId'>
+export type DBThreadSelectWithMessagesAndAttachments = Pick<DBThreadSelect, 'threadKey' | 'thread'> & {
+  attachments: AttachmentInJoin[]
+  messages: DBMessageSelectDefault[]
+  // participants: Pick<DBParticipantSelect, 'id' | 'name' | 'username' | 'profilePictureUrl'>
+}
+export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'senderId'>
 
 export const messages = sqliteTable('messages', {
   raw: text('raw'),
-  message: blob('message', { mode: 'json' }).$type<RawMessage>(),
+  // message: blob('message', { mode: 'json' }).$type<RawMessage>(),
+  message: text('message'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   messageId: text('messageId').primaryKey(),
   offlineThreadingId: text('offlineThreadingId'),
@@ -24,7 +32,17 @@ export const messages = sqliteTable('messages', {
   senderId: text('senderId').notNull(),
 })
 
+type AttachmentInJoin = {
+  attachmentFbid: string
+  attachment: string
+}
+
 export type DBMessageSelect = InferModel<typeof messages, 'select'>
+export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
+export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
+  attachments: AttachmentInJoin[]
+}
+
 export type DBMessageInsert = InferModel<typeof messages, 'insert'>
 
 export const typingIndicators = sqliteTable('typing_indicators', {
@@ -41,11 +59,12 @@ export const typingIndicators = sqliteTable('typing_indicators', {
   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
 })
 
-type RawAttachment = Omit<IGAttachment, 'raw' | 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
+export type RawAttachment = Omit<IGAttachment, 'raw' | 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
 
 export const attachments = sqliteTable('attachments', {
-  attachment: blob('attachment', { mode: 'json' }).$type<RawAttachment>(),
   raw: text('raw'),
+  attachment: text('attachment'),
+  // attachment: blob('attachment', { mode: 'json' }).$type<RawAttachment>(),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   messageId: text('messageId').notNull().references(() => messages.messageId),
   attachmentFbid: text('attachmentFbid'),
@@ -69,7 +88,7 @@ export type DBAttachmentInsert = InferModel<typeof attachments, 'insert'>
 
 export const users = sqliteTable('users', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  original: text('_original'),
+  raw: text('raw'),
   id: text('id').notNull().primaryKey(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
@@ -107,6 +126,7 @@ export const threadsRelation = relations(threads, ({ many }) => ({
   participants: many(participants),
 }))
 
+export type DBParticipantSelect = InferModel<typeof participants, 'select'>
 export type DBParticipantInsert = InferModel<typeof participants, 'insert'>
 
 export const reactions = sqliteTable('reactions', {

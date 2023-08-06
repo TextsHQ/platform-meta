@@ -1,21 +1,21 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "e3697925-4056-4249-9869-5f3ec5db6bef",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "219150fe-733f-4954-bb1a-f7f53d61e144",
+  "prevId": "e3697925-4056-4249-9869-5f3ec5db6bef",
   "tables": {
     "attachments": {
       "name": "attachments",
       "columns": {
-        "attachment": {
-          "name": "attachment",
-          "type": "blob",
+        "raw": {
+          "name": "raw",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "raw": {
-          "name": "raw",
+        "attachment": {
+          "name": "attachment",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

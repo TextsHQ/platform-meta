@@ -111,7 +111,7 @@ const parseThread = (a: RawItem): IGThread => {
 }
 
 const parseUser = (a: RawItem): IGUser => ({
-  original: JSON.stringify(a),
+  raw: JSON.stringify(a),
   id: a[0][1],
   profilePictureUrl: a[2] == null ? '' : a[2],
   name: a[3],
@@ -195,7 +195,7 @@ const parseMessage = (a: RawItem): IGMessage => ({
 })
 
 const parseAttachment = (a: RawItem) => ({
-  original: JSON.stringify(a),
+  raw: JSON.stringify(a),
   // filename: a[0],
   threadKey: a[27][1],
   messageId: a[32],

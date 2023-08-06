@@ -2,7 +2,7 @@ import { inArray } from 'drizzle-orm'
 import type { Participant, ThreadType } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
-import { messages, threads } from './schema'
+import { IGThreadInDB, messages, threads } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
 
@@ -29,6 +29,7 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
     with: {
       attachments: {
         columns: {
+          attachmentFbid: true,
           attachment: true,
         },
       },
@@ -68,6 +69,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       with: {
         attachments: {
           columns: {
+            attachmentFbid: true,
             attachment: true,
           },
         },
@@ -75,7 +77,8 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     },
   },
 }).map(t => {
-  const isUnread = t.thread.lastActivityTimestampMs > t.thread.lastReadWatermarkTimestampMs
+  const thread = JSON.parse(t.thread) as IGThreadInDB
+  const isUnread = thread.lastActivityTimestampMs > thread.lastReadWatermarkTimestampMs
   const participants: Participant[] = t.participants.map(p => ({
     id: p.users.id,
     username: p.users.username,
@@ -86,14 +89,14 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     hasExited: false,
   }))
 
-  const type: ThreadType = t.thread.threadType === '1' ? 'single' : 'group'
+  const type: ThreadType = thread.threadType === '1' ? 'single' : 'group'
 
   return {
     id: t.threadKey,
-    title: t.thread.threadType !== '1' && t.thread.threadName,
+    title: thread.threadType !== '1' && thread.threadName,
     isUnread,
     isReadOnly: false,
-    imgURL: t.thread.threadPictureUrl,
+    imgURL: thread.threadPictureUrl,
     type,
     participants: {
       items: participants,

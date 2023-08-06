@@ -151,7 +151,7 @@ export type IGMessage = {
 }
 
 export type IGAttachment = {
-  // original: string
+  raw: string
   threadKey: string
   messageId: string
   attachmentFbid: string
