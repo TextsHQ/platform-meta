@@ -389,21 +389,10 @@ export default class InstagramAPI {
       return {
         raw,
         threadKey,
-        messageId,
-        offlineThreadingId,
-        timestampMs: new Date(timestampMs),
-        senderId,
-        message: JSON.stringify(message),
+        thread: JSON.stringify(thread),
       } as const
-
-      const newThread = { ...thread }
-      for (const key in newThread) {
-        if (typeof newThread[key] === 'boolean') {
-          newThread[key] = newThread[key] ? 1 : 0
-        }
-      }
-      return newThread
     })
+
     this.logger.info('addThreads (threadsWithNoBool)', threadsWithNoBool)
 
     return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
