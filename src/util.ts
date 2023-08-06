@@ -56,3 +56,13 @@ export function createPromise<T>() {
 export function getAsDate(ms: string) {
   return ms ? new Date(Number(ms)) : undefined
 }
+
+export function getAsMS(ms: string) {
+  return ms ? Number(ms) : undefined
+}
+
+export function getAsString(value: string | (string | number)[]) {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value) && value[0] === 9) return null // @TODO: 9 appears to be the type for null
+  return null
+}

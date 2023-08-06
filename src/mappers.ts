@@ -1,26 +1,29 @@
-import { Attachment, AttachmentType, Message } from '@textshq/platform-sdk'
+import { AttachmentType } from '@textshq/platform-sdk'
+import type { DBMessageSelectWithAttachments, IGMessageInDB, RawAttachment } from './store/schema'
 
-export function mapAttachment(a: any) {
-  // console.log('mapAttachment', a)
+export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
+  const attachment = JSON.parse(a.attachment) as RawAttachment
   return {
-    id: a.id,
+    id: a.attachmentFbid,
     type: AttachmentType.IMG,
-    srcURL: a.previewUrl,
+    srcURL: attachment.playableUrl,
   }
 }
 
-export function mapMessage(m: any, fbid) {
+export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
+  const message = JSON.parse(m.message) as IGMessageInDB
   return {
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
-    text: m.text,
+    text: message.text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
-    attachments: (m.attachments as any[]).map<Attachment>(a => mapAttachment(a)),
+    isAction: message.isAdminMessage,
+    attachments: m.attachments.map(a => mapAttachment(a)),
   }
 }
 
-export function mapMessages(messages: any[], fbid): Message[] {
-  return messages.map<Message>(m => mapMessage(m, fbid))
+export function mapMessages(messages: DBMessageSelectWithAttachments[], fbid: string) {
+  return messages.map(m => mapMessage(m, fbid))
 }

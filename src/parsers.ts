@@ -1,31 +1,32 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
-import type { IGThread, IGMessage, IGParticipant, IGUser } from './store/schema'
-import { getAsDate } from './util'
+import type { DBParticipantInsert, IGUser } from './store/schema'
+import type { IGThread, IGMessage } from './ig-types'
+import { getAsDate, getAsMS, getAsString } from './util'
 
 type RawItem = string[]
 
 const parseThread = (a: RawItem): IGThread => {
-  const tmap: IGThread = {
-    original: JSON.stringify(a),
+  const t: IGThread = {
+    raw: JSON.stringify(a),
     // isUnread: Number(a[0][1]) > Number(a[1][1]),
     threadKey: a[7][1],
-    lastReadWatermarkTimestampMs: getAsDate(a[1][1]),
+    lastReadWatermarkTimestampMs: getAsMS(a[1][1]),
     // threadType: a[9][1] === '1' ? 'single' : 'group',
     threadType: a[9][1],
     folderName: a[10],
     parentThreadKey: a[35][1],
-    lastActivityTimestampMs: getAsDate(a[0][1]),
+    lastActivityTimestampMs: getAsMS(a[0][1]),
     snippet: a[2],
     threadName: a[3][1],
-    threadPictureUrl: a[4],
+    threadPictureUrl: getAsString(a[4]),
     needsAdminApprovalForNewParticipant: Boolean(a[5][1]),
     threadPictureUrlFallback: a[11],
-    threadPictureUrlExpirationTimestampMs: getAsDate(a[12][1]),
-    removeWatermarkTimestampMs: getAsDate(a[13][1]),
-    muteExpireTimeMs: getAsDate(a[14][1]),
-    // muteCallsExpireTimeMs: getAsDate(a[15][1]),
+    threadPictureUrlExpirationTimestampMs: getAsMS(a[12][1]),
+    removeWatermarkTimestampMs: getAsMS(a[13][1]),
+    muteExpireTimeMs: getAsMS(a[14][1]),
+    // muteCallsExpireTimeMs: getAsMS(a[15][1]),
     groupNotificationSettings: a[16][1],
     isAdminSnippet: Boolean(a[17][1]),
     snippetSenderContactId: a[18][1],
@@ -34,7 +35,7 @@ const parseThread = (a: RawItem): IGThread => {
     snippetAttribution: a[23][1],
     snippetAttributionStringHash: a[24][1],
     disappearingSettingTtl: Number(a[25][1]),
-    disappearingSettingUpdatedTs: getAsDate(a[26][1]),
+    disappearingSettingUpdatedTs: getAsMS(a[26][1]),
     disappearingSettingUpdatedBy: a[27][1],
     cannotReplyReason: a[30][1],
     customEmoji: a[31][1],
@@ -43,8 +44,8 @@ const parseThread = (a: RawItem): IGThread => {
     themeFbid: a[34][1],
     authorityLevel: 0,
     mailboxType: a[8][1],
-    muteMentionExpireTimeMs: getAsDate(a[15][1]),
-    muteCallsExpireTimeMs: getAsDate(a[16][1]),
+    muteMentionExpireTimeMs: getAsMS(a[15][1]),
+    muteCallsExpireTimeMs: getAsMS(a[16][1]),
     ongoingCallState: a[32][1],
     nullstateDescriptionText1: a[39][1],
     nullstateDescriptionType1: a[40][1],
@@ -73,21 +74,21 @@ const parseThread = (a: RawItem): IGThread => {
     unreadDisappearingMessageCount: Number(a[63][1]),
     lastMessageCtaId: a[65][1],
     lastMessageCtaType: a[66][1],
-    lastMessageCtaTimestampMs: getAsDate(a[67][1]),
+    lastMessageCtaTimestampMs: getAsMS(a[67][1]),
     consistentThreadFbid: a[68][1],
     threadDescription: a[70][1],
-    unsendLimitMs: getAsDate(a[71][1]),
+    unsendLimitMs: getAsMS(a[71][1]),
     capabilities2: a[79][1],
     capabilities3: a[80][1],
     syncGroup: a[83],
     threadInvitesEnabled: Boolean(a[84]),
     threadInviteLink: a[85],
     isAllUnreadMessageMissedCallXma: Boolean(a[86]),
-    lastNonMissedCallXmaMessageTimestampMs: getAsDate(a[87]),
+    lastNonMissedCallXmaMessageTimestampMs: getAsMS(a[87]),
     threadInvitesEnabledV2: Boolean(a[89]),
     hasPendingInvitation: Boolean(a[92]),
-    eventStartTimestampMs: getAsDate(a[93]),
-    eventEndTimestampMs: getAsDate(a[94]),
+    eventStartTimestampMs: getAsMS(a[93]),
+    eventEndTimestampMs: getAsMS(a[94]),
     takedownState: a[95],
     secondaryParentThreadKey: a[96],
     igFolder: a[97],
@@ -95,29 +96,30 @@ const parseThread = (a: RawItem): IGThread => {
     threadTags: a[99],
     threadStatus: a[100],
     threadSubtype: a[101],
-    pauseThreadTimestamp: getAsDate(a[102]),
+    pauseThreadTimestamp: getAsMS(a[102]),
   }
 
   if (Array.isArray(a[3])) {
-    tmap.threadName = null
+    t.threadName = null
   } else {
     // eslint-disable-next-line prefer-destructuring
-    tmap.threadName = a[3]
+    t.threadName = a[3]
   }
 
-  return tmap
+  return t
   // loop through the keys and if the value is
 }
 
 const parseUser = (a: RawItem): IGUser => ({
-  original: JSON.stringify(a),
+  raw: JSON.stringify(a),
   id: a[0][1],
   profilePictureUrl: a[2] == null ? '' : a[2],
   name: a[3],
   username: a[20],
 })
 
-const parseParticipant = (a: RawItem): IGParticipant => ({
+const parseParticipant = (a: RawItem): DBParticipantInsert => ({
+  raw: JSON.stringify(a),
   threadKey: a[0][1],
   userId: a[1][1],
   readWatermarkTimestampMs: getAsDate(a[2][1]),
@@ -126,14 +128,13 @@ const parseParticipant = (a: RawItem): IGParticipant => ({
   // lastDeliveredWatermarkTimestampMs: getAsDate(a[5][1])),
   lastDeliveredActionTimestampMs: a[5][1] ? getAsDate(a[5][1]) : null,
   isAdmin: Boolean(a[6]),
-  original: JSON.stringify(a),
 })
 
 const parseMessage = (a: RawItem): IGMessage => ({
-  original: JSON.stringify(a),
+  raw: JSON.stringify(a),
   text: a[0],
   threadKey: a[3][1],
-  timestampMs: getAsDate(a[5][1]),
+  timestampMs: getAsMS(a[5][1]),
   messageId: a[8],
   offlineThreadingId: a[9],
   senderId: a[10][1],
@@ -147,7 +148,7 @@ const parseMessage = (a: RawItem): IGMessage => ({
   stickerId: a[11][1],
   messageRenderingType: a[13][1],
   isUnsent: Boolean(a[17]),
-  unsentTimestampMs: getAsDate(a[18][1]),
+  unsentTimestampMs: getAsMS(a[18][1]),
   mentionOffsets: a[19][1],
   mentionLengths: a[20][1],
   mentionIds: a[21][1],
@@ -159,7 +160,7 @@ const parseMessage = (a: RawItem): IGMessage => ({
   replySnippet: a[27][1],
   replyMessageText: a[28][1],
   replyToUserId: a[29][1],
-  replyMediaExpirationTimestampMs: getAsDate(a[30][1]),
+  replyMediaExpirationTimestampMs: getAsMS(a[30][1]),
   replyMediaUrl: a[31][1],
   replyMediaPreviewWidth: a[33][1],
   replyMediaPreviewHeight: a[34][1],
@@ -184,66 +185,67 @@ const parseMessage = (a: RawItem): IGMessage => ({
   viewedPluginContext: a[53][1],
   quickReplyType: a[54][1],
   hotEmojiSize: a[55][1],
-  replySourceTimestampMs: getAsDate(a[56][1]),
+  replySourceTimestampMs: getAsMS(a[56][1]),
   ephemeralDurationInSec: a[57][1],
-  msUntilExpirationTs: getAsDate(a[58][1]),
-  ephemeralExpirationTs: getAsDate(a[59][1]),
+  msUntilExpirationTs: getAsMS(a[58][1]),
+  ephemeralExpirationTs: getAsMS(a[59][1]),
   takedownState: a[60][1],
   isCollapsed: Boolean(a[61]),
   subthreadKey: a[62][1],
 })
 
 const parseAttachment = (a: RawItem) => ({
-  original: JSON.stringify(a),
-  // filename: a[0],
+  raw: JSON.stringify(a),
+  filename: a[0],
   threadKey: a[27][1],
   messageId: a[32],
   previewUrl: a[8],
-  // previewUrlFallback: a[9],
-  // previewUrlExpirationTimestampMs: getAsDate(a[10][1]),
-  // previewUrlMimeType: getAsDate(a[11][1]),
-  // previewWidth: Number(a[14][1]),
-  // previewHeight: Number(a[15][1]),
-  // timestampMs: getAsDate(a[31][1]),
-  // attachmentType: a[29][1],
+  previewUrlFallback: a[9],
+  previewUrlExpirationTimestampMs: getAsMS(a[10][1]),
+  previewUrlMimeType: a[11][1],
+  previewWidth: Number(a[14][1]),
+  previewHeight: Number(a[15][1]),
+  timestampMs: getAsMS(a[31][1]),
+  attachmentType: a[29][1],
   attachmentFbid: a[34],
-  // filesize: a[1][1],
-  // hasMedia: Boolean(a[2]),
-  // playableUrl: a[3],
-  // playableUrlFallback: a[4],
-  // playableUrlExpirationTimestampMs: getAsDate(a[5][1]),
-  // playableUrlMimeType: a[6],
-  // dashManifest: a[7],
-  // miniPreview: a[13],
-  // attributionAppId: a[16],
-  // attributionAppName: a[17],
-  // isSharable: !1,
-  // attributionAppIcon: a[18],
-  // attributionAppIconFallback: a[19],
-  // attributionAppIconUrlExpirationTimestampMs: a[20],
-  // localPlayableUrl: a[21],
-  // playableDurationMs: a[22],
-  // attachmentIndex: a[23],
-  // accessibilitySummaryText: a[24],
-  // isPreviewImage: a[25],
-  // originalFileHash: a[26],
-  // offlineAttachmentId: a[33],
-  // hasXma: a[35],
-  // xmaLayoutType: a[36],
-  // xmasTemplateType: a[37],
-  // titleText: a[38],
-  // subtitleText: a[39],
-  // descriptionText: a[40],
-  // sourceText: a[41],
-  // faviconUrlExpirationTimestampMs: a[42],
-  // isBorderless: a[44],
-  // previewUrlLarge: a[45],
-  // samplingFrequencyHz: a[46],
-  // waveformData: a[47],
-  // authorityLevel: a[48],
+  filesize: Number(a[1][1]),
+  hasMedia: Boolean(a[2]),
+  playableUrl: a[3],
+  playableUrlFallback: a[4],
+  playableUrlExpirationTimestampMs: getAsMS(a[5][1]),
+  playableUrlMimeType: a[6],
+  dashManifest: a[7],
+  miniPreview: a[13],
+  attributionAppId: a[16],
+  attributionAppName: a[17],
+  isSharable: !1,
+  attributionAppIcon: a[18],
+  attributionAppIconFallback: a[19],
+  attributionAppIconUrlExpirationTimestampMs: getAsMS(a[20]),
+  localPlayableUrl: a[21],
+  playableDurationMs: getAsMS(a[22]),
+  attachmentIndex: a[23],
+  accessibilitySummaryText: a[24],
+  isPreviewImage: Boolean(a[25]),
+  originalFileHash: a[26],
+  offlineAttachmentId: a[33],
+  hasXma: Boolean(a[35]),
+  xmaLayoutType: a[36],
+  xmasTemplateType: a[37],
+  titleText: a[38],
+  subtitleText: a[39],
+  descriptionText: a[40],
+  sourceText: a[41],
+  faviconUrlExpirationTimestampMs: getAsMS(a[42]),
+  isBorderless: Boolean(a[44]),
+  previewUrlLarge: a[45],
+  samplingFrequencyHz: Number(a[46]),
+  waveformData: a[47],
+  authorityLevel: a[48],
 })
 
 const parseReaction = (a: RawItem) => ({
+  raw: JSON.stringify(a),
   threadKey: a[0][1],
   timestampMs: getAsDate(a[1][1]),
   messageId: a[2],
@@ -253,8 +255,8 @@ const parseReaction = (a: RawItem) => ({
 
 const parseUpsertSyncGroupThreadsRange = (a: RawItem) => ({
   hasMoreBefore: Boolean(a[3]),
-  minLastActivityTimestampMs: getAsDate(a[2][1]),
-  minThreadKey: getAsDate(a[5][1]),
+  minLastActivityTimestampMs: getAsMS(a[2][1]),
+  minThreadKey: getAsMS(a[5][1]),
 })
 
 const parseInsertNewMessageRange = (a: RawItem) => ({
@@ -263,7 +265,7 @@ const parseInsertNewMessageRange = (a: RawItem) => ({
 })
 const parseThreadMuteSetting = (a: RawItem) => ({
   threadKey: a[0][1],
-  muteExpireTimeMs: getAsDate(a[1][1]),
+  muteExpireTimeMs: getAsMS(a[1][1]),
 })
 
 const parseUpdateThreadName = (a: RawItem) => ({

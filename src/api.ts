@@ -73,6 +73,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line class-methods-use-this
   dispose = () => {
+    this.socket?.dispose()
     // if (this.api?.socket?.ws?.readyState === WebSocket.OPEN) {
     //   this.api?.socket.ws.close()
     // }
@@ -230,7 +231,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return true
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, isGif, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
       this.logger.info('sendMessage', filePath)

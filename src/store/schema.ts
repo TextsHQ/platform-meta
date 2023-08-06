@@ -1,168 +1,53 @@
 import { relations } from 'drizzle-orm'
 import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
+import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
+
+export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey'>
 
 export const threads = sqliteTable('threads', {
-  original: text('_original'),
-  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   threadKey: text('threadKey').notNull().primaryKey(),
-  lastReadWatermarkTimestampMs: integer('lastReadWatermarkTimestampMs', { mode: 'timestamp' }),
-  threadType: text('threadType'),
-  folderName: text('folderName'),
-  parentThreadKey: text('parentThreadKey'),
-  lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
-  snippet: text('snippet'),
-  threadName: text('threadName'),
-  threadPictureUrl: text('threadPictureUrl'),
-  needsAdminApprovalForNewParticipant: integer('needsAdminApprovalForNewParticipant', { mode: 'boolean' }),
-  threadPictureUrlFallback: text('threadPictureUrlFallback'),
-  threadPictureUrlExpirationTimestampMs: integer('threadPictureUrlExpirationTimestampMs', { mode: 'timestamp' }),
-  removeWatermarkTimestampMs: integer('removeWatermarkTimestampMs', { mode: 'timestamp' }),
-  muteExpireTimeMs: integer('muteExpireTimeMs', { mode: 'timestamp' }),
-  groupNotificationSettings: text('groupNotificationSettings'), // potentially blob type if it's a complex object
-  isAdminSnippet: integer('isAdminSnippet', { mode: 'boolean' }),
-  snippetSenderContactId: text('snippetSenderContactId'),
-  snippetStringHash: text('snippetStringHash'),
-  snippetStringArgument1: text('snippetStringArgument1'),
-  snippetAttribution: text('snippetAttribution'),
-  mailboxType: text('mailboxType'),
-  draftMessage: text('draftMessage'),
-  snippetAttributionStringHash: text('snippetAttributionStringHash'),
-  disappearingSettingTtl: integer('disappearingSettingTtl'),
-  disappearingSettingUpdatedTs: integer('disappearingSettingUpdatedTs', { mode: 'timestamp' }),
-  disappearingSettingUpdatedBy: text('disappearingSettingUpdatedBy'),
-  cannotReplyReason: text('cannotReplyReason'),
-  customEmoji: text('customEmoji'),
-  customEmojiImageUrl: text('customEmojiImageUrl'),
-  outgoingBubbleColor: text('outgoingBubbleColor'),
-  themeFbid: text('themeFbid'),
-  authorityLevel: integer('authorityLevel'),
-  muteMentionExpireTimeMs: integer('muteMentionExpireTimeMs', { mode: 'timestamp' }),
-  muteCallsExpireTimeMs: integer('muteCallsExpireTimeMs', { mode: 'timestamp' }),
-  ongoingCallState: text('ongoingCallState'),
-  cannotUnsendReason: text('cannotUnsendReason'),
-  snippetHasEmoji: integer('snippetHasEmoji', { mode: 'boolean' }),
-  hasPersistentMenu: integer('hasPersistentMenu', { mode: 'boolean' }),
-  disableComposerInput: integer('disableComposerInput', { mode: 'boolean' }),
-  shouldRoundThreadPicture: integer('shouldRoundThreadPicture', { mode: 'boolean' }),
-  proactiveWarningDismissTime: integer('proactiveWarningDismissTime'),
-  isCustomThreadPicture: integer('isCustomThreadPicture', { mode: 'boolean' }),
-  otidOfFirstMessage: text('otidOfFirstMessage'),
-  normalizedSearchTerms: text('normalizedSearchTerms'),
-  additionalThreadContext: text('additionalThreadContext'),
-  disappearingThreadKey: text('disappearingThreadKey'),
-  isDisappearingMode: integer('isDisappearingMode', { mode: 'boolean' }),
-  disappearingModeInitiator: text('disappearingModeInitiator'),
-  unreadDisappearingMessageCount: integer('unreadDisappearingMessageCount'),
-  lastMessageCtaId: text('lastMessageCtaId'),
-  lastMessageCtaType: text('lastMessageCtaType'),
-  lastMessageCtaTimestampMs: integer('lastMessageCtaTimestampMs', { mode: 'timestamp' }),
-  consistentThreadFbid: text('consistentThreadFbid'),
-  threadDescription: text('threadDescription'),
-  unsendLimitMs: integer('unsendLimitMs', { mode: 'timestamp' }),
-  capabilities2: text('capabilities2'),
-  capabilities3: text('capabilities3'),
-  syncGroup: text('syncGroup'),
-  threadInvitesEnabled: integer('threadInvitesEnabled', { mode: 'boolean' }),
-  threadInviteLink: text('threadInviteLink'),
-  isAllUnreadMessageMissedCallXma: integer('isAllUnreadMessageMissedCallXma', { mode: 'boolean' }),
-  lastNonMissedCallXmaMessageTimestampMs: integer('lastNonMissedCallXmaMessageTimestampMs', { mode: 'timestamp' }),
-  threadInvitesEnabledV2: integer('threadInvitesEnabledV2', { mode: 'boolean' }),
-  hasPendingInvitation: integer('hasPendingInvitation', { mode: 'boolean' }),
-  eventStartTimestampMs: integer('eventStartTimestampMs', { mode: 'timestamp' }),
-  eventEndTimestampMs: integer('eventEndTimestampMs', { mode: 'timestamp' }),
-  takedownState: text('takedownState'),
-  secondaryParentThreadKey: text('secondaryParentThreadKey'),
-  igFolder: text('igFolder'),
-  inviterId: text('inviterId'),
-  threadTags: text('threadTags'),
-  threadStatus: text('threadStatus'),
-  threadSubtype: text('threadSubtype'),
-  pauseThreadTimestamp: integer('pauseThreadTimestamp', { mode: 'timestamp' }),
-  nullstateDescriptionText1: text('nullstateDescriptionText1'),
-  nullstateDescriptionText2: text('nullstateDescriptionText2'),
-  nullstateDescriptionText3: text('nullstateDescriptionText3'),
-  nullstateDescriptionType1: text('nullstateDescriptionType1'),
-  nullstateDescriptionType2: text('nullstateDescriptionType2'),
-  nullstateDescriptionType3: text('nullstateDescriptionType3'),
-  viewedPluginKey: text('viewedPluginKey'),
-  viewedPluginContext: text('viewedPluginContext'),
-  clientThreadKey: text('clientThreadKey'),
-  capabilities: text('capabilities'),
+  // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
+  thread: text('thread'),
+  raw: text('raw'),
 })
 
-export type IGThread = InferModel<typeof threads, 'select'>
+export type DBThreadSelect = InferModel<typeof threads, 'select'>
+export type DBThreadInsert = InferModel<typeof threads, 'insert'>
+export type DBThreadSelectWithMessagesAndAttachments = Pick<DBThreadSelect, 'threadKey' | 'thread'> & {
+  attachments: AttachmentInJoin[]
+  messages: DBMessageSelectDefault[]
+  // participants: Pick<DBParticipantSelect, 'id' | 'name' | 'username' | 'profilePictureUrl'>
+}
+export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'senderId'>
 
 export const messages = sqliteTable('messages', {
-  original: text('_original'),
-  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  raw: text('raw'),
+  // message: blob('message', { mode: 'json' }).$type<RawMessage>(),
+  message: text('message'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
-  offlineThreadingId: text('offlineThreadingId'),
-  authorityLevel: integer('authorityLevel'),
-  timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   messageId: text('messageId').primaryKey(),
+  offlineThreadingId: text('offlineThreadingId'),
+  timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   senderId: text('senderId').notNull(),
-  isAdminMessage: integer('isAdminMessage', { mode: 'boolean' }),
-  sendStatus: text('sendStatus'),
-  sendStatusV2: text('sendStatusV2'),
-  text: text('text'),
-  subscriptErrorMessage: text('subscriptErrorMessage'),
-  stickerId: text('stickerId'),
-  messageRenderingType: text('messageRenderingType'),
-  isUnsent: integer('isUnsent', { mode: 'boolean' }),
-  unsentTimestampMs: integer('unsentTimestampMs', { mode: 'timestamp' }),
-  mentionOffsets: text('mentionOffsets'),
-  mentionLengths: text('mentionLengths'),
-  mentionIds: text('mentionIds'),
-  mentionTypes: text('mentionTypes'),
-  replySourceId: text('replySourceId'),
-  replySourceType: text('replySourceType'),
-  primarySortKey: text('primarySortKey'),
-  secondarySortKey: text('secondarySortKey'),
-  replyMediaExpirationTimestampMs: integer('replyMediaExpirationTimestampMs', { mode: 'timestamp' }),
-  replySourceTypeV2: text('replySourceTypeV2'),
-  replyStatus: text('replyStatus'),
-  replySnippet: text('replySnippet'),
-  replyMessageText: text('replyMessageText'),
-  replyToUserId: text('replyToUserId'),
-  replyMediaUrl: text('replyMediaUrl'),
-  replyMediaPreviewWidth: text('replyMediaPreviewWidth'),
-  replyMediaPreviewHeight: text('replyMediaPreviewHeight'),
-  replyMediaUrlMimeType: text('replyMediaUrlMimeType'),
-  replyMediaUrlFallback: text('replyMediaUrlFallback'),
-  replyCtaId: text('replyCtaId'),
-  replyCtaTitle: text('replyCtaTitle'),
-  replyAttachmentType: text('replyAttachmentType'),
-  replyAttachmentId: text('replyAttachmentId'),
-  replyAttachmentExtra: text('replyAttachmentExtra'),
-  isForwarded: integer('isForwarded', { mode: 'boolean' }),
-  forwardScore: text('forwardScore'),
-  hasQuickReplies: integer('hasQuickReplies', { mode: 'boolean' }),
-  adminMsgCtaId: text('adminMsgCtaId'),
-  adminMsgCtaTitle: text('adminMsgCtaTitle'),
-  adminMsgCtaType: text('adminMsgCtaType'),
-  cannotUnsendReason: text('cannotUnsendReason'),
-  textHasLinks: text('textHasLinks'),
-  viewFlags: text('viewFlags'),
-  displayedContentTypes: text('displayedContentTypes'),
-  viewedPluginKey: text('viewedPluginKey'),
-  viewedPluginContext: text('viewedPluginContext'),
-  quickReplyType: text('quickReplyType'),
-  hotEmojiSize: text('hotEmojiSize'),
-  replySourceTimestampMs: integer('replySourceTimestampMs', { mode: 'timestamp' }),
-  ephemeralDurationInSec: text('ephemeralDurationInSec'),
-  msUntilExpirationTs: integer('msUntilExpirationTs', { mode: 'timestamp' }),
-  ephemeralExpirationTs: integer('ephemeralExpirationTs', { mode: 'timestamp' }),
-  takedownState: text('takedownState'),
-  isCollapsed: integer('isCollapsed', { mode: 'boolean' }),
-  subthreadKey: text('subthreadKey'),
 })
 
-export type IGMessage = InferModel<typeof messages, 'select'>
+type AttachmentInJoin = {
+  attachmentFbid: string
+  attachment: string
+}
+
+export type DBMessageSelect = InferModel<typeof messages, 'select'>
+export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
+export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
+  attachments: AttachmentInJoin[]
+}
+
+export type DBMessageInsert = InferModel<typeof messages, 'insert'>
 
 export const typingIndicators = sqliteTable('typing_indicators', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  original: text('_original'),
+  raw: text('raw'),
   threadKey: text('threadKey').notNull(),
   minTimestampMs: integer('minTimestampMs', { mode: 'timestamp' }),
   minMessageId: text('minMessageId'),
@@ -174,55 +59,17 @@ export const typingIndicators = sqliteTable('typing_indicators', {
   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
 })
 
+export type RawAttachment = Omit<IGAttachment, 'raw' | 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
+
 export const attachments = sqliteTable('attachments', {
-  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  original: text('_original'),
+  raw: text('raw'),
+  attachment: text('attachment'),
+  // attachment: blob('attachment', { mode: 'json' }).$type<RawAttachment>(),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   messageId: text('messageId').notNull().references(() => messages.messageId),
   attachmentFbid: text('attachmentFbid'),
-  filename: text('filename'),
-  filesize: integer('filesize'),
-  hasMedia: integer('hasMedia', { mode: 'boolean' }),
-  isSharable: integer('isSharable', { mode: 'boolean' }),
-  playableUrl: text('playableUrl'),
-  playableUrlFallback: text('playableUrlFallback'),
-  playableUrlExpirationTimestampMs: integer('playableUrlExpirationTimestampMs', { mode: 'timestamp' }),
-  playableUrlMimeType: text('playableUrlMimeType'),
-  dashManifest: text('dashManifest'),
-  previewUrl: text('previewUrl'),
-  previewUrlFallback: text('previewUrlFallback'),
-  previewUrlExpirationTimestampMs: integer('previewUrlExpirationTimestampMs', { mode: 'timestamp' }),
-  previewUrlMimeType: text('previewUrlMimeType'),
-  miniPreview: text('miniPreview'),
-  previewWidth: integer('previewWidth'),
-  previewHeight: integer('previewHeight'),
-  attributionAppId: text('attributionAppId'),
-  attributionAppName: text('attributionAppName'),
-  attributionAppIcon: text('attributionAppIcon'),
-  attributionAppIconFallback: text('attributionAppIconFallback'),
-  attributionAppIconUrlExpirationTimestampMs: integer('attributionAppIconUrlExpirationTimestampMs', { mode: 'timestamp' }),
-  localPlayableUrl: text('localPlayableUrl'),
-  playableDurationMs: integer('playableDurationMs'),
-  attachmentIndex: integer('attachmentIndex'),
-  accessibilitySummaryText: text('accessibilitySummaryText'),
-  isPreviewImage: integer('isPreviewImage', { mode: 'boolean' }),
-  originalFileHash: text('originalFileHash'),
-  attachmentType: text('attachmentType'),
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   offlineAttachmentId: text('offlineAttachmentId'),
-  hasXma: integer('hasXma', { mode: 'boolean' }),
-  xmaLayoutType: text('xmaLayoutType'),
-  xmasTemplateType: text('xmasTemplateType'),
-  titleText: text('titleText'),
-  subtitleText: text('subtitleText'),
-  descriptionText: text('descriptionText'),
-  sourceText: text('sourceText'),
-  faviconUrlExpirationTimestampMs: integer('faviconUrlExpirationTimestampMs', { mode: 'timestamp' }),
-  isBorderless: integer('isBorderless', { mode: 'boolean' }),
-  previewUrlLarge: text('previewUrlLarge'),
-  samplingFrequencyHz: integer('samplingFrequencyHz'),
-  waveformData: text('waveformData'),
-  authorityLevel: text('authorityLevel'),
 }, table => ({
   pk: primaryKey(table.threadKey, table.messageId, table.attachmentFbid),
 }))
@@ -236,11 +83,12 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
   attachments: many(attachments),
 }))
 
-export type IGAttachment = InferModel<typeof attachments, 'select'>
+export type DBAttachmentSelect = InferModel<typeof attachments, 'select'>
+export type DBAttachmentInsert = InferModel<typeof attachments, 'insert'>
 
 export const users = sqliteTable('users', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  original: text('_original'),
+  raw: text('raw'),
   id: text('id').notNull().primaryKey(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
@@ -251,7 +99,7 @@ export type IGUser = InferModel<typeof users, 'select'>
 
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  original: text('_original'),
+  raw: text('raw'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   userId: text('userId').notNull().references(() => users.id),
   readWatermarkTimestampMs: integer('readWatermarkTimestampMs', { mode: 'timestamp' }),
@@ -263,6 +111,7 @@ export const participants = sqliteTable('participants', {
 }, table => ({
   pk: primaryKey(table.threadKey, table.userId),
 }))
+
 export const participantRelations = relations(participants, ({ one }) => ({
   thread: one(threads, { fields: [participants.threadKey], references: [threads.threadKey] }),
   users: one(users, { fields: [participants.userId], references: [users.id] }),
@@ -277,10 +126,11 @@ export const threadsRelation = relations(threads, ({ many }) => ({
   participants: many(participants),
 }))
 
-export type IGParticipant = InferModel<typeof participants, 'select'>
+export type DBParticipantSelect = InferModel<typeof participants, 'select'>
+export type DBParticipantInsert = InferModel<typeof participants, 'insert'>
 
 export const reactions = sqliteTable('reactions', {
-  original: text('_original'),
+  raw: text('raw'),
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   // threadKey: text('threadKey').references(() => threads.threadKey),
   threadKey: text('threadKey'),
@@ -292,4 +142,4 @@ export const reactions = sqliteTable('reactions', {
   reaction: text('reaction'),
 })
 
-export type IGReaction = InferModel<typeof reactions, 'select'>
+export type DBReaction = InferModel<typeof reactions, 'select'>
