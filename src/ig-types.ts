@@ -156,7 +156,7 @@ export type IGAttachment = {
   messageId: string
   attachmentFbid: string
   filename: string
-  filesize: string // @TODO: number?
+  filesize: number
   hasMedia: boolean
   isSharable: boolean
   playableUrl: string

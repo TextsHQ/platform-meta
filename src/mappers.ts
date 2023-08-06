@@ -6,7 +6,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
   return {
     id: a.attachmentFbid,
     type: AttachmentType.IMG,
-    srcURL: attachment.previewUrl,
+    srcURL: attachment.playableUrl,
   }
 }
 

@@ -73,6 +73,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line class-methods-use-this
   dispose = () => {
+    this.socket?.dispose()
     // if (this.api?.socket?.ws?.readyState === WebSocket.OPEN) {
     //   this.api?.socket.ws.close()
     // }

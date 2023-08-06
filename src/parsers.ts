@@ -208,7 +208,7 @@ const parseAttachment = (a: RawItem) => ({
   timestampMs: getAsMS(a[31][1]),
   attachmentType: a[29][1],
   attachmentFbid: a[34],
-  filesize: a[1][1],
+  filesize: Number(a[1][1]),
   hasMedia: Boolean(a[2]),
   playableUrl: a[3],
   playableUrlFallback: a[4],

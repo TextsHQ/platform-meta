@@ -138,7 +138,7 @@ export default class InstagramWebSocket {
     }
   }
 
-  private dispose() {
+  dispose() {
     this.logger.info('[ws connection] disposing', {
       stop: this.stop,
     })
