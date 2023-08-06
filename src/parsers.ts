@@ -1,6 +1,7 @@
 // import { type InferModel } from 'drizzle-orm'
 // import * as schema from './store/schema'
 
+import { User } from '@textshq/platform-sdk'
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
 import { getAsDate, getAsMS, getAsString } from './util'
@@ -287,6 +288,17 @@ const parseReplaceOptimsiticMessage = (a: RawItem) => ({
   messageId: a[1],
 })
 
+const parseSearchArguments = (a: RawItem): User => ({
+  // query: a[0],
+  id: a[1],
+  fullName: a[5],
+  imgURL: a[6],
+  username: a[8],
+  // messageId: a[9],
+  // messageTimestampMs: new Date(Number(a[10])),
+  isVerified: Boolean(a[12]),
+})
+
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -295,7 +307,7 @@ const parseMap = {
   verifyContactRowExists: parseUser,
   insertBlobAttachment: parseAttachment,
   upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
-  // insertSearchResult: parseSearchArguments,
+  insertSearchResult: parseSearchArguments,
   insertNewMessageRange: parseInsertNewMessageRange,
   insertMessage: parseMessage,
   updateThreadMuteSetting: parseThreadMuteSetting,

@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions, User } from '@textshq/platform-sdk'
 import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
 import { getLogger } from './logger'
 import { APP_ID } from './constants'
@@ -680,6 +680,44 @@ export default class InstagramWebSocket {
       task_id: 1,
       failure_count: null,
     })
+  }
+
+  async searchUsers(query: string) {
+    const { timestamp } = getTimeValues()
+    const payload = JSON.stringify({
+      query,
+      supported_types: [1, 3, 4, 2, 6, 7, 8, 9, 14],
+      session_id: null,
+      surface_type: 15,
+      group_id: null,
+      thread_id: null,
+    })
+
+    const [primary, secondary] = await Promise.all([this.publishTask<{
+      insertSearchResult: User[]
+    }>('search users primary', {
+      label: '30',
+      payload,
+      queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    }), this.publishTask<{
+      insertSearchResult: User[]
+    }>('search users secondary', {
+      label: '31',
+      payload,
+      queue_name: JSON.stringify(['search_secondary']),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })])
+
+    const users: User[] = [
+      ...(primary?.insertSearchResult ?? []),
+      ...(secondary?.insertSearchResult ?? []),
+    ]
+
+    this.logger.info('searched users', { users })
+    return users
   }
 
   private getLastThreadReference() {

@@ -135,7 +135,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   takeoverConflict?: () => Awaitable<void>
 
-  searchUsers: (typed: string) => Awaitable<User[]>
+  searchUsers = (typed: string) => this.socket.searchUsers(typed)
 
   searchThreads?: (typed: string) => Awaitable<Thread[]>
 
@@ -216,7 +216,14 @@ export default class PlatformInstagram implements PlatformAPI {
     return user
   }
 
-  createThread: (userIDs: string[], title?: string, messageText?: string) => Awaitable<boolean | Thread>
+  createThread = async (userIDs: string[], title?: string, messageText?: string) => {
+    this.logger.debug('createThread', {
+      userIDs,
+      title,
+      messageText,
+    })
+    throw new Error('Method not implemented.')
+  }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
     this.logger.info('updateThread', threadID, updates)
