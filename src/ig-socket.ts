@@ -581,43 +581,43 @@ export default class InstagramWebSocket {
     return sendPromise
   }
 
-  async muteThread(threadID: number) {
+  async muteThread(thread_key: string, mute_expiration_time_ms: -1 | 0 | number) {
     await this.publishTask('mute thread', {
       label: '144',
-      payload: JSON.stringify({ thread_key: threadID,
+      payload: JSON.stringify({
+        thread_key,
         mailbox_type: 0, // 0 = inbox
-        mute_expiration_time_ms: -1, // for infinity
+        mute_expiration_time_ms, // for infinity
         sync_group: 1,
       }),
-      queue_name: threadID.toString(),
+      queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
     })
     // listen for the response updateThreadMuteSetting
   }
 
-  // sets the thread name in a group thread
-  async setThreadName(threadID: number, name: string) {
+  async setThreadName(thread_key: string, thread_name: string) {
     await this.publishTask('set thread name', {
       label: '32',
       payload: JSON.stringify({
-        thread_key: threadID,
-        thread_name: name,
+        thread_key,
+        thread_name,
       }),
-      queue_name: threadID.toString(),
+      queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
     })
     // listen for the response syncUpdateThreadName
   }
 
-  async makeAdmin(threadID: number, userID: number, makeAdmin: boolean) {
+  async changeAdminStatus(thread_key: string, contact_id: string, is_admin: boolean) {
     await this.publishTask('make admin', {
       label: '25',
       payload: JSON.stringify({
-        thread_key: threadID,
-        contact_id: userID,
-        is_admin: makeAdmin ? 1 : 0,
+        thread_key,
+        contact_id,
+        is_admin: is_admin ? 1 : 0,
       }),
       queue_name: 'admin_status',
       task_id: this.genTaskId(),
@@ -627,22 +627,22 @@ export default class InstagramWebSocket {
     // listen for the response updateThreadParticipantAdminStatus
   }
 
-  async addParticipants(threadID: number, userIDs: number[]) {
+  async addParticipants(thread_key: string, contact_ids: string[]) {
     await this.publishTask('add participants', {
       label: '23',
       payload: JSON.stringify({
-        thread_key: threadID,
-        contact_ids: userIDs,
+        thread_key,
+        contact_ids,
         sync_group: 1,
       }),
-      queue_name: threadID.toString(),
+      queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
     })
     // listen for the response addParticipantIdToGroupThread
   }
 
-  async removeParticipant(threadID: number, userID: number) {
+  async removeParticipant(threadID: string, userID: string) {
     await this.publishTask('remove participant', {
       label: '140',
       payload: JSON.stringify({
@@ -654,6 +654,32 @@ export default class InstagramWebSocket {
       failure_count: null,
     })
     // listen for the response removeParticipantFromThread
+  }
+
+  async unsendMessage(messageId: string) {
+    await this.publishTask('unsend message', {
+      label: '33',
+      payload: JSON.stringify({
+        message_id: messageId,
+      }),
+      queue_name: 'unsend_message',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+  }
+
+  async deleteThread(thread_key: string) {
+    await this.publishTask('delete thread', {
+      label: '146',
+      payload: JSON.stringify({
+        thread_key,
+        remove_type: 0,
+        sync_group: 1,
+      }),
+      queue_name: thread_key.toString(),
+      task_id: 1,
+      failure_count: null,
+    })
   }
 
   private getLastThreadReference() {

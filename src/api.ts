@@ -220,10 +220,20 @@ export default class PlatformInstagram implements PlatformAPI {
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
     this.logger.info('updateThread', threadID, updates)
+    const promises: Promise<void>[] = []
+    if (updates.title) {
+      promises.push(this.socket.setThreadName(threadID, updates.title))
+    }
+    if (updates.mutedUntil) {
+      const mutedUntil = updates.mutedUntil === 'forever' ? -1 : updates.mutedUntil.getTime()
+      promises.push(this.socket.muteThread(threadID, mutedUntil))
+    }
+    await Promise.all(promises)
   }
 
   deleteThread = async (threadID: string) => {
-    this.logger.info('deleteThread', threadID)
+    this.logger.debug('deleteThread', threadID)
+    await this.socket.deleteThread(threadID)
   }
 
   reportThread = async (type: 'spam', threadID: string, firstMessageID?: string) => {
@@ -270,7 +280,8 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {
-    this.logger.info('deleteMessage', { threadID, messageID, forEveryone })
+    this.logger.debug('deleteMessage', { threadID, messageID, forEveryone })
+    await this.socket?.unsendMessage(messageID)
   }
 
   sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
@@ -294,14 +305,17 @@ export default class PlatformInstagram implements PlatformAPI {
 
   addParticipant = async (threadID: string, participantID: string) => {
     this.logger.info('addParticipant', { threadID, participantID })
+    await this.socket?.addParticipants(threadID, [participantID])
   }
 
   removeParticipant = async (threadID: string, participantID: string) => {
     this.logger.info('removeParticipant', { threadID, participantID })
+    await this.socket.removeParticipant(threadID, participantID)
   }
 
-  changeParticipantRole = async (threadID: string, participantID: string, role: string) => {
-    this.logger.info('changeParticipantRole', { threadID, participantID, role })
+  changeParticipantRole = async (threadID: string, participantID: string, role: 'admin' | 'regular') => {
+    this.logger.debug('changeParticipantRole', { threadID, participantID, role })
+    await this.socket?.changeAdminStatus(threadID, participantID, role === 'admin')
   }
 
   changeThreadImage = async (threadID: string, imageBuffer: Buffer, mimeType: string) => {
