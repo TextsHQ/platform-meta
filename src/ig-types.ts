@@ -156,7 +156,7 @@ export type IGAttachment = {
   messageId: string
   attachmentFbid: string
   filename: string
-  filesize: number
+  filesize: string // @TODO: number?
   hasMedia: boolean
   isSharable: boolean
   playableUrl: string
@@ -178,7 +178,7 @@ export type IGAttachment = {
   attributionAppIconUrlExpirationTimestampMs: number
   localPlayableUrl: string
   playableDurationMs: number
-  attachmentIndex: number
+  attachmentIndex: string
   accessibilitySummaryText: string
   isPreviewImage: boolean
   originalFileHash: string

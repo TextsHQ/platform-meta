@@ -14,7 +14,7 @@ import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGMessage, IGParsedViewerConfig, IGThread } from './ig-types'
+import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread } from './ig-types'
 
 const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
@@ -450,16 +450,27 @@ export default class InstagramAPI {
       .run()
   }
 
-  addAttachments(attachments: InferModel<typeof schema['attachments'], 'insert'>[]) {
+  addAttachments(attachments: IGAttachment[]) {
     this.logger.info('addAttachments', attachments)
-    const attachmentsWithNoBool = attachments.map(attachment => {
-      const newAttachments = { ...attachment }
-      for (const key in newAttachments) {
-        if (typeof newAttachments[key] === 'boolean') {
-          newAttachments[key] = newAttachments[key] ? 1 : 0
+    const attachmentsWithNoBool = attachments.map(a => {
+      const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
+
+      // @TODO: parsers should handle this before we come here
+      for (const key in attachment) {
+        if (typeof attachment[key] === 'boolean') {
+          attachment[key] = attachment[key] ? 1 : 0
         }
       }
-      return newAttachments
+
+      return {
+        raw,
+        threadKey,
+        messageId,
+        attachmentFbid,
+        timestampMs: new Date(timestampMs),
+        offlineAttachmentId,
+        attachment: JSON.stringify(attachment),
+      }
     })
     this.logger.info('addAttachments (attachmentsWithNoBool)', attachmentsWithNoBool)
 
