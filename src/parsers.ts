@@ -1,7 +1,4 @@
-// import { type InferModel } from 'drizzle-orm'
-// import * as schema from './store/schema'
-
-import { User } from '@textshq/platform-sdk'
+import type { User } from '@textshq/platform-sdk'
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
 import { getAsDate, getAsMS, getAsString } from './util'
