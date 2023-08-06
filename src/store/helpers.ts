@@ -8,13 +8,6 @@ import { getLogger } from '../logger'
 
 const logger = getLogger('helpers')
 
-// const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
-
-// export const hasSomeCachedData = async (db: DrizzleDB) => ({
-//   hasThreads: hasData(db, threads),
-//   hasMessages: hasData(db, messages),
-// })
-
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string) => {
   logger.debug('queryMessages', messageIds)
   const storedMessages = db.query.messages.findMany({
