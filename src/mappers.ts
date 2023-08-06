@@ -19,6 +19,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
     text: message.text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
+    isAction: message.isAdminMessage,
     attachments: m.attachments.map(a => mapAttachment(a)),
   }
 }
