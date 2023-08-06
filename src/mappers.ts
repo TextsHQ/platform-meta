@@ -1,11 +1,32 @@
 import { AttachmentType } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, IGMessageInDB, RawAttachment } from './store/schema'
 
+function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
+  switch (mimeType) {
+    case 'image/jpeg':
+    case 'image/png':
+      return AttachmentType.IMG
+    case 'video/mp4':
+      return AttachmentType.VIDEO
+    case 'audio/mpeg':
+      return AttachmentType.AUDIO
+    default:
+      return AttachmentType.UNKNOWN
+  }
+}
+
 export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
   return {
     id: a.attachmentFbid,
-    type: AttachmentType.IMG,
+    type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType),
+    size: {
+      width: attachment.previewWidth,
+      height: attachment.previewHeight,
+    },
+    mimeType: attachment.playableUrlMimeType,
+    fileSize: attachment.playableDurationMs,
+    fileName: attachment.filename,
     srcURL: attachment.playableUrl,
   }
 }

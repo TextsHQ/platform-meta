@@ -20,6 +20,7 @@ const info: PlatformInfo = {
     Attribute.SUPPORTS_QUOTED_MESSAGES,
     Attribute.SUPPORTS_GROUP_PARTICIPANT_ROLE_CHANGE,
     Attribute.SUPPORTS_FORWARD,
+    Attribute.SORT_MESSAGES_ON_PUSH,
   ]),
   reactions: {
     supported: {
