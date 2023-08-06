@@ -3,16 +3,10 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { MessageContent, MessageSendOptions, User } from '@textshq/platform-sdk'
-import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep } from './util'
+import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep, getRetryTimeout } from './util'
 import { getLogger } from './logger'
-import { APP_ID } from './constants'
+import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
-
-const MAX_RETRY_ATTEMPTS = 12
-const VERSION_ID = 6552526831451374
-
-const getRetryTimeout = (attempt: number) =>
-  Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
 
 type IGSocketTask = {
   label: string

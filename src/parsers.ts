@@ -312,7 +312,7 @@ const parseMap = {
   updateThreadParticipantAdminStatus: parseUpdateThreadParticipantAdminStatus,
   removeParticipantFromThread: parseRemoveParticipantFromThread,
   replaceOptimsiticMessage: parseReplaceOptimsiticMessage,
-}
+} as const
 
 type ParseFunctions = typeof parseMap
 
@@ -327,7 +327,7 @@ type ResultType = {
   [K in keyof ParseReturnTypes]: ParseReturnTypes[K][];
 }
 
-function interestedOperation(operation) {
+function interestedOperation(operation: any[]) {
   if (operation[0] === 5 && operation[1] in parseMap) {
     return parseMap[operation[1]](operation.slice(2))
   }

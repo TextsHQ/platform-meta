@@ -11,12 +11,10 @@ import * as schema from './store/schema'
 import { parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
-import { APP_ID } from './constants'
+import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread } from './ig-types'
-
-const INSTAGRAM_BASE_URL = 'https://www.instagram.com/' as const
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
