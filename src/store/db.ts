@@ -31,7 +31,7 @@ const getDB = async (accountID: string, dataDirPath: string, retryAttempt = 0) =
     migrate(db, { migrationsFolder })
   } catch (e) {
     logger.error('Error migrating database, creating a fresh one', e)
-    return getDB(accountID, dataDirPath, retryAttempt++)
+    return getDB(accountID, dataDirPath, retryAttempt + 1)
   }
   await sleep(100) // @TODO: need a better way to wait for migrations to finish
   return db
