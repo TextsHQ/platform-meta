@@ -1,4 +1,4 @@
-import { ActivityType, AttachmentType, texts } from '@textshq/platform-sdk'
+import { ActivityType, AttachmentType, ReAuthError, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import url from 'url'
@@ -48,6 +48,8 @@ export default class PlatformInstagram implements PlatformAPI {
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
+    if (session && typeof session.dtsg === 'undefined') throw new ReAuthError() // upgrade from android-based session
+
     await fs.mkdir(dataDirPath, { recursive: true })
 
     this.dataDirPath = dataDirPath

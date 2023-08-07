@@ -38,7 +38,7 @@ type AttachmentInJoin = {
 }
 
 export type DBMessageSelect = InferModel<typeof messages, 'select'>
-export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
+export type DBMessageSelectDefault = Pick<DBMessageSelect, 'raw' | 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
 export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
   attachments: AttachmentInJoin[]
 }

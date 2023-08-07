@@ -530,7 +530,7 @@ export default class InstagramWebSocket {
     })
     const lastMessage = this.papi.api.getNewestMessage(threadID)
     this.logger.info('fetchMessages', { threadID, lastMessage })
-    await this.publishTask('fetch messages', {
+    const result = await this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: Number(threadID),
@@ -544,11 +544,13 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
-    this.logger.info(`promising messages-${threadID}`)
+    this.logger.info(`promising messages-${threadID}`, {
+      result,
+    })
     return sendPromise
   }
 
-  getThreads() {
+  async getThreads() {
     if (this.papi.sendPromiseMap.has('threads')) {
       this.logger.error('already fetching threads')
       return Promise.reject(new Error('already fetching threads'))
@@ -557,7 +559,7 @@ export default class InstagramWebSocket {
     const sendPromise = new Promise((resolve, reject) => {
       this.papi.sendPromiseMap.set('threads', [resolve, reject])
     })
-    this.publishTask('get threads', {
+    const result = await this.publishTask('get threads', {
       label: '145',
       payload: JSON.stringify({
         ...this.getLastThreadReference(),
@@ -571,7 +573,7 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
-    this.logger.info('promising threads')
+    this.logger.info('promising threads', { result })
     return sendPromise
   }
 
