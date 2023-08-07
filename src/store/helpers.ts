@@ -13,7 +13,6 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
   const storedMessages = db.query.messages.findMany({
     ...(messageIds !== 'ALL' && { where: inArray(messages.messageId, messageIds) }),
     columns: {
-      raw: true,
       threadKey: true,
       messageId: true,
       timestampMs: true,
@@ -54,7 +53,6 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     },
     messages: {
       columns: {
-        raw: true,
         threadKey: true,
         messageId: true,
         timestampMs: true,
