@@ -42,7 +42,8 @@ CREATE TABLE `reactions` (
 	`timestampMs` integer,
 	`messageId` text,
 	`actorId` text,
-	`reaction` text
+	`reaction` text,
+	PRIMARY KEY(`actorId`, `messageId`, `threadKey`)
 );
 --> statement-breakpoint
 CREATE TABLE `threads` (

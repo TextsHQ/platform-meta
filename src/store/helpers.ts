@@ -26,6 +26,7 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
           attachment: true,
         },
       },
+      reactions: true,
     },
   })
   return mapMessages(storedMessages, fbid)
@@ -66,6 +67,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
             attachment: true,
           },
         },
+        reactions: true,
       },
     },
   },

@@ -389,6 +389,22 @@ export default class InstagramAPI {
           mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
         }],
       }])
+    } else if (rawd.upsertReaction) {
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message_reaction',
+        objectIDs: {
+          threadID: rawd.upsertReaction[0].threadKey!,
+          messageID: rawd.upsertReaction[0].messageId!,
+        },
+        mutationType: 'upsert',
+        entries: [{
+          id: rawd.upsertReaction[0].actorId!,
+          reactionKey: rawd.upsertReaction[0].reaction!,
+          participantID: rawd.upsertReaction[0].actorId!,
+          emoji: true,
+        }],
+      }])
     }
   }
 

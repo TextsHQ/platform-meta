@@ -41,6 +41,7 @@ export type DBMessageSelect = InferModel<typeof messages, 'select'>
 export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
 export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
   attachments: AttachmentInJoin[]
+  reactions: DBReaction[]
 }
 
 export type DBMessageInsert = InferModel<typeof messages, 'insert'>
@@ -76,11 +77,6 @@ export const attachments = sqliteTable('attachments', {
 
 export const attachmentRelations = relations(attachments, ({ one }) => ({
   message: one(messages, { fields: [attachments.messageId], references: [messages.messageId] }),
-}))
-
-export const messageRelations = relations(messages, ({ one, many }) => ({
-  thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
-  attachments: many(attachments),
 }))
 
 export type DBAttachmentSelect = InferModel<typeof attachments, 'select'>
@@ -140,6 +136,17 @@ export const reactions = sqliteTable('reactions', {
   // actorId: text('actorId').notNull().references(() => users.id),
   actorId: text('actorId'),
   reaction: text('reaction'),
-})
+}, table => ({
+  pk: primaryKey(table.threadKey, table.messageId, table.actorId),
+}))
 
+export const reactionRelations = relations(reactions, ({ one }) => ({
+  message: one(messages, { fields: [reactions.messageId], references: [messages.messageId] }),
+}))
+export const messageRelations = relations(messages, ({ one, many }) => ({
+  thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
+  reactions: many(reactions),
+  attachments: many(attachments),
+
+}))
 export type DBReaction = InferModel<typeof reactions, 'select'>

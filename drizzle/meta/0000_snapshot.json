@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "db09d197-1335-422e-a828-b32b5f7a70c3",
+  "id": "125e6ca3-807e-44a1-a9fc-d84f5c2b329c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -316,7 +316,15 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "reactions_threadKey_messageId_actorId_pk": {
+          "columns": [
+            "actorId",
+            "messageId",
+            "threadKey"
+          ]
+        }
+      },
       "uniqueConstraints": {}
     },
     "threads": {

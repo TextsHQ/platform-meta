@@ -31,6 +31,15 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
   }
 }
 
+export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][number]) {
+  return {
+    id: r.actorId,
+    reactionKey: r.reaction,
+    participantID: r.actorId,
+    emoji: true,
+  }
+}
+
 export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
   const message = JSON.parse(m.message) as IGMessageInDB
   return {
@@ -42,6 +51,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
     threadID: m.threadKey,
     isAction: message.isAdminMessage,
     attachments: m.attachments.map(a => mapAttachment(a)),
+    reactions: m.reactions.map(r => mapReaction(r)),
   }
 }
 
