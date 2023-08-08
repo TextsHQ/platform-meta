@@ -12,6 +12,7 @@ export interface SerializedSession {
   clientId: string
   dtsg: string
   fbid: string
+  igUserId: string
   lsd: string
   lastCursor: string
 }

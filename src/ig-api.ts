@@ -51,6 +51,8 @@ export default class InstagramAPI {
 
   fbid: SerializedSession['fbid']
 
+  igUserId: SerializedSession['igUserId']
+
   lsd: SerializedSession['lsd']
 
   cursor: string
@@ -81,6 +83,7 @@ export default class InstagramAPI {
     this.dtsg = dtsg
     this.fbid = fbid
     this.lsd = lsd
+    this.igUserId = config.id
 
     this.papi.currentUser = {
       // id: config.id, // this is the instagram id but fbid is instead used for chat
@@ -180,6 +183,42 @@ export default class InstagramAPI {
     const json = JSON.parse(response.body)
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
     return { data: json }
+  }
+
+  async logout() {
+    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/web/accounts/logout/ajax/', {
+      // todo: refactor headers
+      method: 'POST',
+      body: `one_tap_app_login=1&user_id=${this.igUserId}`,
+      headers: {
+        accept: '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
+        'sec-ch-ua-full-version-list':
+            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.5.0"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'viewport-width': '1280',
+        'x-asbd-id': '129477',
+        'x-csrftoken': this.getCSRFToken(),
+        'x-ig-app-id': APP_ID,
+        'x-ig-www-claim':
+            'hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU',
+        'x-requested-with': 'XMLHttpRequest',
+        Referer: `${INSTAGRAM_BASE_URL}}/`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/116.0',
+        'x-instagram-ajax': '1007993177',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+    })
+    const json = JSON.parse(response.body)
+    if (json.status !== 'ok') {
+      throw new Error(`logout ${this.igUserId} failed: ${JSON.stringify(json, null, 2)}`)
+    }
   }
 
   // get username from here

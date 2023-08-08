@@ -11,6 +11,7 @@ import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 import { queryThreads } from './store/helpers'
+import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -87,10 +88,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return { type: 'success' }
   }
 
-  logout = async () => {
-    this.logger.info('logout')
-    // @TODO: logout
-  }
+  logout = () => this.api.logout()
 
   serializeSession = (): SerializedSession => ({
     jar: this.api.jar.toJSON(),
@@ -100,6 +98,7 @@ export default class PlatformInstagram implements PlatformAPI {
     dtsg: this.api.dtsg,
     lsd: this.api.lsd,
     fbid: this.api.fbid,
+    igUserId: this.api.igUserId,
     lastCursor: this.api.cursor,
   })
 
