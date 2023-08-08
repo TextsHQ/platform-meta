@@ -13,12 +13,6 @@ import { createPromise } from './util'
 import { queryThreads } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
-  private loginEventCallback: (data: any) => void
-
-  private dataDirPath: string
-
-  private nativeArchiveSync: boolean | undefined
-
   private _initPromise = createPromise<void>()
 
   get initPromise() {
@@ -44,13 +38,10 @@ export default class PlatformInstagram implements PlatformAPI {
 
   constructor(readonly accountID: string) {}
 
-  init = async (session: SerializedSession, { accountID, nativeArchiveSync, dataDirPath }: ClientContext) => {
+  init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
     if (session && typeof session.dtsg === 'undefined') throw new ReAuthError() // upgrade from android-based session
 
     await fs.mkdir(dataDirPath, { recursive: true })
-
-    this.dataDirPath = dataDirPath
-    this.nativeArchiveSync = nativeArchiveSync
 
     if (texts.isLoggingEnabled) this.logger.info('starting ig', { dataDirPath, accountID })
 
@@ -126,23 +117,7 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.socket.connect()
   }
 
-  onLoginEvent = (onEvent: (data: any) => void) => {
-    this.loginEventCallback = onEvent
-  }
-
-  onConnectionStateChange?: (onEvent: OnConnStateChangeCallback) => Awaitable<void>
-
-  takeoverConflict?: () => Awaitable<void>
-
   searchUsers = (typed: string) => this.socket.searchUsers(typed)
-
-  searchThreads?: (typed: string) => Awaitable<Thread[]>
-
-  searchMessages?: (typed: string, pagination?: PaginationArg, options?: SearchMessageOptions) => Awaitable<Paginated<Message>>
-
-  getPresence?: () => Awaitable<PresenceMap>
-
-  getCustomEmojis?: () => Awaitable<CustomEmojiMap>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
@@ -176,8 +151,6 @@ export default class PlatformInstagram implements PlatformAPI {
       oldestCursor: 'test',
     }
   }
-
-  getThreadParticipants?: (threadID: string, pagination?: PaginationArg) => Awaitable<Paginated<Participant>>
 
   // getThread = async (threadID: string): PAPIReturn<'getThread'> => {
   //   const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
@@ -245,11 +218,6 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.socket.deleteThread(threadID)
   }
 
-  reportThread = async (type: 'spam', threadID: string, firstMessageID?: string) => {
-    this.logger.info('reportThread', type, threadID, firstMessageID)
-    return true
-  }
-
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
@@ -307,11 +275,6 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.socket.addReaction(threadID, messageID, '')
   }
 
-  getLinkPreview = async (link: string): Promise<MessageLink> => {
-    this.logger.info('getLinkPreview', { link })
-    return { url: link, title: '' }
-  }
-
   addParticipant = async (threadID: string, participantID: string) => {
     this.logger.info('addParticipant', { threadID, participantID })
     await this.socket?.addParticipants(threadID, [participantID])
@@ -325,52 +288,5 @@ export default class PlatformInstagram implements PlatformAPI {
   changeParticipantRole = async (threadID: string, participantID: string, role: 'admin' | 'regular') => {
     this.logger.debug('changeParticipantRole', { threadID, participantID, role })
     await this.socket?.changeAdminStatus(threadID, participantID, role === 'admin')
-  }
-
-  changeThreadImage = async (threadID: string, imageBuffer: Buffer, mimeType: string) => {
-    this.logger.info('changeThreadImage', { threadID, mimeType })
-  }
-
-  markAsUnread = async (threadID: string, messageID?: string) => {
-    this.logger.info('markAsUnread', { threadID, messageID })
-  }
-
-  archiveThread = async (threadID: string, archived: boolean) => {
-    this.logger.info('archiveThread', { threadID, archived })
-  }
-
-  pinThread = async (threadID: string, pinned: boolean) => {
-    this.logger.info('pinThread', { threadID, pinned })
-  }
-
-  notifyAnyway = async (threadID: string) => {
-    this.logger.info('notifyAnyway', { threadID })
-  }
-
-  onThreadSelected = async (threadID: string) => {
-    this.logger.info('onThreadSelected', { threadID })
-  }
-
-  loadDynamicMessage = async (message: Message) => {
-    this.logger.info('loadDynamicMessage', { message })
-    return {}
-  }
-
-  getAsset = async (fetchOptions?: GetAssetOptions, ...args: string[]) => {
-    this.logger.info('getAsset', { fetchOptions, args })
-    return null
-  }
-
-  getOriginalObject = async (objName: 'thread' | 'message', objectID: string) => {
-    this.logger.info('getOriginalObject', { objName, objectID })
-    return ''
-  }
-
-  handleDeepLink = (link: string) => {
-    this.logger.info('handleDeepLink', { link })
-  }
-
-  onResumeFromSleep = () => {
-    this.logger.info('onResumeFromSleep')
   }
 }
