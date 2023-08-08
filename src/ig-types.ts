@@ -229,3 +229,11 @@ export type IGParsedViewerConfig = {
   should_show_public_contacts: boolean
   username: string
 }
+
+export type IGReadReceipt = {
+  raw: string
+  threadKey: string
+  readWatermarkTimestampMs: number
+  readActionTimestampMs: number
+  contactId: string
+}

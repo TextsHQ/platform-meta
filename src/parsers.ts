@@ -296,6 +296,14 @@ const parseSearchArguments = (a: RawItem): User => ({
   isVerified: Boolean(a[12]),
 })
 
+const parseUpdateReadReceipt = (a: RawItem) => ({
+  raw: JSON.stringify(a),
+  readWatermarkTimestampMs: getAsMS(a[0][1]), // last message logged in user has read from
+  threadKey: a[1][1],
+  contactId: a[2][1],
+  readActionTimestampMs: getAsMS(a[3][1]),
+})
+
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -312,6 +320,7 @@ const parseMap = {
   updateThreadParticipantAdminStatus: parseUpdateThreadParticipantAdminStatus,
   removeParticipantFromThread: parseRemoveParticipantFromThread,
   replaceOptimsiticMessage: parseReplaceOptimsiticMessage,
+  updateReadReceipt: parseUpdateReadReceipt,
 } as const
 
 type ParseFunctions = typeof parseMap

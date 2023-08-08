@@ -2,36 +2,11 @@ import { inArray } from 'drizzle-orm'
 import type { Participant, ThreadType } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
-import { IGThreadInDB, messages, threads } from './schema'
+import { IGThreadInDB, threads } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
 
 const logger = getLogger('helpers')
-
-export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string) => {
-  logger.debug('queryMessages', messageIds)
-  const storedMessages = db.query.messages.findMany({
-    ...(messageIds !== 'ALL' && { where: inArray(messages.messageId, messageIds) }),
-    columns: {
-      raw: true,
-      threadKey: true,
-      messageId: true,
-      timestampMs: true,
-      senderId: true,
-      message: true,
-    },
-    with: {
-      attachments: {
-        columns: {
-          attachmentFbid: true,
-          attachment: true,
-        },
-      },
-      reactions: true,
-    },
-  })
-  return mapMessages(storedMessages, fbid)
-}
 
 export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
@@ -41,7 +16,6 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   },
   with: {
     participants: {
-      columns: {},
       with: {
         users: {
           columns: {
@@ -114,10 +88,17 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       hasMore: false,
     },
     messages: {
-      items: mapMessages(t.messages, fbid),
+      items: mapMessages(t.messages, fbid, t.participants, type),
       hasMore: false,
     },
   }
 })
+
+export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string, threadKey: string) => {
+  logger.debug('queryMessages', messageIds)
+  const thread = await queryThreads(db, [threadKey], fbid)
+  const { messages: newMessages } = thread[0]
+  return newMessages.items.filter(m => messageIds === 'ALL' || messageIds.includes(m.id))
+}
 
 export const FOREVER = 4117219200000 // 2100-06-21T00:00:00.000Z

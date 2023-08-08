@@ -1,7 +1,7 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import { texts, type FetchOptions, type User } from '@textshq/platform-sdk'
-import { desc, eq, type InferModel } from 'drizzle-orm'
+import { desc, eq, and, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import { queryMessages, queryThreads } from './store/helpers'
@@ -14,7 +14,7 @@ import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread } from './ig-types'
+import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread, IGReadReceipt } from './ig-types'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -62,6 +62,11 @@ export default class InstagramAPI {
     reference_activity_timestamp: number
     hasMoreBefore: boolean
   }
+
+  // messagesHasMoreBefore: {
+  //   [threadID: string]: boolean
+  // }
+  messagesHasMoreBefore: Record<string, boolean> = {}
 
   private readonly http = texts.createHttpClient()
 
@@ -348,6 +353,12 @@ export default class InstagramAPI {
     if (rawd.insertBlobAttachment) {
       await this.addAttachments(rawd.insertBlobAttachment)
     }
+    if (rawd.updateReadReceipt) {
+      await this.updateReadReceipt(rawd.updateReadReceipt)
+    }
+    if (rawd.insertNewMessageRange) {
+      rawd.insertNewMessageRange.forEach(async r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
+    }
 
     if (rawd.cursor) {
       this.cursor = rawd.cursor
@@ -376,9 +387,9 @@ export default class InstagramAPI {
         resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
       }
     } else if (rawd.insertNewMessageRange) {
-      // new messages to send to the platform
+      // new messages to send to the platform since the user scrolled up in the thread
       const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
-      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid)
+      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid, rawd.insertNewMessageRange[0].threadKey!)
 
       this.logger.info('new messages are', messages)
       this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
@@ -408,7 +419,7 @@ export default class InstagramAPI {
         senderId: m.senderId!,
       }))
       await this.addMessages(rawm)
-      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid)
+      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
       this.logger.info('insertMessage: queryMessages', messages)
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -444,6 +455,20 @@ export default class InstagramAPI {
           emoji: true,
         }],
       }])
+    }
+    if (rawd.updateReadReceipt) {
+      rawd.updateReadReceipt.forEach(async r => {
+        if (!r.readActionTimestampMs) return
+        const newestMessage = this.getNewestMessage(r.threadKey!)
+        const messages = await queryMessages(this.papi.db, 'ALL', this.fbid, r.threadKey!)
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: r.threadKey!, messageID: newestMessage.messageId! },
+          mutationType: 'update',
+          entries: messages,
+        }])
+      })
     }
   }
 
@@ -556,6 +581,23 @@ export default class InstagramAPI {
       .values(attachmentsWithNoBool)
       .onConflictDoNothing()
       .run()
+  }
+
+  updateReadReceipt(readReceipts: IGReadReceipt[]) {
+    this.logger.info('addReadReceipts', readReceipts)
+    const updatedReadReceipts = readReceipts.map(r => ({
+      ...r,
+      readWatermarkTimestampMs: new Date(r.readWatermarkTimestampMs),
+      readActionTimestampMs: new Date(r.readActionTimestampMs),
+    }))
+    updatedReadReceipts.forEach(r => {
+      this.logger.info('updating read receipt', r)
+      return this.papi.db.update(schema.participants).set({ readActionTimestampMs: r.readActionTimestampMs, readWatermarkTimestampMs: r.readWatermarkTimestampMs })
+        .where(and(
+          eq(schema.participants.threadKey, r.threadKey),
+          eq(schema.participants.userId, r.contactId),
+        )).run()
+    })
   }
 
   getMessage(threadKey: string, messageId: string) {

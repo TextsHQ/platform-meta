@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { ActivityType, AttachmentType, ReAuthError, texts } from '@textshq/platform-sdk'
 import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
@@ -10,8 +11,8 @@ import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { queryThreads } from './store/helpers'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
+import { queryThreads, queryMessages } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -140,13 +141,23 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    this.logger.info('getMessages, pagination is', pagination)
-    const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
-    this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
+    const hmb = this.api.messagesHasMoreBefore[threadID]
+    this.logger.info(`getMessages, messagesHasMoreBefore is  ${this.api.messagesHasMoreBefore[threadID]}`)
+    if (hmb) {
+      const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
+      this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
+      return {
+        items: messages,
+        hasMore: hasMoreBefore,
+        oldestCursor: 'test',
+      }
+    }
+    const messages = await queryMessages(this.db, 'ALL', this.api.fbid, threadID)
     return {
       items: messages,
-      hasMore: hasMoreBefore,
+      hasMore: hmb,
       oldestCursor: 'test',
     }
   }

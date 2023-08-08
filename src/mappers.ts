@@ -1,5 +1,5 @@
 import { AttachmentType } from '@textshq/platform-sdk'
-import type { DBMessageSelectWithAttachments, IGMessageInDB, RawAttachment } from './store/schema'
+import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType) {
@@ -40,8 +40,27 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
   }
 }
 
-export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
+export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, participants: DBParticipantInsert[], type) {
   const message = JSON.parse(m.message) as IGMessageInDB
+  let seen
+  if (type !== 'single') {
+    seen = participants.reduce(
+      (acc, p) => {
+        acc[p.userId] = true
+        return acc
+      },
+      {} as {
+        [participantID: string]: boolean
+      },
+    )
+  } else {
+    const otherp = participants.find(p => p.userId !== fbid)
+    if (otherp) {
+      seen = otherp.readWatermarkTimestampMs >= m.timestampMs
+    }
+  }
+
+  console.log('seenstuff', seen)
   return {
     _original: JSON.stringify({
       message,
@@ -56,9 +75,10 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
     isAction: message.isAdminMessage,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
+    seen,
   }
 }
 
-export function mapMessages(messages: DBMessageSelectWithAttachments[], fbid: string) {
-  return messages.map(m => mapMessage(m, fbid))
+export function mapMessages(messages: DBMessageSelectWithAttachments[], fbid: string, participants: DBParticipantInsert[], type) {
+  return messages.map(m => mapMessage(m, fbid, participants, type))
 }
