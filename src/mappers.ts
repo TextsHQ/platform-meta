@@ -43,6 +43,10 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
 export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string) {
   const message = JSON.parse(m.message) as IGMessageInDB
   return {
+    _original: JSON.stringify({
+      message,
+      raw: m.raw,
+    }),
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
