@@ -46,11 +46,11 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
   if (type !== 'single') {
     seen = participants.reduce(
       (acc, p) => {
-        acc[p.userId] = true
+        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = new Date(1) // Date(1) is unknown date
         return acc
       },
       {} as {
-        [participantID: string]: boolean
+        [participantID: string]: Date // FIXME: platform SDK type is wrong. boolean causes threads client to crash
       },
     )
   } else {
