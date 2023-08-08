@@ -292,6 +292,15 @@ export default class InstagramAPI {
       }))
       await this.addMessages(messages)
     }
+    if (rawd.insertMessage) {
+      const messages = rawd.insertMessage.map(m => ({
+        ...m,
+        threadKey: m.threadKey!,
+        messageId: m.messageId!,
+        senderId: m.senderId!,
+      }))
+      await this.addMessages(messages)
+    }
 
     if (rawd.upsertReaction) {
       await this.addReactions(rawd.upsertReaction)
@@ -428,6 +437,9 @@ export default class InstagramAPI {
       for (const key in message) {
         if (typeof message[key] === 'boolean') {
           message[key] = message[key] ? 1 : 0
+          // if the value of the key is [9] then set to null
+        } else if (Array.isArray(message[key]) && message[key].length === 1 && message[key][0] === 9) {
+          message[key] = null
         }
       }
 

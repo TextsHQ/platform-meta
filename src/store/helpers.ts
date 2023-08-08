@@ -88,11 +88,20 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   }))
 
   const type: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
-
+  // let mutedUntil = null
+  // if (thread.muteExpireTimeMs !== 0) {
+  //   if (thread.muteExpireTimeMs === -1) {
+  //     mutedUntil = 'forever'
+  //   } else {
+  //     mutedUntil = new Date(thread.muteExpireTimeMs)
+  //   }
+  // }
+  // logger.debug(`mutedUntil: ${mutedUntil}`)
   return {
     id: t.threadKey,
     title: thread?.threadType !== '1' && thread?.threadName,
     isUnread,
+    // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
     type,
