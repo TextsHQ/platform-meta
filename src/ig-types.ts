@@ -154,6 +154,7 @@ export type IGMessage = {
   extra?: {
     mediaLink?: string
   }
+  textHeading?: string
 }
 
 export type IGAttachment = {

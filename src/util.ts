@@ -80,9 +80,32 @@ export function parseValue<T extends string | number | boolean | null>(value: st
       || !Array.isArray(value)
   ) return value as T
   if (value[0] === 9) return null as T
-  if (value[0] === 19) return Number(value[1]) as T
+  if (value[0] === 19) return String(value[1]) as T // can be bigint
   return value[1] as T
 }
 
 export const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
+
+export function getOriginalURL(linkURL: string) {
+  const MESSENGER_LINK_SHIM = '//l.messenger.com/l.php?u='
+  const FACEBOOK_LINK_SHIM = '//l.facebook.com/l.php?u='
+
+  if (
+    !linkURL?.includes(MESSENGER_LINK_SHIM)
+      && !linkURL?.includes(FACEBOOK_LINK_SHIM)
+  ) {
+    return linkURL
+  }
+
+  const parsed = new URL(linkURL)
+  if (!parsed?.searchParams) return
+  // {
+  //   u: 'https://texts.com/',
+  //   h: 'randomness',
+  //   s: '1'
+  // }
+  const u = parsed.searchParams.getAll('u')
+  if (u.length > 1) return linkURL
+  return u[0]
+}

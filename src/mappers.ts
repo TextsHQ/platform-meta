@@ -76,10 +76,9 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     isAction: message.isAdminMessage,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
-    textHeading: message.replySnippet,
+    textHeading: message.textHeading || message.replySnippet,
     seen,
-    // links: message.links,
-    links: [],
+    links: message.links,
     extra: message.extra,
   }
 }

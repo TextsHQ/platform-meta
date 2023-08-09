@@ -15,6 +15,7 @@ import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread, IGReadReceipt } from './ig-types'
+import { getOriginalURL } from './util'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -381,19 +382,25 @@ export default class InstagramAPI {
           // const attachment = JSON.parse(a.attachment) as IGAttachment
           const mparse = JSON.parse(messages.message) as IGMessage
 
-          const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : r.actionUrl
-          // mparse.links = [{
-          //   url: mediaLink,
-          //   title: mparse.replySnippet,
-          //   img: attachment.playableUrl,
-          //   imgSize: {
-          //     width: attachment.previewWidth,
-          //     height: attachment.previewHeight,
-          //   },
-          // }]
+          const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl)
 
-          mparse.extra = {
-            mediaLink,
+          this.logger.info('insertAttachmentCta mediaLink', mediaLink)
+          const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/'
+          if (mediaLink.startsWith(INSTAGRAM_PROFILE_BASE_URL)) {
+            mparse.extra = {}
+            mparse.links = [{
+              url: mediaLink,
+              title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
+            }]
+          } else if (mediaLink.startsWith(INSTAGRAM_BASE_URL)) {
+            mparse.extra = {
+              mediaLink,
+            }
+          } else {
+            mparse.links = [{
+              url: mediaLink,
+              title: mparse.replySnippet,
+            }]
           }
 
           const newMessage = JSON.stringify(mparse)
