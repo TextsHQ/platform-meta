@@ -353,11 +353,34 @@ export default class InstagramAPI {
     if (rawd.insertBlobAttachment) {
       await this.addAttachments(rawd.insertBlobAttachment)
     }
+    if (rawd.insertXmaAttachment) {
+      await this.addAttachments(rawd.insertXmaAttachment)
+    }
     if (rawd.updateReadReceipt) {
       await this.updateReadReceipt(rawd.updateReadReceipt)
     }
     if (rawd.insertNewMessageRange) {
       rawd.insertNewMessageRange.forEach(async r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
+    }
+    if (rawd.insertAttachmentCta) {
+      // query the attachment in the database
+      // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.attachments).where(eq(schema.attachments.attachmentFbid, rawd.insertAttachmentCta[0].attachmentFbid!))
+      // this.logger.info('insertAttachmentCta attachments', attachments[0])
+      rawd.insertAttachmentCta.forEach(async r => {
+        this.logger.info('insertAttachmentCta raw ', r)
+        // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.messages).where(eq(schema.messages.messageId, r.messageId!)).run()
+        // FIXME: ^ above doesnt work, also the below code is an atrocity
+        // ideally we would just update the field in the database without querying, parsing, updating, and reinserting the message
+        const messages = await this.papi.db.query.messages.findFirst({
+          where: eq(schema.messages.messageId, r.messageId!),
+        })
+        const mparse = JSON.parse(messages.message)
+        mparse.links = [{ url: `https://www.instagram.com/${r.actionUrl}/` }]
+        const newMessage = JSON.stringify(mparse)
+        this.logger.info('insertAttachmentCta newMessage', newMessage)
+
+        await this.papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
+      })
     }
 
     if (rawd.cursor) {
@@ -552,7 +575,7 @@ export default class InstagramAPI {
       .run()
   }
 
-  addAttachments(attachments: IGAttachment[]) {
+  addAttachments(attachments: Partial<IGAttachment>[]) {
     this.logger.info('addAttachments', attachments)
     const attachmentsWithNoBool = attachments.map(a => {
       const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a

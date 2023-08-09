@@ -148,6 +148,9 @@ export type IGMessage = {
   takedownState: string
   isCollapsed: boolean
   subthreadKey: string
+  links: {
+    url: string
+  }[]
 }
 
 export type IGAttachment = {

@@ -1,4 +1,4 @@
-import { AttachmentType } from '@textshq/platform-sdk'
+import { AttachmentType, MessageLink } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
@@ -76,6 +76,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
     seen,
+    links: message.links as MessageLink[],
   }
 }
 

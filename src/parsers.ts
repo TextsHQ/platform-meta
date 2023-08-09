@@ -190,6 +190,7 @@ const parseMessage = (a: RawItem): IGMessage => ({
   takedownState: a[60][1],
   isCollapsed: Boolean(a[61]),
   subthreadKey: a[62][1],
+  links: null,
 })
 
 const parseAttachment = (a: RawItem) => ({
@@ -304,6 +305,32 @@ const parseUpdateReadReceipt = (a: RawItem) => ({
   readActionTimestampMs: getAsMS(a[3][1]),
 })
 
+const parseInsertAttachmentItem = (a: RawItem) => ({
+  attachmentFbid: a[0],
+  threadKey: a[2][1],
+  messageId: a[4],
+  previewUrl: a[17],
+})
+
+const parseInsertAttachmentCta = (a: RawItem) => ({
+  attachmentFbid: a[1],
+  threadKey: a[3][1],
+  messageId: a[5],
+  actionUrl: a[9],
+})
+const parseInsertXmaAttachment = (a: RawItem) => ({
+  raw: JSON.stringify(a),
+  threadKey: a[25][1],
+  attachmentFbid: a[32],
+  messageId: a[30],
+  playableUrl: a[8],
+  playableUrlMimeType: a[11],
+  previewWidth: Number(a[13][1]),
+  previewHeight: Number(a[14][1]),
+  timestampMs: getAsMS(a[29][1]),
+  offlineAttachmentId: null,
+
+})
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -311,6 +338,7 @@ const parseMap = {
   addParticipantIdToGroupThread: parseParticipant,
   verifyContactRowExists: parseUser,
   insertBlobAttachment: parseAttachment,
+  insertXmaAttachment: parseInsertXmaAttachment,
   upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
   insertSearchResult: parseSearchArguments,
   insertNewMessageRange: parseInsertNewMessageRange,
@@ -321,6 +349,8 @@ const parseMap = {
   removeParticipantFromThread: parseRemoveParticipantFromThread,
   replaceOptimsiticMessage: parseReplaceOptimsiticMessage,
   updateReadReceipt: parseUpdateReadReceipt,
+  insertAttachmentItem: parseInsertAttachmentItem,
+  insertAttachmentCta: parseInsertAttachmentCta,
 } as const
 
 type ParseFunctions = typeof parseMap
