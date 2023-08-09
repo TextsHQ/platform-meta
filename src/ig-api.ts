@@ -1,7 +1,7 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import { texts, type FetchOptions, type User } from '@textshq/platform-sdk'
-import { desc, eq, and, type InferModel } from 'drizzle-orm'
+import { asc, desc, eq, and, type InferModel } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import { queryMessages, queryThreads } from './store/helpers'
@@ -689,6 +689,20 @@ export default class InstagramAPI {
       .limit(1)
       .where(eq(schema.messages.threadKey, threadKey))
       .where(eq(schema.messages.messageId, messageId))
+      .get()
+  }
+
+  getOldestMessage(threadKey: string) {
+    return this.papi.db
+      .select({
+        threadKey: schema.messages.threadKey,
+        messageId: schema.messages.messageId,
+        timestampMs: schema.messages.timestampMs,
+      })
+      .from(schema.messages)
+      .limit(1)
+      .where(eq(schema.messages.threadKey, threadKey))
+      .orderBy(asc(schema.messages.timestampMs))
       .get()
   }
 
