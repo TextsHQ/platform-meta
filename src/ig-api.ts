@@ -366,31 +366,47 @@ export default class InstagramAPI {
       // query the attachment in the database
       // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.attachments).where(eq(schema.attachments.attachmentFbid, rawd.insertAttachmentCta[0].attachmentFbid!))
       // this.logger.info('insertAttachmentCta attachments', attachments[0])
-      rawd.insertAttachmentCta.forEach(async r => {
+      for (const r of rawd.insertAttachmentCta) {
         this.logger.info('insertAttachmentCta raw ', r)
         // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.messages).where(eq(schema.messages.messageId, r.messageId!)).run()
         // FIXME: ^ above doesnt work, also the below code is an atrocity
         // ideally we would just update the field in the database without querying, parsing, updating, and reinserting the message
-        const messages = await this.papi.db.query.messages.findFirst({
+        const messages = this.papi.db.query.messages.findFirst({
           where: eq(schema.messages.messageId, r.messageId!),
         })
-        const mparse = JSON.parse(messages.message)
-        mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
-        // if (r.actionUrl.startsWith('/')) {
-        //   mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
-        // } else {
-        //   mparse.links = [{ url: r.actionUrl }]
-        // }
+        if (r.actionUrl && r.actionUrl !== 'null') {
+          const a = this.papi.db.query.attachments.findFirst({
+            where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
+          })
+          const attachment = JSON.parse(a.attachment) as IGAttachment
+          const mparse = JSON.parse(messages.message) as IGMessage
 
-        const newMessage = JSON.stringify(mparse)
-        this.logger.info('insertAttachmentCta newMessage', newMessage)
+          mparse.links = [{
+            url: r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : r.actionUrl,
+            title: mparse.replySnippet,
+            img: attachment.playableUrl,
+            imgSize: {
+              width: attachment.previewWidth,
+              height: attachment.previewHeight,
+            },
+          }]
 
-        await this.papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
-      })
+          const newMessage = JSON.stringify(mparse)
+          this.logger.info('insertAttachmentCta newMessage', newMessage)
+
+          this.papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
+
+          // if (r.actionUrl.startsWith('/')) {
+          //   mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
+          // } else {
+          //   mparse.links = [{ url: r.actionUrl }]
+          // }
+        }
+      }
     }
     if (rawd.deleteReaction) {
-      rawd.deleteReaction.forEach(async r => {
-        await this.papi.db.delete(schema.reactions).where(and(
+      rawd.deleteReaction.forEach(r => {
+        this.papi.db.delete(schema.reactions).where(and(
           eq(schema.reactions.threadKey, r.threadKey),
           eq(schema.reactions.messageId, r.messageId),
           eq(schema.reactions.actorId, r.actorId),

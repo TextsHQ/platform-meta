@@ -1,7 +1,7 @@
 import type { User } from '@textshq/platform-sdk'
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS, getAsString } from './util'
+import { getAsDate, getAsMS, getAsNumber, getAsString } from './util'
 
 type RawItem = string[]
 
@@ -155,8 +155,8 @@ const parseMessage = (a: RawItem): IGMessage => ({
   replySourceType: a[24][1],
   replySourceTypeV2: a[25][1],
   replyStatus: a[26][1],
-  replySnippet: a[27][1],
-  replyMessageText: a[28][1],
+  replySnippet: getAsString(a[27]),
+  replyMessageText: getAsString(a[28]),
   replyToUserId: a[29][1],
   replyMediaExpirationTimestampMs: getAsMS(a[30][1]),
   replyMediaUrl: a[31][1],
@@ -176,7 +176,7 @@ const parseMessage = (a: RawItem): IGMessage => ({
   adminMsgCtaTitle: a[46][1],
   adminMsgCtaType: a[47][1],
   cannotUnsendReason: a[48][1],
-  textHasLinks: a[49],
+  textHasLinks: getAsNumber(a[49]),
   viewFlags: a[50][1],
   displayedContentTypes: a[51][1],
   viewedPluginKey: a[52][1],
@@ -313,11 +313,13 @@ const parseInsertAttachmentItem = (a: RawItem) => ({
 })
 
 const parseInsertAttachmentCta = (a: RawItem) => ({
+  raw: JSON.stringify(a),
   attachmentFbid: a[1],
   threadKey: a[3][1],
   messageId: a[5],
-  actionUrl: a[9],
+  actionUrl: getAsString(a[9]),
 })
+
 const parseInsertXmaAttachment = (a: RawItem) => ({
   raw: JSON.stringify(a),
   threadKey: a[25][1],

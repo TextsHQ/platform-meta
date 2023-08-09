@@ -1,23 +1,22 @@
-import { AttachmentType, MessageLink } from '@textshq/platform-sdk'
+import { AttachmentType, MessageLink, Thread } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
-  switch (mimeType) {
-    case 'image/jpeg':
-    case 'image/png':
-      return AttachmentType.IMG
-    case 'video/mp4':
-      return AttachmentType.VIDEO
-    case 'audio/mpeg':
-      return AttachmentType.AUDIO
-    default:
-      return AttachmentType.UNKNOWN
+  switch (mimeType?.split('/')?.[0]) {
+    case 'image': return AttachmentType.IMG
+    case 'video': return AttachmentType.VIDEO
+    case 'audio': return AttachmentType.AUDIO
+    default: return AttachmentType.UNKNOWN
   }
 }
 
 export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
   return {
+    _original: JSON.stringify({
+      attachment,
+      raw: a.raw,
+    }),
     id: a.attachmentFbid,
     type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType),
     size: {
@@ -40,10 +39,10 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
   }
 }
 
-export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, participants: DBParticipantInsert[], type) {
+export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, participants: DBParticipantInsert[], threadType: Thread['type']) {
   const message = JSON.parse(m.message) as IGMessageInDB
-  let seen
-  if (type !== 'single') {
+  let seen: boolean | { [participantID: string]: Date } = false
+  if (threadType !== 'single') {
     seen = participants.reduce(
       (acc, p) => {
         if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = new Date(1) // Date(1) is unknown date
@@ -60,7 +59,6 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     }
   }
 
-  console.log('seenstuff', seen)
   return {
     _original: JSON.stringify({
       message,
@@ -72,9 +70,13 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     text: message.text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
+    // forwardedFrom: message.isForwarded && message.replySnippet && {
+    //   text: message.replySnippet,
+    // },
     isAction: message.isAdminMessage,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
+    textHeading: message.replySnippet,
     seen,
     links: message.links as MessageLink[],
   }

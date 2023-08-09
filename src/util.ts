@@ -67,5 +67,11 @@ export function getAsString(value: string | (string | number)[]) {
   return null
 }
 
+export function getAsNumber(value: string | (string | number)[]) {
+  if (typeof value === 'number') return value
+  if (Array.isArray(value) && value[0] === 19) return value[1] as number // @TODO: 19 appears to be the type for int
+  return null
+}
+
 export const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)

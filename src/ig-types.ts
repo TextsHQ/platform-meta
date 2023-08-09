@@ -1,3 +1,5 @@
+import { Message } from '@textshq/platform-sdk'
+
 export type IGThread = {
   raw: string
   threadKey: string
@@ -134,7 +136,7 @@ export type IGMessage = {
   adminMsgCtaTitle: string
   adminMsgCtaType: string
   cannotUnsendReason: string
-  textHasLinks: string
+  textHasLinks: number
   viewFlags: string
   displayedContentTypes: string
   viewedPluginKey: string
@@ -148,9 +150,7 @@ export type IGMessage = {
   takedownState: string
   isCollapsed: boolean
   subthreadKey: string
-  links: {
-    url: string
-  }[]
+  links: Message['links']
 }
 
 export type IGAttachment = {
