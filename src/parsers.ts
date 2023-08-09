@@ -329,7 +329,12 @@ const parseInsertXmaAttachment = (a: RawItem) => ({
   previewHeight: Number(a[14][1]),
   timestampMs: getAsMS(a[29][1]),
   offlineAttachmentId: null,
+})
 
+const parseDeleteReaction = (a: RawItem) => ({
+  threadKey: a[0][1],
+  messageId: a[1],
+  actorId: a[2][1],
 })
 const parseMap = {
   deleteThenInsertThread: parseThread,
@@ -351,6 +356,7 @@ const parseMap = {
   updateReadReceipt: parseUpdateReadReceipt,
   insertAttachmentItem: parseInsertAttachmentItem,
   insertAttachmentCta: parseInsertAttachmentCta,
+  deleteReaction: parseDeleteReaction,
 } as const
 
 type ParseFunctions = typeof parseMap

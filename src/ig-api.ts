@@ -382,6 +382,22 @@ export default class InstagramAPI {
         await this.papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
       })
     }
+    if (rawd.deleteReaction) {
+      rawd.deleteReaction.forEach(async r => {
+        await this.papi.db.delete(schema.reactions).where(and(
+          eq(schema.reactions.threadKey, r.threadKey),
+          eq(schema.reactions.messageId, r.messageId),
+          eq(schema.reactions.actorId, r.actorId),
+        )).run()
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message_reaction',
+          objectIDs: { threadID: r.threadKey!, messageID: r.messageId! },
+          mutationType: 'delete',
+          entries: [r.actorId!],
+        }])
+      })
+    }
 
     if (rawd.cursor) {
       this.cursor = rawd.cursor
