@@ -375,21 +375,26 @@ export default class InstagramAPI {
           where: eq(schema.messages.messageId, r.messageId!),
         })
         if (r.actionUrl && r.actionUrl !== 'null') {
-          const a = this.papi.db.query.attachments.findFirst({
-            where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
-          })
-          const attachment = JSON.parse(a.attachment) as IGAttachment
+          // const a = this.papi.db.query.attachments.findFirst({
+          //   where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
+          // })
+          // const attachment = JSON.parse(a.attachment) as IGAttachment
           const mparse = JSON.parse(messages.message) as IGMessage
 
-          mparse.links = [{
-            url: r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : r.actionUrl,
-            title: mparse.replySnippet,
-            img: attachment.playableUrl,
-            imgSize: {
-              width: attachment.previewWidth,
-              height: attachment.previewHeight,
-            },
-          }]
+          const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : r.actionUrl
+          // mparse.links = [{
+          //   url: mediaLink,
+          //   title: mparse.replySnippet,
+          //   img: attachment.playableUrl,
+          //   imgSize: {
+          //     width: attachment.previewWidth,
+          //     height: attachment.previewHeight,
+          //   },
+          // }]
+
+          mparse.extra = {
+            mediaLink,
+          }
 
           const newMessage = JSON.stringify(mparse)
           this.logger.info('insertAttachmentCta newMessage', newMessage)

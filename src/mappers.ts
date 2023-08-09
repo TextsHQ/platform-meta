@@ -78,7 +78,9 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading: message.replySnippet,
     seen,
-    links: message.links as MessageLink[],
+    // links: message.links,
+    links: [],
+    extra: message.extra,
   }
 }
 

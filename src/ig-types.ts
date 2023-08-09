@@ -151,6 +151,9 @@ export type IGMessage = {
   isCollapsed: boolean
   subthreadKey: string
   links: Message['links']
+  extra?: {
+    mediaLink?: string
+  }
 }
 
 export type IGAttachment = {
