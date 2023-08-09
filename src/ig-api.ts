@@ -375,7 +375,12 @@ export default class InstagramAPI {
           where: eq(schema.messages.messageId, r.messageId!),
         })
         const mparse = JSON.parse(messages.message)
-        mparse.links = [{ url: `https://www.instagram.com/${r.actionUrl}/` }]
+        if (r.actionUrl.startsWith('/')) {
+          mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
+        } else {
+          mparse.links = [{ url: r.actionUrl }]
+        }
+
         const newMessage = JSON.stringify(mparse)
         this.logger.info('insertAttachmentCta newMessage', newMessage)
 
