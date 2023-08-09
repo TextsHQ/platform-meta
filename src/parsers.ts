@@ -1,7 +1,7 @@
 import type { User } from '@textshq/platform-sdk'
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS, getAsNumber, getAsString } from './util'
+import { getAsDate, getAsMS, getAsNumber, getAsString, parseValue } from './util'
 
 type RawItem = string[]
 
@@ -227,7 +227,7 @@ const parseAttachment = (a: RawItem) => ({
   accessibilitySummaryText: a[24],
   isPreviewImage: Boolean(a[25]),
   originalFileHash: a[26],
-  offlineAttachmentId: a[33],
+  offlineAttachmentId: parseValue<string>(a[33]), // @TODO: is integer/bigint?
   hasXma: Boolean(a[35]),
   xmaLayoutType: a[36],
   xmasTemplateType: a[37],
@@ -317,7 +317,7 @@ const parseInsertAttachmentCta = (a: RawItem) => ({
   attachmentFbid: a[1],
   threadKey: a[3][1],
   messageId: a[5],
-  actionUrl: getAsString(a[9]),
+  actionUrl: parseValue<string>(a[9]),
 })
 
 const parseInsertXmaAttachment = (a: RawItem) => ({

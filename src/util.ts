@@ -73,5 +73,16 @@ export function getAsNumber(value: string | (string | number)[]) {
   return null
 }
 
+export function parseValue<T extends string | number | boolean | null>(value: string | [number, string]) {
+  if (
+    typeof value === 'string'
+      || typeof value === 'number'
+      || !Array.isArray(value)
+  ) return value as T
+  if (value[0] === 9) return null as T
+  if (value[0] === 19) return Number(value[1]) as T
+  return value[1] as T
+}
+
 export const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
