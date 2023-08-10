@@ -17,7 +17,7 @@
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
-    "drizzle-orm": "^0.27.2",
+    "drizzle-orm": "^0.28.1",
     "form-data": "^4.0.0",
     "http-cookie-agent": "^5.0.4",
     "lodash": "4.17.21",

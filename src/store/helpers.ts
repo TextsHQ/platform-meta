@@ -53,7 +53,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      // orderBy: asc(schema.messages.primarySortKey), // this is not working sorting using javascript below
+      orderBy: [asc(schema.messages.primarySortKey)],
     },
   },
 }).map(t => {
