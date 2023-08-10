@@ -339,23 +339,14 @@ export default class InstagramAPI {
 
     if (rawd.addParticipantIdToGroupThread) await this.addParticipantIdToGroupThread(rawd.addParticipantIdToGroupThread)
 
-    if (rawd.upsertMessage) {
-      const messages = rawd.upsertMessage.map(m => ({
-        ...m,
-        threadKey: m.threadKey!,
-        messageId: m.messageId!,
-        senderId: m.senderId!,
-      }))
-      await this.addMessages(messages)
-    }
-    if (rawd.insertMessage) {
-      const messages = rawd.insertMessage.map(m => ({
-        ...m,
-        threadKey: m.threadKey!,
-        messageId: m.messageId!,
-        senderId: m.senderId!,
-      }))
-      await this.addMessages(messages)
+    if (rawd.upsertMessage?.length > 0 || rawd.insertMessage?.length > 0) {
+      const messages = [
+        ...(rawd.upsertMessage || []),
+        ...(rawd.insertMessage || []),
+      ]
+      if (messages.length > 0) {
+        await this.upsertMessage(messages)
+      }
     }
 
     if (rawd.upsertReaction) {
@@ -555,13 +546,7 @@ export default class InstagramAPI {
     }
     if (rawd.insertMessage) {
       // new message to send to the platform
-      const rawm = rawd.insertMessage.map(m => ({
-        ...m,
-        threadKey: m.threadKey!,
-        messageId: m.messageId!,
-        senderId: m.senderId!,
-      }))
-      await this.addMessages(rawm)
+      const rawm = rawd.insertMessage
       const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
       this.logger.info('insertMessage: queryMessages', messages)
       if (messages?.length > 0) {
@@ -661,10 +646,10 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
-  addMessages(messages: IGMessage[]) {
-    this.logger.info('addMessages', messages)
+  upsertMessage(_messages: ParsedPayload['insertMessage'] | ParsedPayload['upsertMessage']) {
+    this.logger.info('upsertMessage', _messages)
 
-    const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(m => {
+    const messages = _messages.filter(m => m?.threadKey !== null).map(m => {
       const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
 
       // @TODO: parsers should handle this before we come here
@@ -689,11 +674,11 @@ export default class InstagramAPI {
       } as const
     })
 
-    this.logger.info('addMessages (messagesWithNoBool)', messagesWithNoBool)
+    this.logger.info('upsert messages', messages)
 
     return this.papi.db
       .insert(schema.messages)
-      .values(messagesWithNoBool)
+      .values(messages)
       .onConflictDoNothing()
       .run()
   }
