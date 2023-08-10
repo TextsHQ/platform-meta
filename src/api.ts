@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { ActivityType, AttachmentType, ReAuthError, texts } from '@textshq/platform-sdk'
-import type { Awaitable, ClientContext, CurrentUser, CustomEmojiMap, GetAssetOptions, LoginCreds, LoginResult, Message, MessageContent, MessageLink, MessageSendOptions, OnConnStateChangeCallback, OnServerEventCallback, Paginated, PaginationArg, Participant, PlatformAPI, PresenceMap, SearchMessageOptions, ServerEvent, Thread, User } from '@textshq/platform-sdk'
+import type { ClientContext, CurrentUser, LoginCreds, LoginResult, Message, MessageContent, MessageSendOptions, OnServerEventCallback, PaginationArg, PlatformAPI, ServerEvent, Thread, User } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import url from 'url'
 import { CookieJar } from 'tough-cookie'
@@ -207,7 +207,7 @@ export default class PlatformInstagram implements PlatformAPI {
     })
     if (userIDs.length === 1) {
       const [userID] = userIDs
-      const user = this.api.getUser(userID)
+      const user = this.api.getContact(userID)
       await this.socket.createThread(userID)
 
       return {
@@ -235,7 +235,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
 
     const resp = await this.socket.createGroupThread(userIDs)
-    const users = this.api.getUsers(userIDs)
+    const users = this.api.getContacts(userIDs)
     /// compare with userIDs to see if all users were found
     const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
     // await this.socket.sendMessage(userIDs[0], { text: 'test' }, { pendingMessageID: 'test' })

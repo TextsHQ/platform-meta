@@ -33,7 +33,7 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
-  viewerConfig: IGParsedViewerConfig
+  // viewerConfig: IGParsedViewerConfig
 
   private logger = getLogger('ig-api')
 
@@ -252,14 +252,14 @@ export default class InstagramAPI {
     }
   }
 
-  async getMe() {
-    if (!this.viewerConfig) return
-    const data = await this.getUserById(this.viewerConfig.id)
-    const { username } = data
-    if (!username) return
-    const user = await this.getUserByUsername(username)
-    return user
-  }
+  // async getMe() {
+  //   if (!this.viewerConfig) return
+  //   const data = await this.getUserById(this.viewerConfig.id)
+  //   const { username } = data
+  //   if (!username) return
+  //   const user = await this.getUserByUsername(username)
+  //   return user
+  // }
 
   getCSRFToken() {
     return this.jar
@@ -314,7 +314,7 @@ export default class InstagramAPI {
         this.lastThreadReference = {
           reference_activity_timestamp: lastThread.lastActivityTimestampMs,
           reference_thread_key: lastThread.threadKey,
-          hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore!,
+          hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore!,
         }
       }
 
@@ -355,10 +355,10 @@ export default class InstagramAPI {
       await this.addAttachments(rawd.insertXmaAttachment)
     }
     if (rawd.updateReadReceipt) {
-      await this.updateReadReceipt(rawd.updateReadReceipt)
+      this.updateReadReceipt(rawd.updateReadReceipt)
     }
     if (rawd.insertNewMessageRange) {
-      rawd.insertNewMessageRange.forEach(async r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
+      rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
     }
     if (rawd.insertAttachmentCta) {
       // query the attachment in the database
@@ -454,7 +454,7 @@ export default class InstagramAPI {
         const [resolve] = this.papi.sendPromiseMap.get('threads')
         this.logger.info('resolve threads')
         this.papi.sendPromiseMap.delete('threads')
-        resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange[0].hasMoreBefore })
+        resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
       }
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform since the user scrolled up in the thread
@@ -551,7 +551,7 @@ export default class InstagramAPI {
     ) {
       const { threadKey } = rawd.insertNewMessageRange[0]
       const [contact] = rawd.verifyContactRowExists
-      if (threadKey === contact.id) {
+      if (String(threadKey) === String(contact.id)) {
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
           objectIDs: { threadID: threadKey! },
@@ -593,9 +593,20 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
   }
 
-  verifyContactRowExists(contacts: ParsedPayload['verifyContactRowExists']) {
-    this.logger.debug('verifyContactRowExists', contacts)
-    return this.papi.db.insert(schema.users).values(contacts).onConflictDoNothing().run()
+  verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
+    this.logger.debug('verifyContactRowExists', contactRows)
+    const mappedContacts = contactRows.map(c => {
+      const { id, raw, name, profilePictureUrl, username, ...contact } = c
+      return {
+        raw,
+        contact: JSON.stringify(contact),
+        id,
+        name,
+        profilePictureUrl,
+        username,
+      }
+    })
+    return this.papi.db.insert(schema.contacts).values(mappedContacts).onConflictDoNothing().run()
   }
 
   addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
@@ -607,7 +618,7 @@ export default class InstagramAPI {
     this.logger.info('addMessages', messages)
 
     const messagesWithNoBool = messages.filter(m => m?.threadKey !== null).map(m => {
-      const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, ...message } = m
+      const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
 
       // @TODO: parsers should handle this before we come here
       for (const key in message) {
@@ -624,6 +635,7 @@ export default class InstagramAPI {
         threadKey,
         messageId,
         offlineThreadingId,
+        primarySortKey,
         timestampMs: new Date(timestampMs),
         senderId,
         message: JSON.stringify(message),
@@ -701,29 +713,31 @@ export default class InstagramAPI {
     })
   }
 
-  getUser(userId: string) {
+  getContact(contactId: string) {
     return this.papi.db
       .select({
-        id: schema.users.id,
-        profilePictureUrl: schema.users.profilePictureUrl,
-        name: schema.users.name,
-        username: schema.users.username,
+        id: schema.contacts.id,
+        profilePictureUrl: schema.contacts.profilePictureUrl,
+        name: schema.contacts.name,
+        username: schema.contacts.username,
+        contact: schema.contacts.contact,
       })
-      .from(schema.users)
+      .from(schema.contacts)
       .limit(1)
-      .where(eq(schema.users.id, userId))
+      .where(eq(schema.contacts.id, contactId))
       .get()
   }
 
-  getUsers(userIds: string[]) {
-    return this.papi.db.query.users.findMany({
+  getContacts(contactIds: string[]) {
+    return this.papi.db.query.contacts.findMany({
       columns: {
         id: true,
         profilePictureUrl: true,
         name: true,
         username: true,
+        contact: true,
       },
-      where: inArray(schema.users.id, userIds),
+      where: inArray(schema.contacts.id, contactIds),
     })
   }
 

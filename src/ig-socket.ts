@@ -485,15 +485,15 @@ export default class InstagramWebSocket {
     this.logger.info('create thread response', response)
   }
 
-  async createGroupThread(userIds: string[]) {
+  async createGroupThread(participants: string[]) {
     const { otid } = getTimeValues()
     const thread_id = genClientContext()
     const response = await this.publishTask('create group thread', {
       label: '130',
       payload: JSON.stringify({
-        participants: userIds.map(id => Number(id)),
+        participants,
         send_payload: {
-          thread_id,
+          thread_id: thread_id.toString(),
           otid: otid.toString(),
           source: 0,
           send_type: 8,

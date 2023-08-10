@@ -1,4 +1,5 @@
 import type { Message } from '@textshq/platform-sdk'
+import { stringify } from 'querystring'
 
 export type IGThread = {
   raw: string
@@ -243,4 +244,23 @@ export type IGReadReceipt = {
   readWatermarkTimestampMs: number
   readActionTimestampMs: number
   contactId: string
+}
+
+export type IGContact = {
+  raw: string
+  id: string
+  profilePictureUrl: string
+  name: string
+  username: string
+  profilePictureFallbackUrl: string
+  secondaryName: string
+  isMemorialized: string
+  blockedByViewerStatus: string
+  canViewerMessage: string
+  contactType: string
+  authorityLevel: string
+  capabilities: string
+  capabilities2: string
+  contactViewerRelationship: string
+  gender: string
 }

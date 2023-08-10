@@ -91,7 +91,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
     links: message.links,
     parseTemplate: isAction,
     extra: message.extra,
-    sortKey: message.primarySortKey || message.secondarySortKey,
+    sortKey: m.primarySortKey || message.secondarySortKey,
   }
 }
 

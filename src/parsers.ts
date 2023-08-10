@@ -1,6 +1,7 @@
-import type { DBParticipantInsert, IGUser } from './store/schema'
+import type { DBParticipantInsert } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
 import { getAsDate, getAsMS, getAsNumber, getAsString, parseValue } from './util'
+import { IGContact } from './ig-types'
 
 type RawItem = string[]
 
@@ -107,12 +108,31 @@ const parseThread = (a: RawItem): IGThread => {
   // loop through the keys and if the value is
 }
 
-const parseUser = (a: RawItem): IGUser => ({
+const parseVerifyContactRowExistsItem = (a: RawItem): IGContact => ({
   raw: JSON.stringify(a),
   id: a[0][1],
   profilePictureUrl: a[2] == null ? '' : a[2],
   name: a[3],
   username: a[20],
+  profilePictureFallbackUrl: a[5],
+  // name: d[0],
+  secondaryName: a[20],
+  // normalizedNameForSearch: d[0],
+  isMemorialized: a[9],
+  blockedByViewerStatus: parseValue(a[11]),
+  canViewerMessage: a[12],
+  // profilePictureLargeUrl: '',
+  // isMessengerUser: !0,
+  // rank: 0,
+  contactType: parseValue(a[4]),
+  // contactTypeExact: c.i64.cast([0, 0]),
+  // requiresMultiway: !1,
+  authorityLevel: parseValue(a[14]),
+  // workForeignEntityType: c.i64.cast([0, 0]),
+  capabilities: parseValue(a[15]),
+  capabilities2: parseValue(a[16]),
+  contactViewerRelationship: parseValue(a[19]),
+  gender: parseValue(a[18]),
 })
 
 const parseParticipant = (a: RawItem): DBParticipantInsert => ({
@@ -348,7 +368,7 @@ const parseMap = {
   upsertMessage: parseMessage,
   upsertReaction: parseReaction,
   addParticipantIdToGroupThread: parseParticipant,
-  verifyContactRowExists: parseUser,
+  verifyContactRowExists: parseVerifyContactRowExistsItem,
   insertBlobAttachment: parseAttachment,
   insertXmaAttachment: parseInsertXmaAttachment,
   upsertSyncGroupThreadsRange: parseUpsertSyncGroupThreadsRange,
@@ -417,7 +437,7 @@ export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
   return {
     ...recursiveParse(j.step),
-    cursor: j.step[2][1][3]?.[5] as string,
+    cursor: j.step[2][1]?.[3]?.[5] as string,
   }
 }
 

@@ -1,10 +1,11 @@
-import { inArray } from 'drizzle-orm'
+import { asc, inArray } from 'drizzle-orm'
 import type { Participant, ThreadType } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
 import { IGThreadInDB, threads } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
+import * as schema from './schema'
 
 const logger = getLogger('helpers')
 
@@ -17,7 +18,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   with: {
     participants: {
       with: {
-        users: {
+        contacts: {
           columns: {
             id: true,
             name: true,
@@ -35,6 +36,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         timestampMs: true,
         senderId: true,
         message: true,
+        primarySortKey: true,
       },
       with: {
         attachments: {
@@ -46,8 +48,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      orderBy: (messages, { asc }) => asc(messages.timestampMs),
-
+      orderBy: asc(schema.messages.primarySortKey),
     },
   },
 }).map(t => {
@@ -59,12 +60,12 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
   const isUnread = thread?.lastActivityTimestampMs > thread?.lastReadWatermarkTimestampMs
   const participants: Participant[] = t.participants.map(p => ({
-    id: p.users.id,
-    username: p.users.username,
-    fullName: p.users.name,
-    imgURL: p.users.profilePictureUrl,
-    isSelf: p.users.id === fbid,
-    displayText: p.users.name,
+    id: p.contacts.id,
+    username: p.contacts.username,
+    fullName: p.contacts.name,
+    imgURL: p.contacts.profilePictureUrl,
+    isSelf: p.contacts.id === fbid,
+    displayText: p.contacts.name,
     hasExited: false,
   }))
 
