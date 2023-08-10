@@ -680,7 +680,7 @@ export default class InstagramAPI {
     this.logger.info('addAttachments', attachments)
     const a2 = attachments.filter(a => !Array.isArray(a.playableUrl))
     if (a2.length === 0) {
-      this.logger.error('addAttachments: no attachments to add', attachments)
+      this.logger.debug('addAttachments: no attachments to add', attachments)
       return
     }
     const attachmentsWithNoBool = a2.map(a => {

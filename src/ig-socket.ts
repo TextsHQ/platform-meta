@@ -737,6 +737,20 @@ export default class InstagramWebSocket {
     ].filter(user => user.type === 'user')
   }
 
+  async sendReadReceipt(threadKey: number, time: number) {
+    this.publishTask('send read receipt', {
+      label: '21',
+      payload: JSON.stringify({
+        thread_id: threadKey,
+        last_read_watermark_ts: time,
+        sync_group: 1,
+      }),
+      queue_name: threadKey.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+  }
+
   private getLastThreadReference() {
     return {
       ...this.papi.api.lastThreadReference,

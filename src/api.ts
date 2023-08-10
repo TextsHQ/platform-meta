@@ -307,6 +307,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
     this.logger.info('sendReadReceipt', { threadID, messageID, messageCursor })
+    this.socket.sendReadReceipt(Number(threadID), Date.now())
   }
 
   addReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, reactionKey)
