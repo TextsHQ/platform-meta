@@ -1,4 +1,4 @@
-import { asc, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import type { Participant, ThreadFolderName, ThreadType } from '@textshq/platform-sdk'
 
 import { InboxName } from '@textshq/platform-sdk/dist/enums'
@@ -6,7 +6,6 @@ import type { DrizzleDB } from './db'
 import { IGThreadInDB, threads } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
-import * as schema from './schema'
 
 const logger = getLogger('helpers')
 
@@ -54,7 +53,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      orderBy: asc(schema.messages.primarySortKey),
+      // orderBy: asc(schema.messages.primarySortKey), // this is not working sorting using javascript below
     },
   },
 }).map(t => {
@@ -101,7 +100,10 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       hasMore: false,
     },
     messages: {
-      items: mapMessages(t.messages, {
+      items: mapMessages(t.messages.sort((m1, m2) => {
+        if (m1.primarySortKey === m2.primarySortKey) return 0
+        return m1.primarySortKey > m2.primarySortKey ? 1 : -1
+      }), {
         fbid,
         participants: t.participants,
         threadType,
