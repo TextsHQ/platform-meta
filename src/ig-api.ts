@@ -303,6 +303,19 @@ export default class InstagramAPI {
       requestResolver(rawd)
     }
 
+    // verify ThreadExists. This check needs to happen before since if it doesn't exist, we need to call a different endpoint
+    // and return
+    if (rawd.verifyThreadExists) {
+      const thread = this.papi.db.query.threads.findFirst({
+        where: eq(schema.threads.threadKey, rawd.verifyThreadExists[0].threadKey!),
+      })
+      if (!thread) {
+        this.logger.info('thread does not exist, skipping payload and calling getThread')
+        this.papi.socket.getThread(rawd.verifyThreadExists[0].threadKey!)
+        return
+      }
+    }
+
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread.map(t => ({
@@ -310,7 +323,7 @@ export default class InstagramAPI {
         threadKey: t.threadKey!,
       }))
       const lastThread = threads?.length > 0 ? threads[threads.length - 1] : null
-      if (lastThread) {
+      if (lastThread && rawd.upsertSyncGroupThreadsRange?.length) {
         this.lastThreadReference = {
           reference_activity_timestamp: lastThread.lastActivityTimestampMs,
           reference_thread_key: lastThread.threadKey,
@@ -437,7 +450,7 @@ export default class InstagramAPI {
     // todo:
     // once all payloads are handled, we can emit server events and get data from the store
 
-    if (rawd.deleteThenInsertThread) { // can also check for deleteThenInsertThread
+    if (rawd.deleteThenInsertThread) {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
@@ -482,26 +495,6 @@ export default class InstagramAPI {
         this.papi.sendPromiseMap.delete(`messages-${threadID}`)
         resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
       }
-    } else if (rawd.insertMessage) {
-      // new message to send to the platform
-      const rawm = rawd.insertMessage.map(m => ({
-        ...m,
-        threadKey: m.threadKey!,
-        messageId: m.messageId!,
-        senderId: m.senderId!,
-      }))
-      await this.addMessages(rawm)
-      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
-      this.logger.info('insertMessage: queryMessages', messages)
-      if (messages?.length > 0) {
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: rawm[0].threadKey! },
-          mutationType: 'upsert',
-          entries: messages,
-        }])
-      }
     } else if (rawd.updateThreadMuteSetting) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -530,10 +523,33 @@ export default class InstagramAPI {
         }],
       }])
     }
+    if (rawd.insertMessage) {
+      // new message to send to the platform
+      const rawm = rawd.insertMessage.map(m => ({
+        ...m,
+        threadKey: m.threadKey!,
+        messageId: m.messageId!,
+        senderId: m.senderId!,
+      }))
+      await this.addMessages(rawm)
+      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
+      this.logger.info('insertMessage: queryMessages', messages)
+      if (messages?.length > 0) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: rawm[0].threadKey! },
+          mutationType: 'upsert',
+          entries: messages,
+        }])
+      }
+    }
+
     if (rawd.updateReadReceipt) {
       rawd.updateReadReceipt.forEach(async r => {
         if (!r.readActionTimestampMs) return
         const newestMessage = this.getNewestMessage(r.threadKey!)
+        this.logger.debug('updateReadReceipt: newestMessage', newestMessage)
         const messages = await queryMessages(this.papi.db, 'ALL', this.fbid, r.threadKey!)
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,

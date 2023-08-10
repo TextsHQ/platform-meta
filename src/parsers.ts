@@ -362,6 +362,10 @@ const parseDeleteReaction = (a: RawItem) => ({
   messageId: a[1],
   actorId: a[2][1],
 })
+
+const parseVerifyThreadExists = (a: RawItem) => ({
+  threadKey: a[0][1],
+})
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -383,6 +387,7 @@ const parseMap = {
   insertAttachmentItem: parseInsertAttachmentItem,
   insertAttachmentCta: parseInsertAttachmentCta,
   deleteReaction: parseDeleteReaction,
+  verifyThreadExists: parseVerifyThreadExists,
 } as const
 
 type ParseFunctions = typeof parseMap

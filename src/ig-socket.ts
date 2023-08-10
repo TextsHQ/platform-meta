@@ -708,6 +708,23 @@ export default class InstagramWebSocket {
     })
   }
 
+  async getThread(threadKey: string) {
+    this.publishTask('get new thread', {
+      label: '209',
+      payload: JSON.stringify({
+        thread_fbid: threadKey,
+        force_upsert: 0,
+        use_open_messenger_transport: 0,
+        sync_group: 1,
+        metadata_only: 0,
+        preview_only: 0,
+      }),
+      queue_name: threadKey.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+  }
+
   async deleteThread(thread_key: string) {
     await this.publishTask('delete thread', {
       label: '146',
