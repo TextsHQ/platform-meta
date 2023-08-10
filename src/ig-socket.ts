@@ -15,6 +15,7 @@ import {
 import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
+import { ParsedPayload } from './parsers'
 
 type IGSocketTask = {
   label: string
@@ -731,30 +732,31 @@ export default class InstagramWebSocket {
       thread_id: null,
     })
 
-    const [primary, secondary] = await Promise.all([this.publishTask<{
-      insertSearchResult: User[]
-    }>('search users primary', {
-      label: '30',
-      payload,
-      queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
-      task_id: this.genTaskId(),
-      failure_count: null,
-    }), this.publishTask<{
-      insertSearchResult: User[]
-    }>('search users secondary', {
-      label: '31',
-      payload,
-      queue_name: JSON.stringify(['search_secondary']),
-      task_id: this.genTaskId(),
-      failure_count: null,
-    })])
+    const [primary, secondary] = await Promise.all([
+      this.publishTask<{
+        insertSearchResult: ParsedPayload['insertSearchResult']
+      }>('search users primary', {
+        label: '30',
+        payload,
+        queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
+        task_id: this.genTaskId(),
+        failure_count: null,
+      }),
+      this.publishTask<{
+        insertSearchResult: ParsedPayload['insertSearchResult']
+      }>('search users secondary', {
+        label: '31',
+        payload,
+        queue_name: JSON.stringify(['search_secondary']),
+        task_id: this.genTaskId(),
+        failure_count: null,
+      })])
 
-    const users: User[] = [
+    const users = [
       ...(primary?.insertSearchResult ?? []),
       ...(secondary?.insertSearchResult ?? []),
-    ]
+    ].filter(user => user.type === 'user')
 
-    this.logger.info('searched users', { users })
     return users
   }
 
