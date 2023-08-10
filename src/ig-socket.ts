@@ -2,15 +2,16 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { InboxName, MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
+import { InboxName } from '@textshq/platform-sdk'
 import {
   createPromise,
+  genClientContext,
   getMqttSid,
+  getRetryTimeout,
   getTimeValues,
   parseMqttPacket,
   sleep,
-  getRetryTimeout,
-  genClientContext,
 } from './util'
 import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
@@ -550,15 +551,20 @@ export default class InstagramWebSocket {
     }>((resolve, reject) => {
       this.papi.sendPromiseMap.set(key, [resolve, reject])
     })
+
     this.publishTask(`get threads (${inbox})`, {
       label: '145',
       payload: JSON.stringify({
-        ...this.getLastThreadReference(),
+        ...(inbox === InboxName.NORMAL ? this.getLastThreadReference() : {
+          reference_thread_key: 0,
+          reference_activity_timestamp: 9999999999999,
+        }),
         is_after: 0,
-        parent_thread_key: 0,
+        parent_thread_key: inbox === InboxName.NORMAL ? 0 : -1,
         additional_pages_to_fetch: 0,
         messaging_tag: null,
         sync_group: 1,
+        cursor: this.papi.api.cursor,
       }),
       queue_name: 'trq',
       task_id: this.genTaskId(),
