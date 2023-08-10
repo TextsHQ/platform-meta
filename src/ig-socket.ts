@@ -737,15 +737,15 @@ export default class InstagramWebSocket {
     ].filter(user => user.type === 'user')
   }
 
-  async sendReadReceipt(threadKey: number, time: number) {
-    this.publishTask('send read receipt', {
+  async sendReadReceipt(thread_id: string, last_read_watermark_ts: number) {
+    await this.publishTask('send read receipt', {
       label: '21',
       payload: JSON.stringify({
-        thread_id: threadKey,
-        last_read_watermark_ts: time,
+        thread_id,
+        last_read_watermark_ts,
         sync_group: 1,
       }),
-      queue_name: threadKey.toString(),
+      queue_name: thread_id,
       task_id: this.genTaskId(),
       failure_count: null,
     })

@@ -303,12 +303,9 @@ export default class PlatformInstagram implements PlatformAPI {
     return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }
 
-  deleteMessage = (threadID: string, messageID: string, forEveryone?: boolean) => this.socket?.unsendMessage(messageID)
+  deleteMessage = (threadID: string, messageID: string, forEveryone?: boolean) => this.socket.unsendMessage(messageID)
 
-  sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
-    this.logger.info('sendReadReceipt', { threadID, messageID, messageCursor })
-    this.socket.sendReadReceipt(Number(threadID), Date.now())
-  }
+  sendReadReceipt = (threadID: string, messageID: string, messageCursor?: string) => this.socket.sendReadReceipt(threadID, Date.now())
 
   addReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, reactionKey)
 
