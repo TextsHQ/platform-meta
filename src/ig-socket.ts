@@ -313,7 +313,7 @@ export default class InstagramWebSocket {
     return this.publishTask('load more messages', {
       label: '228',
       payload: JSON.stringify({
-        thread_key: Number(threadId),
+        thread_key: threadId,
         direction: 0,
         reference_timestamp_ms: Number(lastMessage.sentTs),
         reference_message_id: lastMessage.messageId,
@@ -355,9 +355,7 @@ export default class InstagramWebSocket {
 
   async sendMessage(threadID: string, { text }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
     const { otid, timestamp, now } = getTimeValues()
-    // initiating_source: 1,
-    //     skip_url_preview_gen: 0,
-    //     text_has_links: 0,
+
     const reply_metadata = quotedMessageID && {
       reply_source_id: quotedMessageID,
       reply_source_type: 1,
@@ -540,7 +538,7 @@ export default class InstagramWebSocket {
     this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
-        thread_key: Number(threadID),
+        thread_key: threadID,
         direction: 0,
         reference_timestamp_ms: Number(lastMessage.timestampMs.getTime()),
         reference_message_id: lastMessage.messageId,
