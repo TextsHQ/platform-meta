@@ -604,7 +604,7 @@ export default class InstagramAPI {
     this.logger.info('addThreads', threads)
 
     const threadsWithNoBool = threads.map(t => {
-      const { raw, threadKey, ...thread } = t
+      const { raw, threadKey, lastActivityTimestampMs, ...thread } = t
 
       // @TODO: parsers should handle this before we come here
       for (const key in thread) {
@@ -616,6 +616,7 @@ export default class InstagramAPI {
       return {
         raw,
         threadKey,
+        lastActivityTimestampMs: new Date(lastActivityTimestampMs),
         thread: JSON.stringify(thread),
       } as const
     })

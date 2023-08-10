@@ -3,12 +3,13 @@ import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
-export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey'>
+export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
 
 export const threads = sqliteTable('threads', {
   threadKey: text('threadKey').notNull().primaryKey(),
   // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
   thread: text('thread'),
+  lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
   raw: text('raw'),
 })
 

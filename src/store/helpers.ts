@@ -12,9 +12,11 @@ const logger = getLogger('helpers')
 export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
   columns: {
+    lastActivityTimestampMs: true,
     threadKey: true,
     thread: true,
   },
+  orderBy: [asc(threads.lastActivityTimestampMs)],
   with: {
     participants: {
       columns: {
@@ -63,7 +65,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     tParsed: JSON.parse(t.thread),
   })
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
-  const isUnread = thread?.lastActivityTimestampMs > thread?.lastReadWatermarkTimestampMs
+  const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
   const participants: Participant[] = t.participants.map(p => ({
     id: p.contacts.id,
     username: p.contacts.username,

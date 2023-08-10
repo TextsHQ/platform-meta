@@ -1,5 +1,4 @@
 import type { Message } from '@textshq/platform-sdk'
-import { stringify } from 'querystring'
 
 export type IGThread = {
   raw: string
