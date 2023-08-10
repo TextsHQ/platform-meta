@@ -17,6 +17,11 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   },
   with: {
     participants: {
+      columns: {
+        userId: true,
+        isAdmin: true,
+        readWatermarkTimestampMs: true,
+      },
       with: {
         contacts: {
           columns: {
@@ -67,6 +72,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     isSelf: p.contacts.id === fbid,
     displayText: p.contacts.name,
     hasExited: false,
+    isAdmin: Boolean(p.isAdmin),
   }))
 
   const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'

@@ -1,5 +1,5 @@
 import { AttachmentType, type Participant, type Thread } from '@textshq/platform-sdk'
-import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
+import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -41,7 +41,7 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
 
 export type MapMessageCommonOptions = {
   users: Participant[] // naming seems wrong but maps to how ig client stores it
-  participants: DBParticipantInsert[]
+  participants: DBParticipantSelect[]
   fbid: string
   threadType: Thread['type']
 }

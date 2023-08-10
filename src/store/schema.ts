@@ -111,6 +111,10 @@ export const threadsRelation = relations(threads, ({ many }) => ({
   participants: many(participants),
 }))
 
+export type DBContactSelect = InferModel<typeof contacts, 'select'>
+export type DBParticipantSelect = Pick<InferModel<typeof participants, 'select'>, 'userId' | 'isAdmin' | 'readWatermarkTimestampMs'> & {
+  contacts: Pick<DBContactSelect, 'id' | 'name' | 'username' | 'profilePictureUrl'>
+}
 export type DBParticipantInsert = InferModel<typeof participants, 'insert'>
 
 export const reactions = sqliteTable('reactions', {
