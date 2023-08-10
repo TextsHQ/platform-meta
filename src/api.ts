@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ActivityType, AttachmentType, ReAuthError, texts } from '@textshq/platform-sdk'
-import type { ClientContext, CurrentUser, LoginCreds, LoginResult, Message, MessageContent, MessageSendOptions, OnServerEventCallback, PaginationArg, PlatformAPI, ServerEvent, Thread, User } from '@textshq/platform-sdk'
+import type { ClientContext, CurrentUser, LoginCreds, LoginResult, Message, MessageContent, MessageSendOptions, OnServerEventCallback, ThreadID, MessageID, PaginationArg, PlatformAPI, ServerEvent, Thread, User } from '@textshq/platform-sdk'
+import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import url from 'url'
+import { eq } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -11,7 +12,8 @@ import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { queryThreads, queryMessages } from './store/helpers'
+import { queryMessages, queryThreads } from './store/helpers'
+import * as schema from './store/schema'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -118,12 +120,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   searchUsers = (typed: string) => this.socket.searchUsers(typed)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
-    this.logger.info('getThreads, pagination is', { pagination, _folderName })
+    const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
+    this.logger.info('getThreads', { folderName, pagination })
     if (pagination) {
-      this.logger.info('getThreads, connecting to socket with ', { pagination })
-      const { threads, hasMoreBefore } = await this.socket.getThreads() as any
+      const { threads, hasMoreBefore } = await this.socket.fetchThreads(folderName)
       return {
         items: threads,
         hasMore: hasMoreBefore,
@@ -131,7 +132,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
     }
 
-    const threads = await queryThreads(this.db, 'ALL', this.api.fbid)
+    const threads = await queryThreads(this.db, 'ALL', this.api.fbid, folderName)
     this.logger.info('getThreads, returning threads from db', threads)
     const { hasMoreBefore } = this.api.lastThreadReference
     return {
@@ -161,22 +162,10 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  // getThread = async (threadID: string): PAPIReturn<'getThread'> => {
-  //   const [thread] = this.db.select().from(schema.threads).where(eq(schema.threads.id, threadID)).all()
-  //   if (!thread) return null
-
-  //   // @TODO: this could be a join and also needs to be paginated
-  //   const messages = await this.getMessages(threadID, {
-  //     cursor: null,
-  //     direction: 'after',
-  //   })
-
-  //   return {
-  //     ...thread,
-  //     messages,
-  //     participants: null,
-  //   }
-  // }
+  getThread = async (threadID: string): PAPIReturn<'getThread'> => {
+    const t = await queryThreads(this.db, [threadID], this.api.fbid, null)
+    return t[0]
+  }
 
   // getMessage = (threadID: ThreadID, messageID: MessageID) => {
   //   const [message] = this.db.select().from(schema.messages)
@@ -316,4 +305,25 @@ export default class PlatformInstagram implements PlatformAPI {
   removeParticipant = (threadID: string, participantID: string) => this.socket.removeParticipant(threadID, participantID)
 
   changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.socket.changeAdminStatus(threadID, participantID, role === 'admin')
+
+  getOriginalObject = (objName: 'thread' | 'message', objectID: ThreadID | MessageID) => {
+    if (objName === 'thread') {
+      const thread = this.db.query.threads.findFirst({
+        where: eq(schema.threads.threadKey, objectID),
+      })
+      return JSON.stringify({
+        t: thread.thread,
+        r: thread.raw,
+      })
+    }
+    if (objName === 'message') {
+      const message = this.db.query.messages.findFirst({
+        where: eq(schema.messages.messageId, objectID),
+      })
+      return JSON.stringify({
+        m: message.message,
+        r: message.raw,
+      })
+    }
+  }
 }

@@ -1,6 +1,6 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { texts, type FetchOptions, type User, MessageSendOptions } from '@textshq/platform-sdk'
+import { texts, type FetchOptions, type User, MessageSendOptions, InboxName } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
@@ -480,11 +480,14 @@ export default class InstagramAPI {
         mutationType: 'upsert',
         entries: threads,
       }])
-      if (this.papi.sendPromiseMap.has('threads')) {
-        const [resolve] = this.papi.sendPromiseMap.get('threads')
-        this.logger.info('resolve threads')
-        this.papi.sendPromiseMap.delete('threads')
-        resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
+      const keys = [`threads-${InboxName.NORMAL}`, `threads-${InboxName.REQUESTS}`] as const
+      for (const key of keys) {
+        if (this.papi.sendPromiseMap.has(key)) {
+          const [resolve] = this.papi.sendPromiseMap.get(key)
+          this.logger.info('resolve threads')
+          this.papi.sendPromiseMap.delete(key)
+          resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
+        }
       }
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform since the user scrolled up in the thread

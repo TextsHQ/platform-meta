@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
+import type { InboxName, MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
 import {
   createPromise,
   getMqttSid,
@@ -535,16 +535,22 @@ export default class InstagramWebSocket {
     return sendPromise
   }
 
-  getThreads() {
-    if (this.papi.sendPromiseMap.has('threads')) {
-      this.logger.error('already fetching threads')
-      return Promise.reject(new Error('already fetching threads'))
+  fetchThreads(inbox: InboxName.NORMAL | InboxName.REQUESTS) {
+    const key = `threads-${inbox}`
+    if (this.papi.sendPromiseMap.has(key)) {
+      return this.papi.sendPromiseMap.get(key) as unknown as Promise<{
+        threads: Thread[]
+        hasMoreBefore: boolean
+      }>
     }
 
-    const sendPromise = new Promise((resolve, reject) => {
-      this.papi.sendPromiseMap.set('threads', [resolve, reject])
+    const sendPromise = new Promise<{
+      threads: Thread[]
+      hasMoreBefore: boolean
+    }>((resolve, reject) => {
+      this.papi.sendPromiseMap.set(key, [resolve, reject])
     })
-    this.publishTask('get threads', {
+    this.publishTask(`get threads (${inbox})`, {
       label: '145',
       payload: JSON.stringify({
         ...this.getLastThreadReference(),

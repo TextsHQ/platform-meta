@@ -1,6 +1,6 @@
 import type { DBParticipantInsert } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS, getAsNumber, getAsString, getInboxName, parseValue } from './util'
+import { getAsDate, getAsMS, getAsNumber, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
 import { IGContact } from './ig-types'
 
 type RawItem = string[]
@@ -13,7 +13,7 @@ const parseThread = (a: RawItem) => {
     lastReadWatermarkTimestampMs: getAsMS(a[1][1]),
     // threadType: a[9][1] === '1' ? 'single' : 'group',
     threadType: a[9][1],
-    folderName: getInboxName(parseValue<string>(a[10])),
+    folderName: getInboxNameFromIGFolder(parseValue<string>(a[10])),
     parentThreadKey: a[35][1],
     lastActivityTimestampMs: getAsMS(a[0][1]),
     snippet: a[2],

@@ -1,17 +1,18 @@
 import { asc, inArray } from 'drizzle-orm'
 import type { Participant, ThreadType } from '@textshq/platform-sdk'
+import { InboxName } from '@textshq/platform-sdk'
 
 import type { DrizzleDB } from './db'
-import { IGThreadInDB, threads, messages } from './schema'
+import { IGThreadInDB, messages, threads } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
-import { getInboxName } from '../util'
 
 const logger = getLogger('helpers')
 
-export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string) => db.query.threads.findMany({
+export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
   columns: {
+    folderName: true,
     lastActivityTimestampMs: true,
     threadKey: true,
     thread: true,
@@ -89,10 +90,10 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   // }
   // logger.debug(`mutedUntil: ${mutedUntil}`)
   return {
-    id: t.threadKey,
+    id: t.threadKey as string,
     title: threadType === 'group' && thread?.threadName,
     isUnread,
-    folderType: getInboxName(thread?.folderName),
+    folderType: t.folderName,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
@@ -113,7 +114,10 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       }),
       hasMore: false,
     },
-  }
+  } as const
+}).filter(t => {
+  if (inbox === null) return true
+  return t.folderType === inbox
 })
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string, threadKey: string) => {

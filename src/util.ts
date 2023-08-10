@@ -112,4 +112,4 @@ export function getOriginalURL(linkURL: string) {
   return u[0]
 }
 
-export const getInboxName = (folder: string) => (folder === 'inbox' ? InboxName.NORMAL : InboxName.REQUESTS)
+export const getInboxNameFromIGFolder = (folder: string) => (folder === 'inbox' ? InboxName.NORMAL : InboxName.REQUESTS)
