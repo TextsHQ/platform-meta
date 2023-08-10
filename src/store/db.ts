@@ -71,7 +71,7 @@ const getDB = async (accountID: string, dataDirPath: string, cleanStart = false)
     schema,
     logger: {
       logQuery: (query, params) => {
-        logger.info(query, { params }) // @TODO: maybe debug on prod?
+        logger.debug(query, { params })
       },
     },
   })
