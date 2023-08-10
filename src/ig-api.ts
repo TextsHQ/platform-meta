@@ -13,7 +13,7 @@ import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGAttachment, IGMessage, IGParsedViewerConfig, IGThread, IGReadReceipt } from './ig-types'
+import type { IGMessage, IGParsedViewerConfig, IGThread, IGReadReceipt } from './ig-types'
 import { getOriginalURL } from './util'
 
 const fixUrl = (url: string) =>
@@ -63,10 +63,7 @@ export default class InstagramAPI {
     hasMoreBefore: boolean
   }
 
-  // messagesHasMoreBefore: {
-  //   [threadID: string]: boolean
-  // }
-  messagesHasMoreBefore: Record<string, boolean> = {}
+  messagesHasMoreBefore: Map<string, boolean> = new Map()
 
   private readonly http = texts.createHttpClient()
 
@@ -349,25 +346,27 @@ export default class InstagramAPI {
       }
     }
 
-    if (rawd.upsertReaction) {
-      await this.addReactions(rawd.upsertReaction)
+    if (rawd.upsertReaction) await this.addReactions(rawd.upsertReaction)
+
+    if (rawd.insertBlobAttachment?.length > 0 || rawd.insertXmaAttachment?.length > 0) {
+      const attachments = [
+        ...(rawd.insertBlobAttachment || []),
+        ...(rawd.insertXmaAttachment || []),
+      ]
+      if (attachments.length > 0) {
+        await this.upsertAttachments(attachments)
+      }
     }
 
-    if (rawd.insertBlobAttachment) {
-      await this.addAttachments(rawd.insertBlobAttachment)
-    }
-    if (rawd.insertXmaAttachment) {
-      await this.addAttachments(rawd.insertXmaAttachment)
-    }
-    if (rawd.updateReadReceipt) {
-      this.updateReadReceipt(rawd.updateReadReceipt)
-    }
+    if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
+
     if (rawd.insertNewMessageRange) {
-      rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
+      rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore.set(r.threadKey!, r.hasMoreBefore) })
     }
+
     if (rawd.updateExistingMessageRange) {
       rawd.updateExistingMessageRange.forEach(r => {
-        this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore
+        this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
 
         // resolve all promises in promise map for this thread
         if (this.papi.sendPromiseMap.has(`messages-${r.threadKey!}`)) {
@@ -692,14 +691,9 @@ export default class InstagramAPI {
       .run()
   }
 
-  addAttachments(attachments: Partial<IGAttachment>[]) {
-    this.logger.info('addAttachments', attachments)
-    const a2 = attachments.filter(a => !Array.isArray(a.playableUrl))
-    if (a2.length === 0) {
-      this.logger.debug('addAttachments: no attachments to add', attachments)
-      return
-    }
-    const attachmentsWithNoBool = a2.map(a => {
+  upsertAttachments(_attachments: ParsedPayload['insertBlobAttachment'] | ParsedPayload['insertXmaAttachment']) {
+    this.logger.info('upsertAttachments', _attachments)
+    const attachments = _attachments.filter(a => !Array.isArray(a.playableUrl)).map(a => {
       const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
 
       // @TODO: parsers should handle this before we come here
@@ -717,13 +711,19 @@ export default class InstagramAPI {
         timestampMs: new Date(timestampMs),
         offlineAttachmentId,
         attachment: JSON.stringify(attachment),
-      }
+      } as const
     })
-    this.logger.info('addAttachments (attachmentsWithNoBool)', attachmentsWithNoBool)
+
+    if (attachments.length === 0) {
+      this.logger.debug('upsertAttachments: no attachments to add', _attachments)
+      return
+    }
+
+    this.logger.info('upsertAttachments', attachments)
 
     return this.papi.db
       .insert(schema.attachments)
-      .values(attachmentsWithNoBool)
+      .values(attachments)
       .onConflictDoNothing()
       .run()
   }
