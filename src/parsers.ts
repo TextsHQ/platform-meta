@@ -415,3 +415,5 @@ export function parseRawPayload(payload: string) {
     cursor: j.step[2][1][3][5] as string,
   }
 }
+
+export type ParsedPayload = ReturnType<typeof parseRawPayload>

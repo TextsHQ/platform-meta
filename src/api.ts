@@ -123,6 +123,7 @@ export default class PlatformInstagram implements PlatformAPI {
   getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     this.logger.info('getThreads, pagination is', pagination)
     if (pagination) {
+      this.logger.info('getThreads, connecting to socket with ', { pagination })
       const { threads, hasMoreBefore } = await this.socket.getThreads() as any
       return {
         items: threads,
@@ -132,7 +133,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
 
     const threads = await queryThreads(this.db, 'ALL', this.api.fbid)
-    this.logger.info('getThreads, returning threads', threads)
+    this.logger.info('getThreads, returning threads from db', threads)
     const { hasMoreBefore } = this.api.lastThreadReference
     return {
       items: threads,
@@ -146,7 +147,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const hmb = this.api.messagesHasMoreBefore[threadID]
     this.logger.info(`getMessages, messagesHasMoreBefore is  ${this.api.messagesHasMoreBefore[threadID]}`)
     if (hmb) {
-      this.logger.info('getMessages, fetching new messages')
+      this.logger.info('getMessages, fetching new messages from socket')
       const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
       this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
       return {

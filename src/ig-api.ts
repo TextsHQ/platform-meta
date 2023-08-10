@@ -8,7 +8,7 @@ import { queryMessages, queryThreads } from './store/helpers'
 
 // import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
-import { parseRawPayload } from './parsers'
+import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
@@ -285,14 +285,19 @@ export default class InstagramAPI {
   }
 
   async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver) {
-    let rawd: ReturnType<typeof parseRawPayload>
+    let rawd: ParsedPayload
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
-      this.logger.info('ig-api handlePayload error', err)
+      console.error(err)
+      this.logger.error('ig-api handlePayload error', { err, errString: err.toString(), payload })
       return
     }
-    this.logger.info('ig-api handlePayload', rawd)
+    this.logger.debug('ig-api handlePayload', {
+      requestId,
+      requestType,
+      rawd,
+    })
 
     if (requestId && requestType) {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
@@ -317,16 +322,9 @@ export default class InstagramAPI {
       await this.addThreads(threads)
     }
 
-    if (rawd.verifyContactRowExists) this.addUsers(rawd.verifyContactRowExists)
+    if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
 
-    if (rawd.addParticipantIdToGroupThread) {
-      const participants = rawd.addParticipantIdToGroupThread.map(p => ({
-        ...p,
-        threadKey: p.threadKey!,
-        userId: p.userId!,
-      }))
-      await this.addParticipants(participants)
-    }
+    if (rawd.addParticipantIdToGroupThread) await this.addParticipantIdToGroupThread(rawd.addParticipantIdToGroupThread)
 
     if (rawd.upsertMessage) {
       const messages = rawd.upsertMessage.map(m => ({
@@ -570,13 +568,13 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
   }
 
-  addUsers(users: InferModel<typeof schema['users'], 'insert'>[]) {
-    this.logger.info('addUsers', users)
+  verifyContactRowExists(users: ParsedPayload['verifyContactRowExists']) {
+    this.logger.debug('verifyContactRowExists', users)
     return this.papi.db.insert(schema.users).values(users).onConflictDoNothing().run()
   }
 
-  addParticipants(participants: InferModel<typeof schema['participants'], 'insert'>[]) {
-    this.logger.info('addParticipants', participants)
+  addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
+    this.logger.info('addParticipantIdToGroupThread', participants)
     return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
