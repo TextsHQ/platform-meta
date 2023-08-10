@@ -443,6 +443,22 @@ export default class InstagramAPI {
       })
     }
 
+    if (rawd.deleteMessage) {
+      rawd.deleteMessage.forEach(r => {
+        this.papi.db.delete(schema.messages).where(and(
+          eq(schema.messages.threadKey, r.threadKey),
+          eq(schema.messages.messageId, r.messageId),
+        )).run()
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: r.threadKey!, messageID: r.messageId! },
+          mutationType: 'delete',
+          entries: [r.messageId!],
+        }])
+      })
+    }
+
     if (rawd.cursor) {
       this.cursor = rawd.cursor
     }
