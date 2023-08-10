@@ -92,7 +92,6 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
     parseTemplate: isAction,
     extra: message.extra,
     // sortKey: m.primarySortKey || message.secondarySortKey,
-    sortKey: m.timestampMs?.getTime(),
   }
 }
 
