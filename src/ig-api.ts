@@ -285,6 +285,7 @@ export default class InstagramAPI {
 
   async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver) {
     let rawd: ParsedPayload
+    this.logger.info('ig-api handlePayload raw payload', payload)
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
@@ -372,6 +373,19 @@ export default class InstagramAPI {
     }
     if (rawd.insertNewMessageRange) {
       rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore })
+    }
+    if (rawd.updateExistingMessageRange) {
+      rawd.updateExistingMessageRange.forEach(r => {
+        this.messagesHasMoreBefore[r.threadKey!] = r.hasMoreBefore
+
+        // resolve all promises in promise map for this thread
+        if (this.papi.sendPromiseMap.has(`messages-${r.threadKey!}`)) {
+          const [resolve] = this.papi.sendPromiseMap.get(`messages-${r.threadKey!}`)
+          this.logger.info(`resolving messages-${r.threadKey!}`)
+          this.papi.sendPromiseMap.delete(`messages-${r.threadKey!}`)
+          resolve({ messages: [], hasMoreBefore: r.hasMoreBefore })
+        }
+      })
     }
     if (rawd.insertAttachmentCta) {
       // query the attachment in the database

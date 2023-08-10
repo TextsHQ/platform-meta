@@ -371,6 +371,13 @@ const parseDeleteMessage = (a: RawItem) => ({
   threadKey: a[0][1],
   messageId: a[1],
 })
+
+const parseUpdateExistingMessageRange = (a: RawItem) => ({
+  threadKey: a[0][1],
+  maxTimestampMs: getAsMS(a[1][1]),
+  hasMoreBefore: Boolean(a[3]),
+  hasMoreAfter: Boolean(a[4]),
+})
 const parseMap = {
   deleteThenInsertThread: parseThread,
   upsertMessage: parseMessage,
@@ -394,6 +401,7 @@ const parseMap = {
   deleteReaction: parseDeleteReaction,
   verifyThreadExists: parseVerifyThreadExists,
   deleteMessage: parseDeleteMessage,
+  updateExistingMessageRange: parseUpdateExistingMessageRange,
 } as const
 
 type ParseFunctions = typeof parseMap

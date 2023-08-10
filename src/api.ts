@@ -143,9 +143,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const hmb = this.api.messagesHasMoreBefore[threadID]
     this.logger.info(`getMessages, messagesHasMoreBefore is  ${this.api.messagesHasMoreBefore[threadID]}`)
-    if (hmb) {
+    if (this.api.messagesHasMoreBefore[threadID]) {
       this.logger.info('getMessages, fetching new messages from socket')
       const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID) as any
       this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
@@ -157,7 +156,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const messages = await queryMessages(this.db, 'ALL', this.api.fbid, threadID)
     return {
       items: messages,
-      hasMore: false,
+      hasMore: this.api.messagesHasMoreBefore[threadID],
     }
   }
 
