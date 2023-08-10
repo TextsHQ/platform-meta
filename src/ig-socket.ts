@@ -307,25 +307,7 @@ export default class InstagramWebSocket {
     const [requestType, requestResolver] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
     await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver)
   }
-
-  loadMoreMessages(threadId: string, lastMessage?: { sentTs: string, messageId: string }) {
-    if (!threadId || !lastMessage) throw new Error('threadId, lastMessage is required')
-    return this.publishTask('load more messages', {
-      label: '228',
-      payload: JSON.stringify({
-        thread_key: threadId,
-        direction: 0,
-        reference_timestamp_ms: Number(lastMessage.sentTs),
-        reference_message_id: lastMessage.messageId,
-        sync_group: 1,
-        cursor: this.papi.api.cursor,
-      }),
-      queue_name: `mrq.${threadId}`,
-      task_id: this.genTaskId(),
-      failure_count: null,
-    })
-  }
-
+  
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
     const { promise, request_id } = this.createRequest('sendTypingIndicator')
     this.logger.info(`sending typing indicator ${threadID}`)
