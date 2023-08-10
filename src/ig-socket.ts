@@ -3,7 +3,15 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { MessageContent, MessageSendOptions, User } from '@textshq/platform-sdk'
-import { createPromise, getMqttSid, getTimeValues, parseMqttPacket, sleep, getRetryTimeout } from './util'
+import {
+  createPromise,
+  getMqttSid,
+  getTimeValues,
+  parseMqttPacket,
+  sleep,
+  getRetryTimeout,
+  genClientContext,
+} from './util'
 import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
@@ -461,6 +469,42 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
+  }
+
+  async createThread(userId: string) {
+    const response = await this.publishTask('create thread', {
+      label: '209',
+      payload: JSON.stringify({
+        // thread_fbid: BigInt(userId),
+        thread_fbid: userId,
+      }),
+      queue_name: userId,
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    this.logger.info('create thread response', response)
+  }
+
+  async createGroupThread(userIds: string[]) {
+    const { otid } = getTimeValues()
+    const thread_id = genClientContext()
+    const response = await this.publishTask('create group thread', {
+      label: '130',
+      payload: JSON.stringify({
+        participants: userIds.map(id => Number(id)),
+        send_payload: {
+          thread_id,
+          otid: otid.toString(),
+          source: 0,
+          send_type: 8,
+        },
+      }),
+      queue_name: thread_id.toString(),
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+    this.logger.info('create group thread response', response)
+    return thread_id
   }
 
   private lastTaskId = 0

@@ -467,13 +467,15 @@ export default class InstagramAPI {
       const threadID = rawd.insertNewMessageRange[0].threadKey
       this.logger.info('thread id in ig-papi is', threadID)
 
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: threadID! },
-        mutationType: 'upsert',
-        entries: messages,
-      }])
+      if (messages?.length > 0) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: threadID! },
+          mutationType: 'upsert',
+          entries: messages,
+        }])
+      }
 
       if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
         const [resolve] = this.papi.sendPromiseMap.get(`messages-${threadID}`)
@@ -492,13 +494,15 @@ export default class InstagramAPI {
       await this.addMessages(rawm)
       const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
       this.logger.info('insertMessage: queryMessages', messages)
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: rawm[0].threadKey! },
-        mutationType: 'upsert',
-        entries: messages,
-      }])
+      if (messages?.length > 0) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: rawm[0].threadKey! },
+          mutationType: 'upsert',
+          entries: messages,
+        }])
+      }
     } else if (rawd.updateThreadMuteSetting) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
