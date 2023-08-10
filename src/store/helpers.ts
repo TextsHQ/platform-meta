@@ -46,6 +46,8 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
+      orderBy: (messages, { asc }) => asc(messages.timestampMs),
+
     },
   },
 }).map(t => {
