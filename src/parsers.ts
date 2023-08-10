@@ -412,7 +412,7 @@ export function parseRawPayload(payload: string) {
   const j = JSON.parse(payload)
   return {
     ...recursiveParse(j.step),
-    cursor: j.step[2][1][3][5] as string,
+    cursor: j.step[2][1][3]?.[5] as string,
   }
 }
 

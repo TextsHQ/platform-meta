@@ -105,8 +105,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string, threadKey: string) => {
   logger.debug('queryMessages', messageIds)
   const thread = await queryThreads(db, [threadKey], fbid)
+  if (thread?.length === 0) return []
   const { messages: newMessages } = thread[0]
   return newMessages.items.filter(m => messageIds === 'ALL' || messageIds.includes(m.id))
 }
-
-export const FOREVER = 4117219200000 // 2100-06-21T00:00:00.000Z

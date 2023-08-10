@@ -1,12 +1,11 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import { texts, type FetchOptions, type User } from '@textshq/platform-sdk'
-import { asc, desc, eq, and, type InferModel } from 'drizzle-orm'
+import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import { queryMessages, queryThreads } from './store/helpers'
 
-// import { ServerEventType } from '@textshq/platform-sdk'
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
@@ -459,8 +458,8 @@ export default class InstagramAPI {
       }
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform since the user scrolled up in the thread
-      const newMessageIds = rawd.upsertMessage.map(m => m.messageId)
-      const messages = await queryMessages(this.papi.db, newMessageIds, this.fbid, rawd.insertNewMessageRange[0].threadKey!)
+      const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
+      const messages = newMessageIds.length > 0 ? await queryMessages(this.papi.db, newMessageIds, this.fbid, rawd.insertNewMessageRange[0].threadKey!) : []
 
       this.logger.info('new messages are', messages)
       this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
@@ -545,6 +544,28 @@ export default class InstagramAPI {
         }])
       })
     }
+
+    if (
+      rawd.verifyContactRowExists?.length === 1
+        && rawd.insertNewMessageRange?.length === 1
+    ) {
+      const { threadKey } = rawd.insertNewMessageRange[0]
+      const [contact] = rawd.verifyContactRowExists
+      if (threadKey === contact.id) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectIDs: { threadID: threadKey! },
+          objectName: 'participant',
+          mutationType: 'upsert',
+          entries: [{
+            id: threadKey!,
+            fullName: contact.name,
+            username: contact.username,
+            imgURL: contact.profilePictureUrl,
+          }],
+        }])
+      }
+    }
   }
 
   addThreads(threads: IGThread[]) {
@@ -572,9 +593,9 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
   }
 
-  verifyContactRowExists(users: ParsedPayload['verifyContactRowExists']) {
-    this.logger.debug('verifyContactRowExists', users)
-    return this.papi.db.insert(schema.users).values(users).onConflictDoNothing().run()
+  verifyContactRowExists(contacts: ParsedPayload['verifyContactRowExists']) {
+    this.logger.debug('verifyContactRowExists', contacts)
+    return this.papi.db.insert(schema.users).values(contacts).onConflictDoNothing().run()
   }
 
   addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
@@ -677,6 +698,32 @@ export default class InstagramAPI {
           eq(schema.participants.threadKey, r.threadKey),
           eq(schema.participants.userId, r.contactId),
         )).run()
+    })
+  }
+
+  getUser(userId: string) {
+    return this.papi.db
+      .select({
+        id: schema.users.id,
+        profilePictureUrl: schema.users.profilePictureUrl,
+        name: schema.users.name,
+        username: schema.users.username,
+      })
+      .from(schema.users)
+      .limit(1)
+      .where(eq(schema.users.id, userId))
+      .get()
+  }
+
+  getUsers(userIds: string[]) {
+    return this.papi.db.query.users.findMany({
+      columns: {
+        id: true,
+        profilePictureUrl: true,
+        name: true,
+        username: true,
+      },
+      where: inArray(schema.users.id, userIds),
     })
   }
 

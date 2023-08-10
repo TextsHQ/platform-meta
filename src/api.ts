@@ -11,7 +11,6 @@ import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import { queryThreads, queryMessages } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
@@ -206,7 +205,46 @@ export default class PlatformInstagram implements PlatformAPI {
       title,
       messageText,
     })
-    await this.socket.sendMessage(userIDs[0], { text: 'test' }, { pendingMessageID: 'test' })
+    if (userIDs.length === 1) {
+      const [userID] = userIDs
+      const user = this.api.getUser(userID)
+      await this.socket.createThread(userID)
+
+      return {
+        id: userID,
+        title: user?.name,
+        imgURL: user?.profilePictureUrl,
+        isUnread: false,
+        isReadOnly: false,
+        messages: {
+          items: [],
+          hasMore: false,
+        },
+        participants: {
+          items: [{
+            id: userID,
+            fullName: user?.name,
+            imgURL: user?.profilePictureUrl,
+            username: user?.username,
+          }],
+          hasMore: false,
+        },
+        timestamp: new Date(),
+        type: 'single' as const,
+      }
+    }
+
+    const resp = await this.socket.createGroupThread(userIDs)
+    const users = this.api.getUsers(userIDs)
+    /// compare with userIDs to see if all users were found
+    const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
+    // await this.socket.sendMessage(userIDs[0], { text: 'test' }, { pendingMessageID: 'test' })
+
+    this.logger.debug('createThread', {
+      users,
+      missingUserIDs,
+      resp,
+    })
     throw new Error('Method not implemented.')
   }
 

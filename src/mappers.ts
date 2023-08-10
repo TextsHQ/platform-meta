@@ -1,4 +1,4 @@
-import { AttachmentType, MessageLink, Participant, Thread } from '@textshq/platform-sdk'
+import { AttachmentType, type Participant, type Thread } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {

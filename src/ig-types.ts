@@ -1,4 +1,4 @@
-import { Message } from '@textshq/platform-sdk'
+import type { Message } from '@textshq/platform-sdk'
 
 export type IGThread = {
   raw: string
