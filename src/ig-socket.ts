@@ -530,7 +530,7 @@ export default class InstagramWebSocket {
     })
     const lastMessage = this.papi.api.getOldestMessage(threadID)
     this.logger.info('fetchMessages', { threadID, lastMessage })
-    await this.publishTask('fetch messages', {
+    this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: Number(threadID),
