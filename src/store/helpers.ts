@@ -78,6 +78,13 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     isAdmin: Boolean(p.isAdmin),
   }))
 
+  const otherParticipant = participants.findIndex(p => !p.isSelf)
+  if (otherParticipant !== 0) {
+    const item = participants[otherParticipant]
+    participants.splice(otherParticipant, 1)
+    participants.unshift(item)
+  }
+
   const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
 
   // let mutedUntil = null
