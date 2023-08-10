@@ -1,6 +1,6 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { texts, type FetchOptions, type User } from '@textshq/platform-sdk'
+import { texts, type FetchOptions, type User, MessageSendOptions } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
@@ -837,7 +837,7 @@ export default class InstagramAPI {
     return JSON.parse(jsonResponse)
   }
 
-  async sendMedia(threadID: string, { filePath, fileName }: { filePath: string, fileName: string }) {
+  async sendMedia(threadID: string, opts: MessageSendOptions, { filePath, fileName }: { filePath: string, fileName: string }) {
     this.logger.info('sendMedia about to call uploadFile')
     const res = await this.uploadFile(threadID, filePath, fileName)
     const metadata = res.payload.metadata[0] as {
@@ -845,6 +845,6 @@ export default class InstagramAPI {
       video_id?: string
     }
     this.logger.info('sendMedia', res, metadata)
-    return this.papi.socket.sendMedia(threadID, metadata.image_id || metadata.video_id)
+    return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id])
   }
 }

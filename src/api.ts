@@ -263,11 +263,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   deleteThread = (threadID: string) => this.socket.deleteThread(threadID)
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
       this.logger.info('sendMessage', filePath)
-      const { timestamp, messageId } = await this.api.sendMedia(threadID, { fileName, filePath })
+      const { timestamp, messageId } = await this.api.sendMedia(threadID, { pendingMessageID, quotedMessageID }, { fileName, filePath })
       this.logger.info('sendMessage got it', {
         timestamp,
         messageId,
@@ -277,6 +277,7 @@ export default class PlatformInstagram implements PlatformAPI {
         timestamp,
         senderID: this.api.fbid,
         isSender: true,
+        linkedMessageID: quotedMessageID,
         attachments: [{
           id: pendingMessageID,
           type: mimeType.startsWith('video/') ? AttachmentType.VIDEO : AttachmentType.IMG,
@@ -285,11 +286,12 @@ export default class PlatformInstagram implements PlatformAPI {
       }
       return [userMessage]
     }
-    const { timestamp, messageId } = await this.socket.sendMessage(threadID, { text }, { pendingMessageID })
+    const { timestamp, messageId } = await this.socket.sendMessage(threadID, { text }, { pendingMessageID, quotedMessageID })
     return [{
       id: messageId || pendingMessageID,
       timestamp,
       text,
+      linkedMessageID: quotedMessageID,
       senderID: this.api.fbid,
       isSender: true,
     }]

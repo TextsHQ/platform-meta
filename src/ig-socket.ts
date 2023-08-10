@@ -353,96 +353,57 @@ export default class InstagramWebSocket {
     await promise
   }
 
-  async sendMessage(threadID: string, { text }: MessageContent, { pendingMessageID }: MessageSendOptions) {
-    const { promise, request_id } = this.createRequest<{
-      replaceOptimsiticMessage: {
-        offlineThreadingId: string
-        messageId: string
-      }[]
-    }>(`sendMessage-${pendingMessageID}`)
-    const { epoch_id, otid, timestamp, now } = getTimeValues()
-    const hmm = JSON.stringify({
-      app_id: APP_ID,
-      payload: JSON.stringify({
-        tasks: [
-          {
-            label: '46',
-            payload: JSON.stringify({
-              thread_id: threadID,
-              otid: otid.toString(),
-              source: 0,
-              send_type: 1,
-              sync_group: 1,
-              text,
-              initiating_source: 1,
-              skip_url_preview_gen: 0,
-              text_has_links: 0,
-            }),
-            queue_name: threadID.toString(),
-            task_id: this.genTaskId(),
-            failure_count: null,
-          },
-          {
-            label: '21',
-            payload: JSON.stringify({
-              thread_id: threadID,
-              last_read_watermark_ts: Number(timestamp),
-              sync_group: 1,
-            }),
-            queue_name: threadID.toString(),
-            task_id: this.genTaskId(),
-            failure_count: null,
-          },
-        ],
-        epoch_id: Number(epoch_id),
-        version_id: '6243569662359088',
-      }),
-      request_id,
-      type: 3,
-    })
-
-    await this.send({
-      cmd: 'publish',
-      dup: false,
-      qos: 1,
-      retain: false,
-      topic: '/ls_req',
-      messageId: 4,
-      payload: hmm,
-    })
-    const result = await promise
-
-    return {
-      timestamp: new Date(now),
-      offlineThreadingId: String(otid),
-      messageId: result?.replaceOptimsiticMessage?.[0]?.messageId,
+  async sendMessage(threadID: string, { text }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
+    const { otid, timestamp, now } = getTimeValues()
+    // initiating_source: 1,
+    //     skip_url_preview_gen: 0,
+    //     text_has_links: 0,
+    const reply_metadata = quotedMessageID && {
+      reply_source_id: quotedMessageID,
+      reply_source_type: 1,
+      reply_type: 0,
     }
-  }
 
-  async sendMedia(threadID: string, mediaID: string) {
-    const { otid, now } = getTimeValues()
+    const hasAttachment = attachmentFbids.length > 0
+
     const result = await this.publishTask<{
       replaceOptimsiticMessage: {
         offlineThreadingId: string
         messageId: string
       }[]
-    }>('send media', {
-      label: '46',
-      payload: JSON.stringify({
-        thread_id: Number(threadID),
-        otid: otid.toString(),
-        source: (2 ** 16) + 1,
-        send_type: 3,
-        sync_group: 1,
-        text: null,
-        attachment_fbids: [mediaID],
-      }),
-      queue_name: threadID.toString(),
-      task_id: this.genTaskId(),
-      failure_count: null,
-    })
+    }>('send message', [
+      {
+        label: '46',
+        payload: JSON.stringify({
+          thread_id: threadID,
+          otid: otid.toString(),
+          source: (2 ** 16) + 1,
+          send_type: hasAttachment ? 3 : 1,
+          sync_group: 1,
+          text: !hasAttachment ? text : null,
+          initiating_source: hasAttachment ? undefined : 1,
+          skip_url_preview_gen: hasAttachment ? undefined : 0,
+          text_has_links: hasAttachment ? undefined : 0,
+          reply_metadata,
+          attachmentFbids: hasAttachment ? attachmentFbids : undefined,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+      {
+        label: '21',
+        payload: JSON.stringify({
+          thread_id: threadID,
+          last_read_watermark_ts: Number(timestamp),
+          sync_group: 1,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+    ])
 
-    this.logger.info('got send media response', result)
     return {
       timestamp: new Date(now),
       offlineThreadingId: String(otid),
