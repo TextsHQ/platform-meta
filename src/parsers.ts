@@ -1,4 +1,3 @@
-import type { User } from '@textshq/platform-sdk'
 import type { DBParticipantInsert, IGUser } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
 import { getAsDate, getAsMS, getAsNumber, getAsString, parseValue } from './util'
@@ -286,16 +285,22 @@ const parseReplaceOptimsiticMessage = (a: RawItem) => ({
   messageId: a[1],
 })
 
-const parseSearchArguments = (a: RawItem): User => ({
+const parseSearchArguments = (a: RawItem) => {
+  console.log('a[3][1]', a[3][1])
+  return {
   // query: a[0],
-  id: a[1],
-  fullName: a[5],
-  imgURL: a[6],
-  username: a[8],
-  // messageId: a[9],
-  // messageTimestampMs: new Date(Number(a[10])),
-  isVerified: Boolean(a[12]),
-})
+    id: a[1],
+    // type of [1] is user
+    // type of [2] is group chat
+    type: a[4][1] === '1' ? 'user' : a[4][1] === '2' ? 'group' : 'unknown_user',
+    fullName: a[5],
+    imgURL: a[6],
+    username: a[8],
+    // messageId: a[9],
+    // messageTimestampMs: new Date(Number(a[10])),
+    // isVerified: Boolean(a[12]),
+  }
+}
 
 const parseUpdateReadReceipt = (a: RawItem) => ({
   raw: JSON.stringify(a),
