@@ -1,6 +1,7 @@
 import { relations } from 'drizzle-orm'
 import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
+import { InboxName } from '@textshq/platform-sdk'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
 export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
@@ -10,6 +11,7 @@ export const threads = sqliteTable('threads', {
   // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
   thread: text('thread'),
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
+  folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
   raw: text('raw'),
 })
 

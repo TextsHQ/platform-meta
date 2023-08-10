@@ -1,11 +1,11 @@
 import { asc, inArray } from 'drizzle-orm'
-import type { Participant, ThreadFolderName, ThreadType } from '@textshq/platform-sdk'
+import type { Participant, ThreadType } from '@textshq/platform-sdk'
 
-import { InboxName } from '@textshq/platform-sdk/dist/enums'
 import type { DrizzleDB } from './db'
 import { IGThreadInDB, threads, messages } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
+import { getInboxName } from '../util'
 
 const logger = getLogger('helpers')
 
@@ -78,7 +78,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   }))
 
   const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
-  const folderType: ThreadFolderName = thread?.folderName === 'inbox' ? InboxName.NORMAL : InboxName.REQUESTS
+
   // let mutedUntil = null
   // if (thread.muteExpireTimeMs !== 0) {
   //   if (thread.muteExpireTimeMs === -1) {
@@ -92,7 +92,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     id: t.threadKey,
     title: threadType === 'group' && thread?.threadName,
     isUnread,
-    folderType,
+    folderType: getInboxName(thread?.folderName),
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,

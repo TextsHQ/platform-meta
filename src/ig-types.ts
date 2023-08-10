@@ -1,11 +1,12 @@
 import type { Message } from '@textshq/platform-sdk'
+import { InboxName } from '@textshq/platform-sdk'
 
 export type IGThread = {
   raw: string
   threadKey: string
   lastReadWatermarkTimestampMs: number
   threadType: string
-  folderName: string
+  folderName: InboxName.NORMAL | InboxName.REQUESTS // just normalize it
   parentThreadKey: string
   lastActivityTimestampMs: number
   snippet: string

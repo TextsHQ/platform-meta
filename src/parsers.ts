@@ -1,11 +1,11 @@
 import type { DBParticipantInsert } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS, getAsNumber, getAsString, parseValue } from './util'
+import { getAsDate, getAsMS, getAsNumber, getAsString, getInboxName, parseValue } from './util'
 import { IGContact } from './ig-types'
 
 type RawItem = string[]
 
-const parseThread = (a: RawItem): IGThread => {
+const parseThread = (a: RawItem) => {
   const t: IGThread = {
     raw: JSON.stringify(a),
     // isUnread: Number(a[0][1]) > Number(a[1][1]),
@@ -13,7 +13,7 @@ const parseThread = (a: RawItem): IGThread => {
     lastReadWatermarkTimestampMs: getAsMS(a[1][1]),
     // threadType: a[9][1] === '1' ? 'single' : 'group',
     threadType: a[9][1],
-    folderName: a[10],
+    folderName: getInboxName(parseValue<string>(a[10])),
     parentThreadKey: a[35][1],
     lastActivityTimestampMs: getAsMS(a[0][1]),
     snippet: a[2],

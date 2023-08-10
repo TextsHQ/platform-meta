@@ -13,7 +13,7 @@ import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGMessage, IGParsedViewerConfig, IGThread, IGReadReceipt } from './ig-types'
+import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
 import { getOriginalURL } from './util'
 
 const fixUrl = (url: string) =>
@@ -316,10 +316,7 @@ export default class InstagramAPI {
 
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
-      const threads = rawd.deleteThenInsertThread.map(t => ({
-        ...t,
-        threadKey: t.threadKey!,
-      }))
+      const threads = rawd.deleteThenInsertThread
       const lastThread = threads?.length > 0 ? threads[threads.length - 1] : null
       if (lastThread && rawd.upsertSyncGroupThreadsRange?.length) {
         this.lastThreadReference = {
@@ -329,7 +326,7 @@ export default class InstagramAPI {
         }
       }
 
-      await this.addThreads(threads)
+      await this.deleteThenInsertThread(threads)
     }
 
     if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
@@ -598,11 +595,11 @@ export default class InstagramAPI {
     }
   }
 
-  addThreads(threads: IGThread[]) {
-    this.logger.info('addThreads', threads)
+  deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
+    this.logger.info('deleteThenInsertThread', _threads)
 
-    const threadsWithNoBool = threads.map(t => {
-      const { raw, threadKey, lastActivityTimestampMs, ...thread } = t
+    const threads = _threads.map(t => {
+      const { raw, threadKey, lastActivityTimestampMs, folderName, ...thread } = t
 
       // @TODO: parsers should handle this before we come here
       for (const key in thread) {
@@ -614,14 +611,15 @@ export default class InstagramAPI {
       return {
         raw,
         threadKey,
+        folderName,
         lastActivityTimestampMs: new Date(lastActivityTimestampMs),
         thread: JSON.stringify(thread),
       } as const
     })
 
-    this.logger.info('addThreads (threadsWithNoBool)', threadsWithNoBool)
+    this.logger.info('deleteThenInsertThread', threads)
 
-    return this.papi.db.insert(schema.threads).values(threadsWithNoBool).onConflictDoNothing().run()
+    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {

@@ -1,5 +1,6 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
+import { InboxName } from '@textshq/platform-sdk'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -110,3 +111,5 @@ export function getOriginalURL(linkURL: string) {
   if (u.length > 1) return linkURL
   return u[0]
 }
+
+export const getInboxName = (folder: string) => (folder === 'inbox' ? InboxName.NORMAL : InboxName.REQUESTS)
