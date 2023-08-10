@@ -12,14 +12,7 @@ export const threads = sqliteTable('threads', {
   raw: text('raw'),
 })
 
-export type DBThreadSelect = InferModel<typeof threads, 'select'>
-export type DBThreadInsert = InferModel<typeof threads, 'insert'>
-export type DBThreadSelectWithMessagesAndAttachments = Pick<DBThreadSelect, 'threadKey' | 'thread'> & {
-  attachments: AttachmentInJoin[]
-  messages: DBMessageSelectDefault[]
-  // participants: Pick<DBParticipantSelect, 'id' | 'name' | 'username' | 'profilePictureUrl'>
-}
-export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'senderId'>
+export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'primarySortKey' | 'senderId'>
 
 export const messages = sqliteTable('messages', {
   raw: text('raw'),
@@ -28,6 +21,7 @@ export const messages = sqliteTable('messages', {
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
   messageId: text('messageId').primaryKey(),
   offlineThreadingId: text('offlineThreadingId'),
+  primarySortKey: text('primarySortKey'),
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   senderId: text('senderId').notNull(),
 })
@@ -39,13 +33,11 @@ type AttachmentInJoin = {
 }
 
 export type DBMessageSelect = InferModel<typeof messages, 'select'>
-export type DBMessageSelectDefault = Pick<DBMessageSelect, 'raw' | 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'senderId'>
+export type DBMessageSelectDefault = Pick<DBMessageSelect, 'raw' | 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'primarySortKey' | 'senderId'>
 export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
   attachments: AttachmentInJoin[]
   reactions: DBReaction[]
 }
-
-export type DBMessageInsert = InferModel<typeof messages, 'insert'>
 
 export const typingIndicators = sqliteTable('typing_indicators', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
@@ -80,25 +72,21 @@ export const attachmentRelations = relations(attachments, ({ one }) => ({
   message: one(messages, { fields: [attachments.messageId], references: [messages.messageId] }),
 }))
 
-export type DBAttachmentSelect = InferModel<typeof attachments, 'select'>
-export type DBAttachmentInsert = InferModel<typeof attachments, 'insert'>
-
-export const users = sqliteTable('users', {
+export const contacts = sqliteTable('contacts', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   raw: text('raw'),
+  contact: text('contact'),
   id: text('id').notNull().primaryKey(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
   username: text('username'),
 })
 
-export type IGUser = InferModel<typeof users, 'select'>
-
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   raw: text('raw'),
   threadKey: text('threadKey').notNull().references(() => threads.threadKey),
-  userId: text('userId').notNull().references(() => users.id),
+  userId: text('userId').notNull().references(() => contacts.id),
   readWatermarkTimestampMs: integer('readWatermarkTimestampMs', { mode: 'timestamp' }),
   readActionTimestampMs: integer('readActionTimestampMs', { mode: 'timestamp' }),
   deliveredWatermarkTimestampMs: integer('deliveredWatermarkTimestampMs', { mode: 'timestamp' }),
@@ -111,10 +99,10 @@ export const participants = sqliteTable('participants', {
 
 export const participantRelations = relations(participants, ({ one }) => ({
   thread: one(threads, { fields: [participants.threadKey], references: [threads.threadKey] }),
-  users: one(users, { fields: [participants.userId], references: [users.id] }),
+  contacts: one(contacts, { fields: [participants.userId], references: [contacts.id] }),
 }))
 
-export const userRelations = relations(users, ({ many }) => ({
+export const contactRelations = relations(contacts, ({ many }) => ({
   participants: many(participants),
 }))
 
@@ -123,7 +111,6 @@ export const threadsRelation = relations(threads, ({ many }) => ({
   participants: many(participants),
 }))
 
-export type DBParticipantSelect = InferModel<typeof participants, 'select'>
 export type DBParticipantInsert = InferModel<typeof participants, 'insert'>
 
 export const reactions = sqliteTable('reactions', {
@@ -134,7 +121,7 @@ export const reactions = sqliteTable('reactions', {
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   messageId: text('messageId'),
   // messageId: text('messageId').notNull().references(() => messages.messageId),
-  // actorId: text('actorId').notNull().references(() => users.id),
+  // actorId: text('actorId').notNull().references(() => contacts.id),
   actorId: text('actorId'),
   reaction: text('reaction'),
 }, table => ({

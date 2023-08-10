@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "125e6ca3-807e-44a1-a9fc-d84f5c2b329c",
+  "id": "b49c4aad-e5c5-4d3c-89ff-866bbcc89461",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -97,6 +97,57 @@
       },
       "uniqueConstraints": {}
     },
+    "contacts": {
+      "name": "contacts",
+      "columns": {
+        "raw": {
+          "name": "raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "contact": {
+          "name": "contact",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "profilePictureUrl": {
+          "name": "profilePictureUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
     "messages": {
       "name": "messages",
       "columns": {
@@ -130,6 +181,13 @@
         },
         "offlineThreadingId": {
           "name": "offlineThreadingId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "primarySortKey": {
+          "name": "primarySortKey",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -244,10 +302,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "participants_userId_users_id_fk": {
-          "name": "participants_userId_users_id_fk",
+        "participants_userId_contacts_id_fk": {
+          "name": "participants_userId_contacts_id_fk",
           "tableFrom": "participants",
-          "tableTo": "users",
+          "tableTo": "contacts",
           "columnsFrom": [
             "userId"
           ],
@@ -426,50 +484,6 @@
         "hasMoreAfter": {
           "name": "hasMoreAfter",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "users": {
-      "name": "users",
-      "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "profilePictureUrl": {
-          "name": "profilePictureUrl",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "username": {
-          "name": "username",
-          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
