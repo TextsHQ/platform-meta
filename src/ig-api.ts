@@ -152,8 +152,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        'x-ig-www-claim':
-            'hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU',
+        // 'x-ig-www-claim': '',
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}${username}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -208,8 +207,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        'x-ig-www-claim':
-            'hmac.AR2iCvyZhuDG-oJQ0b4-4DlKN9a9bGK2Ovat6h04VbnVxuUU',
+        // 'x-ig-www-claim': '',
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}}/`,
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/116.0',
