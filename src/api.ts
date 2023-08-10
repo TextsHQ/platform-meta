@@ -261,10 +261,7 @@ export default class PlatformInstagram implements PlatformAPI {
     await Promise.all(promises)
   }
 
-  deleteThread = async (threadID: string) => {
-    this.logger.debug('deleteThread', threadID)
-    await this.socket.deleteThread(threadID)
-  }
+  deleteThread = (threadID: string) => this.socket.deleteThread(threadID)
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID }: MessageSendOptions) => {
     if (!text) {
@@ -304,37 +301,19 @@ export default class PlatformInstagram implements PlatformAPI {
     return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }
 
-  deleteMessage = async (threadID: string, messageID: string, forEveryone?: boolean) => {
-    this.logger.debug('deleteMessage', { threadID, messageID, forEveryone })
-    await this.socket?.unsendMessage(messageID)
-  }
+  deleteMessage = (threadID: string, messageID: string, forEveryone?: boolean) => this.socket?.unsendMessage(messageID)
 
   sendReadReceipt = async (threadID: string, messageID: string, messageCursor?: string) => {
     this.logger.info('sendReadReceipt', { threadID, messageID, messageCursor })
   }
 
-  addReaction = async (threadID: string, messageID: string, reactionKey: string) => {
-    this.logger.info('addReaction', { threadID, messageID, reactionKey })
-    await this.socket.addReaction(threadID, messageID, reactionKey)
-  }
+  addReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, reactionKey)
 
-  removeReaction = async (threadID: string, messageID: string, reactionKey: string) => {
-    this.logger.info('removeReaction', { threadID, messageID, reactionKey })
-    await this.socket.addReaction(threadID, messageID, '')
-  }
+  removeReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, '')
 
-  addParticipant = async (threadID: string, participantID: string) => {
-    this.logger.info('addParticipant', { threadID, participantID })
-    await this.socket?.addParticipants(threadID, [participantID])
-  }
+  addParticipant = (threadID: string, participantID: string) => this.socket.addParticipants(threadID, [participantID])
 
-  removeParticipant = async (threadID: string, participantID: string) => {
-    this.logger.info('removeParticipant', { threadID, participantID })
-    await this.socket.removeParticipant(threadID, participantID)
-  }
+  removeParticipant = (threadID: string, participantID: string) => this.socket.removeParticipant(threadID, participantID)
 
-  changeParticipantRole = async (threadID: string, participantID: string, role: 'admin' | 'regular') => {
-    this.logger.debug('changeParticipantRole', { threadID, participantID, role })
-    await this.socket?.changeAdminStatus(threadID, participantID, role === 'admin')
-  }
+  changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.socket.changeAdminStatus(threadID, participantID, role === 'admin')
 }

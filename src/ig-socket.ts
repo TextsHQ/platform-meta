@@ -450,9 +450,10 @@ export default class InstagramWebSocket {
     }
   }
 
-  addReaction(threadID: string, messageID: string, reaction: string) {
+  async addReaction(threadID: string, messageID: string, reaction: string) {
     const message = this.papi.api.getMessage(threadID, messageID)
-    return this.publishTask('add reaction', {
+    // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
+    await this.publishTask('add reaction', {
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
