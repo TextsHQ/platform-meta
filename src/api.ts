@@ -152,14 +152,12 @@ export default class PlatformInstagram implements PlatformAPI {
       return {
         items: messages,
         hasMore: hasMoreBefore,
-        oldestCursor: 'test',
       }
     }
     const messages = await queryMessages(this.db, 'ALL', this.api.fbid, threadID)
     return {
       items: messages,
       hasMore: false,
-      oldestCursor: 'test',
     }
   }
 
