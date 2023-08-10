@@ -1,9 +1,9 @@
-import { inArray } from 'drizzle-orm'
+import { asc, inArray } from 'drizzle-orm'
 import type { Participant, ThreadFolderName, ThreadType } from '@textshq/platform-sdk'
 
 import { InboxName } from '@textshq/platform-sdk/dist/enums'
 import type { DrizzleDB } from './db'
-import { IGThreadInDB, threads } from './schema'
+import { IGThreadInDB, threads, messages } from './schema'
 import { mapMessages } from '../mappers'
 import { getLogger } from '../logger'
 
@@ -53,7 +53,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      orderBy: [asc(schema.messages.primarySortKey)],
+      orderBy: [asc(messages.primarySortKey)],
     },
   },
 }).map(t => {
