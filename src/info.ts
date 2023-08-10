@@ -16,7 +16,7 @@ const info: PlatformInfo = {
   attributes: new Set([
     Attribute.SUPPORTS_REQUESTS_INBOX,
     Attribute.SUPPORTS_DELETE_THREAD,
-    Attribute.CANNOT_MESSAGE_SELF,
+    // Attribute.CANNOT_MESSAGE_SELF,
     Attribute.SUPPORTS_MOVING_THREAD_TO_INBOX,
     Attribute.SUPPORTS_QUOTED_MESSAGES,
     Attribute.SUPPORTS_GROUP_PARTICIPANT_ROLE_CHANGE,

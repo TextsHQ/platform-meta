@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { MessageContent, MessageSendOptions, User } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import {
   createPromise,
   getMqttSid,

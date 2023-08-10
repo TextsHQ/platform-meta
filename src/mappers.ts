@@ -69,6 +69,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u.id === m.senderId)?.username
   const text = message.text && (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text)
+  const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
   return {
     _original: JSON.stringify({
       message,
@@ -80,13 +81,14 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
     text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
+    linkedMessageID,
     // forwardedFrom: message.isForwarded && message.replySnippet && {
     //   text: message.replySnippet,
     // },
     isAction,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
-    textHeading: message.textHeading || message.replySnippet,
+    textHeading: !linkedMessageID && (message.textHeading || message.replySnippet),
     seen,
     links: message.links,
     parseTemplate: isAction,
