@@ -66,7 +66,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     hasExited: false,
   }))
 
-  const type: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
+  const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
   // let mutedUntil = null
   // if (thread.muteExpireTimeMs !== 0) {
   //   if (thread.muteExpireTimeMs === -1) {
@@ -78,18 +78,23 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   // logger.debug(`mutedUntil: ${mutedUntil}`)
   return {
     id: t.threadKey,
-    title: thread?.threadType !== '1' && thread?.threadName,
+    title: threadType === 'group' && thread?.threadName,
     isUnread,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
-    type,
+    type: threadType,
     participants: {
       items: participants,
       hasMore: false,
     },
     messages: {
-      items: mapMessages(t.messages, fbid, t.participants, type),
+      items: mapMessages(t.messages, {
+        fbid,
+        participants: t.participants,
+        threadType,
+        users: participants,
+      }),
       hasMore: false,
     },
   }

@@ -1,4 +1,4 @@
-import { AttachmentType, MessageLink, Thread } from '@textshq/platform-sdk'
+import { AttachmentType, MessageLink, Participant, Thread } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantInsert, IGMessageInDB, RawAttachment } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
@@ -39,7 +39,14 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
   }
 }
 
-export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, participants: DBParticipantInsert[], threadType: Thread['type']) {
+export type MapMessageCommonOptions = {
+  users: Participant[] // naming seems wrong but maps to how ig client stores it
+  participants: DBParticipantInsert[]
+  fbid: string
+  threadType: Thread['type']
+}
+
+export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, participants, fbid, users }: MapMessageCommonOptions) {
   const message = JSON.parse(m.message) as IGMessageInDB
   let seen: boolean | { [participantID: string]: Date } = false
   if (threadType !== 'single') {
@@ -59,6 +66,9 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     }
   }
 
+  const isAction = message.isAdminMessage
+  const senderUsername = users.find(u => u.id === m.senderId)?.username
+  const text = message.text && (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text)
   return {
     _original: JSON.stringify({
       message,
@@ -67,23 +77,24 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
-    text: message.text,
+    text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
     // forwardedFrom: message.isForwarded && message.replySnippet && {
     //   text: message.replySnippet,
     // },
-    isAction: message.isAdminMessage,
+    isAction,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading: message.textHeading || message.replySnippet,
     seen,
     links: message.links,
+    parseTemplate: isAction,
     extra: message.extra,
     sortKey: message.primarySortKey || message.secondarySortKey,
   }
 }
 
-export function mapMessages(messages: DBMessageSelectWithAttachments[], fbid: string, participants: DBParticipantInsert[], type) {
-  return messages.map(m => mapMessage(m, fbid, participants, type))
+export function mapMessages(messages: DBMessageSelectWithAttachments[], opts: MapMessageCommonOptions) {
+  return messages.map(m => mapMessage(m, opts))
 }
