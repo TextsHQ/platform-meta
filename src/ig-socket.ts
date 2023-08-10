@@ -752,12 +752,10 @@ export default class InstagramWebSocket {
         failure_count: null,
       })])
 
-    const users = [
+    return [
       ...(primary?.insertSearchResult ?? []),
       ...(secondary?.insertSearchResult ?? []),
     ].filter(user => user.type === 'user')
-
-    return users
   }
 
   private getLastThreadReference() {
