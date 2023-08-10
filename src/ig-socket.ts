@@ -353,6 +353,7 @@ export default class InstagramWebSocket {
     await promise
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendMessage(threadID: string, { text }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
     const { otid, timestamp, now } = getTimeValues()
     // initiating_source: 1,
@@ -375,7 +376,7 @@ export default class InstagramWebSocket {
       {
         label: '46',
         payload: JSON.stringify({
-          thread_id: threadID,
+          thread_id: Number(threadID),
           otid: otid.toString(),
           source: (2 ** 16) + 1,
           send_type: hasAttachment ? 3 : 1,
@@ -385,7 +386,7 @@ export default class InstagramWebSocket {
           skip_url_preview_gen: hasAttachment ? undefined : 0,
           text_has_links: hasAttachment ? undefined : 0,
           reply_metadata,
-          attachmentFbids: hasAttachment ? attachmentFbids : undefined,
+          attachment_fbids: hasAttachment ? attachmentFbids : undefined,
         }),
         queue_name: threadID.toString(),
         task_id: this.genTaskId(),

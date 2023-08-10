@@ -843,8 +843,9 @@ export default class InstagramAPI {
     const metadata = res.payload.metadata[0] as {
       image_id?: string
       video_id?: string
+      gif_id?: string
     }
     this.logger.info('sendMedia', res, metadata)
-    return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id])
+    return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
   }
 }
