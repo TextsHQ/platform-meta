@@ -80,6 +80,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, fbid: string, part
     seen,
     links: message.links,
     extra: message.extra,
+    sortKey: message.primarySortKey || message.secondarySortKey,
   }
 }
 

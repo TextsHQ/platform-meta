@@ -77,6 +77,7 @@ export function parseValue<T extends string | number | boolean | null>(value: st
   if (
     typeof value === 'string'
       || typeof value === 'number'
+      || typeof value === 'boolean'
       || !Array.isArray(value)
   ) return value as T
   if (value[0] === 9) return null as T
