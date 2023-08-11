@@ -20,15 +20,15 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
     //   raw: a.raw,
     // }),
     id: a.attachmentFbid,
-    type: mapMimeTypeToAttachmentType(attachment.previewUrlMimeType || attachment.playableUrlMimeType),
+    type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType || attachment.previewUrlMimeType),
     size: {
       width: attachment.previewWidth,
       height: attachment.previewHeight,
     },
-    mimeType: attachment.previewUrlMimeType || attachment.playableUrlMimeType,
+    mimeType: attachment.playableUrlMimeType || attachment.previewUrlMimeType,
     fileSize: attachment.playableDurationMs,
     fileName: attachment.filename,
-    srcURL: attachment.previewUrl || attachment.playableUrl,
+    srcURL: attachment.playableUrl || attachment.previewUrl,
     extra: {
       text: attachment.descriptionText || attachment.titleText,
       igType: attachment.attachmentType,
