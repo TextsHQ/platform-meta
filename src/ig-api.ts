@@ -299,9 +299,29 @@ export default class InstagramAPI {
     })
 
     if (requestId && requestType) {
-      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-      // requestRejector()
-      requestResolver(rawd)
+      if (rawd.issueNewError) {
+        this.logger.error(`[${requestId}] error for ${requestType}`, rawd)
+        const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage}) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
+        const [mainError, ...otherErrors] = errors || []
+        if (mainError) {
+          requestRejector(mainError)
+        }
+        if (otherErrors && otherErrors.length > 0) {
+          otherErrors.forEach(text => {
+            this.papi?.onEvent([
+              {
+                type: ServerEventType.TOAST,
+                toast: {
+                  text,
+                },
+              },
+            ])
+          } )
+        }
+      } else {
+        this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
+        requestResolver(rawd)
+      }
     }
 
     // verify ThreadExists. This check needs to happen before since if it doesn't exist, we need to call a different endpoint
@@ -638,6 +658,21 @@ export default class InstagramAPI {
           }],
         }])
       }
+    }
+
+    if (rawd.removeOptimisticGroupThread?.length > 0) {
+      rawd.removeOptimisticGroupThread.forEach(t => {
+        if (!t.offlineThreadingId) return
+        this.papi?.onEvent([
+          {
+            type: ServerEventType.STATE_SYNC,
+            mutationType: 'delete',
+            objectName: 'thread',
+            objectIDs: {},
+            entries: [t.offlineThreadingId],
+          },
+        ])
+      })
     }
   }
 
