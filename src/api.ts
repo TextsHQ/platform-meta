@@ -391,7 +391,7 @@ export default class PlatformInstagram implements PlatformAPI {
       return JSON.stringify({
         ...thread,
         thread: JSON.parse(thread.thread),
-        raw: JSON.parse(thread.raw),
+        // raw: JSON.parse(thread.raw),
       }, null, 2)
     }
     if (objName === 'message') {
@@ -421,7 +421,7 @@ export default class PlatformInstagram implements PlatformAPI {
       return JSON.stringify({
         ...message,
         message: JSON.parse(message.message),
-        raw: JSON.parse(message.raw),
+        // raw: JSON.parse(message.raw),
         attachments: message.attachments?.map(a => ({
           ...a,
           attachment: JSON.parse(a.attachment),
