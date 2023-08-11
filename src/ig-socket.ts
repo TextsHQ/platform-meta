@@ -637,7 +637,7 @@ export default class InstagramWebSocket {
   }
 
   async requestContacts(contactIDs: string[]) {
-    await this.publishTask('request contacts', contactIDs.map(contact_id => ({
+    return this.publishTask('request contacts', contactIDs.map(contact_id => ({
       label: '207',
       payload: JSON.stringify({
         contact_id,

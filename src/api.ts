@@ -188,6 +188,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
+    this.logger.info('getUser', ids)
+    if ('userID' in ids && typeof ids.userID === 'string') {
+      const a = await this.socket.requestContacts([ids.userID])
+      this.logger.info('getUser got user', a)
+    }
     const username = 'username' in ids && ids.username
     const user: User = await this.api.getUserByUsername(username)
     this.logger.info('instagram got user', user)

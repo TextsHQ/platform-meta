@@ -1,5 +1,4 @@
-import type { Message } from '@textshq/platform-sdk'
-import { InboxName } from '@textshq/platform-sdk'
+import { InboxName, type Message } from '@textshq/platform-sdk'
 
 export type IGThread = {
   raw: string
@@ -172,12 +171,12 @@ export type IGAttachment = {
   playableUrlFallback: string
   playableUrlExpirationTimestampMs: number
   playableUrlMimeType: string
-  dashManifest: string
+  dashManifest?: string
   previewUrl: string
   previewUrlFallback: string
   previewUrlExpirationTimestampMs: number
   previewUrlMimeType: string
-  miniPreview: string
+  miniPreview?: string
   previewWidth: number
   previewHeight: number
   attributionAppId: string
@@ -185,12 +184,12 @@ export type IGAttachment = {
   attributionAppIcon: string
   attributionAppIconFallback: string
   attributionAppIconUrlExpirationTimestampMs: number
-  localPlayableUrl: string
-  playableDurationMs: number
+  localPlayableUrl?: string
+  playableDurationMs?: number
   attachmentIndex: string
   accessibilitySummaryText: string
-  isPreviewImage: boolean
-  originalFileHash: string
+  isPreviewImage?: boolean
+  originalFileHash?: string
   attachmentType: string
   timestampMs: number
   offlineAttachmentId: string
@@ -204,9 +203,82 @@ export type IGAttachment = {
   faviconUrlExpirationTimestampMs: number
   isBorderless: boolean
   previewUrlLarge: string
-  samplingFrequencyHz: number
-  waveformData: string
+  samplingFrequencyHz?: number
+  waveformData?: string
   authorityLevel: string
+  shouldRespectServerPreviewSize?: boolean
+  subtitleIconUrl?: string
+  shouldAutoplayVideo?: boolean
+  collapsibleId?: string
+  defaultCtaId?: string
+  defaultCtaTitle?: string
+  defaultCtaType?: string
+  attachmentCta1Id?: string
+  cta1IconType?: string
+  cta1Type?: string
+  attachmentCta2Id?: string
+  cta2Title?: string
+  cta2IconType?: string
+  cta2Type?: string
+  attachmentCta3Id?: string
+  cta3Title?: string
+  cta3IconType?: string
+  cta3Type?: string
+  imageUrl?: string
+  imageUrlFallback?: string
+  imageUrlExpirationTimestampMs?: number
+  actionUrl?: string
+  maxTitleNumOfLines?: string
+  maxSubtitleNumOfLines?: string
+  faviconUrl?: string
+  faviconUrlFallback?: string
+  listItemsId?: string
+  listItemsDescriptionText?: string
+  listItemsDescriptionSubtitleText?: string
+  listItemsSecondaryDescriptionText?: string
+  listItemId1?: string
+  listItemTitleText1?: string
+  listItemContactUrlList1?: string
+  listItemProgressBarFilledPercentage1?: string
+  listItemContactUrlExpirationTimestampList1?: string
+  listItemContactUrlFallbackList1?: string
+  listItemAccessibilityText1?: string
+  listItemTotalCount1?: string
+  listItemId2?: string
+  listItemTitleText2?: string
+  listItemContactUrlList2?: string
+  listItemProgressBarFilledPercentage2?: string
+  listItemContactUrlExpirationTimestampList2?: string
+  listItemContactUrlFallbackList2?: string
+  listItemAccessibilityText2?: string
+  listItemTotalCount2?: string
+  listItemId3?: string
+  listItemTitleText3?: string
+  listItemContactUrlList3?: string
+  listItemProgressBarFilledPercentage3?: string
+  listItemContactUrlExpirationTimestampList3?: string
+  listItemContactUrlFallbackList3?: string
+  listItemAccessibilityText3?: string
+  listItemTotalCount3?: string
+  headerImageUrlMimeType?: string
+  headerTitle?: string
+  headerSubtitleText?: string
+  headerImageUrl?: string
+  headerImageUrlFallback?: string
+  headerImageUrlExpirationTimestampMs?: number
+  previewImageDecorationType?: string
+  shouldHighlightHeaderTitleInTitle?: string
+  targetId?: string
+  attachmentLoggingType?: string
+  gatingType?: string
+  gatingTitle?: string
+  targetExpiryTimestampMs?: number
+  countdownTimestampMs?: number
+  shouldBlurSubattachments?: string
+  verifiedType?: string
+  captionBodyText?: string
+  isPublicXma?: string
+  cta1Title?: string
 }
 
 export type IGParsedViewerConfig = {

@@ -341,7 +341,7 @@ export default class InstagramAPI {
     }
 
     // below handles case of fixing gaps in the cache when client is offline
-    if (rawd.upsertMessage && isInitialRequest && hasSomeCachedData(this.papi.db)) {
+    if (rawd.upsertMessage && hasSomeCachedData(this.papi.db)) {
       // for each message, check if it exists in the cache
       // if it doesn't, call fetch more messages from the socket using the threadKey and messageID
       // if it does, do nothing

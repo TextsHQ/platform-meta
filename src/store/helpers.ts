@@ -101,12 +101,9 @@ export function getThread(db: DrizzleDB, threadKey: string) {
   } as const
 }
 
-export type ThreadQueryResult = ReturnType<typeof getThread>
-
-export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQueryResult, messageIds: string[] | 'ALL', fbid: string): Message[] => {
-  const t = typeof threadKeyOrThread === 'string' ? getThread(db, threadKeyOrThread) : threadKeyOrThread
+export const queryMessages = (db: DrizzleDB, threadKey: string, messageIds: string[] | 'ALL', fbid: string): Message[] => {
   const messages = db.query.messages.findMany({
-    where: messageIds === 'ALL' ? eq(messagesSchema.threadKey, t.threadKey) : inArray(messagesSchema.messageId, messageIds),
+    where: messageIds === 'ALL' ? eq(messagesSchema.threadKey, threadKey) : inArray(messagesSchema.messageId, messageIds),
     columns: {
       // raw: true,
       message: true,
@@ -151,10 +148,12 @@ export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQ
     orderBy: [asc(messagesSchema.primarySortKey)],
   })
   if (!messages || messages.length === 0) return []
+  const { thread: t, participants } = messages[0].thread
+  const thread = JSON.parse(t) as IGThreadInDB
   return mapMessages(messages, {
-    threadType: t?.thread.threadType === '1' ? 'single' : 'group',
-    users: mapParticipants(t.participants, fbid),
-    participants: t.participants,
+    threadType: thread?.threadType === '1' ? 'single' : 'group',
+    users: mapParticipants(participants, fbid),
+    participants,
     fbid,
   })
 }
