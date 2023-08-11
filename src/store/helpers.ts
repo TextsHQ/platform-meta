@@ -1,4 +1,4 @@
-import { asc, eq, inArray, sql } from 'drizzle-orm'
+import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { InboxName, Message } from '@textshq/platform-sdk'
 import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
 
@@ -53,7 +53,8 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      orderBy: [asc(messagesSchema.primarySortKey)],
+      orderBy: [desc(messagesSchema.primarySortKey)],
+      limit: 1,
     },
   },
 }).map(t => mapThread(t, fbid)).filter(t => {
