@@ -130,6 +130,7 @@ export type IGMessage = {
   replyAttachmentType: string
   replyAttachmentId: string
   replyAttachmentExtra: string
+  replyType?: string
   isForwarded: boolean
   forwardScore: string
   hasQuickReplies: boolean
