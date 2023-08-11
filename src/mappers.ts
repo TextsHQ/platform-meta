@@ -79,7 +79,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
   const attachments = m.attachments.map(a => mapAttachment(a))
   const attachmentWithText = attachments.find(a => !!a.extra?.titleText)?.extra?.titleText
 
-  if (message.text === '' && !message.textHeading && !attachmentWithText) {
+  if (message.text === '' && !message.textHeading && attachments?.length === 0) {
     message.textHeading = 'No longer available'
   }
 

@@ -592,7 +592,7 @@ export default class InstagramAPI {
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
         objectIDs: { },
-        mutationType: 'update',
+        mutationType: 'upsert',
         entries: [{
           id: rawd.updateThreadMuteSetting[0].threadKey!,
           mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
@@ -641,7 +641,7 @@ export default class InstagramAPI {
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
           objectIDs: { threadID: r.threadKey!, messageID: newestMessage.messageId! },
-          mutationType: 'update',
+          mutationType: 'upsert',
           entries: messages,
         }])
       }
