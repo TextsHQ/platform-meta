@@ -164,11 +164,9 @@ export default class PlatformInstagram implements PlatformAPI {
     const messagesHasMoreBefore = this.api.messagesHasMoreBefore.get(threadID)
     this.logger.info('getMessages', { messagesHasMoreBefore })
     if (messagesHasMoreBefore) {
-      this.logger.info('getMessages, fetching new messages from socket')
       const lastMessage = this.api.getOldestMessage(threadID)
-
       const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
-      this.logger.info('getMessages, returning messages', messages, hasMoreBefore)
+      this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
       return {
         items: messages,
         hasMore: hasMoreBefore,

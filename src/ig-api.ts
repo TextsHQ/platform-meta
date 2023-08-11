@@ -302,32 +302,28 @@ export default class InstagramAPI {
 
     this.logger.debug('handlePayload parsed payload', rawd)
 
-    if (requestId && requestType) {
-      if (rawd.issueNewError) {
-        this.logger.error(`[${requestId}] error for ${requestType}`, rawd)
-        const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage }) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
-        const [mainError, ...otherErrors] = errors || []
-        if (mainError) {
-          requestRejector(mainError)
-          // sentry should be captured upstream
-          // texts.Sentry.captureException(new Error(mainError))
-        }
-        if (otherErrors && otherErrors.length > 0) {
-          otherErrors.forEach(text => {
-            this.papi?.onEvent([
-              {
-                type: ServerEventType.TOAST,
-                toast: {
-                  text,
-                },
+    const knownRequest = requestId && requestType
+    if (knownRequest && rawd.issueNewError) {
+      this.logger.error(`[${requestId}] error for ${requestType}`, rawd)
+      const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage }) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
+      const [mainError, ...otherErrors] = errors || []
+      if (mainError) {
+        requestRejector(mainError)
+        // sentry should be captured upstream
+        // texts.Sentry.captureException(new Error(mainError))
+      }
+      if (otherErrors && otherErrors.length > 0) {
+        otherErrors.forEach(text => {
+          this.papi?.onEvent([
+            {
+              type: ServerEventType.TOAST,
+              toast: {
+                text,
               },
-            ])
-            texts.Sentry.captureException(new Error(text))
-          })
-        }
-      } else {
-        this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-        requestResolver(rawd)
+            },
+          ])
+          texts.Sentry.captureException(new Error(text))
+        })
       }
     }
 
@@ -686,6 +682,12 @@ export default class InstagramAPI {
           },
         ])
       })
+    }
+
+    // wait for everything to be synced before resolving
+    if (knownRequest && !rawd.issueNewError) {
+      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
+      requestResolver(rawd)
     }
   }
 

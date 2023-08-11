@@ -149,7 +149,6 @@ export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQ
       },
     },
     orderBy: [asc(messagesSchema.primarySortKey)],
-
   })
   if (!messages || messages.length === 0) return []
   return mapMessages(messages, {
