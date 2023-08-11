@@ -1,5 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { ClientContext, CurrentUser, LoginCreds, LoginResult, Message, MessageContent, MessageSendOptions, OnServerEventCallback, ThreadID, MessageID, PaginationArg, PlatformAPI, ServerEvent, Thread, User } from '@textshq/platform-sdk'
+import type {
+  ClientContext,
+  CurrentUser,
+  LoginCreds,
+  LoginResult,
+  Message,
+  MessageContent,
+  MessageID,
+  MessageSendOptions,
+  OnServerEventCallback,
+  PaginationArg,
+  PlatformAPI,
+  ServerEvent,
+  Thread,
+  ThreadID,
+  User,
+} from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import url from 'url'
@@ -158,7 +174,7 @@ export default class PlatformInstagram implements PlatformAPI {
         hasMore: hasMoreBefore,
       }
     }
-    const messages = await queryMessages(this.db, 'ALL', this.api.fbid, threadID)
+    const messages = await queryMessages(this.db, threadID, 'ALL', this.api.fbid)
     return {
       items: messages,
       hasMore: this.api.messagesHasMoreBefore.get(threadID),
@@ -170,16 +186,7 @@ export default class PlatformInstagram implements PlatformAPI {
     return t[0]
   }
 
-  // getMessage = (threadID: ThreadID, messageID: MessageID) => {
-  //   const [message] = this.db.select().from(schema.messages)
-  //     .where(eq(schema.messages.messageId, messageID))
-  //     .where(eq(schema.messages.threadKey, threadID))
-  //     .all()
-  //   return {
-  //     ...message,
-  //     action: null,
-  //   }
-  // }
+  getMessage = (threadID: ThreadID, messageID: MessageID) => queryMessages(this.db, threadID, [messageID], this.api.fbid)[0]
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username

@@ -1,5 +1,6 @@
-import { AttachmentType, type Participant, type Thread } from '@textshq/platform-sdk'
+import { AttachmentType, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
+import { IGThreadInDB } from './store/schema'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -46,7 +47,7 @@ export type MapMessageCommonOptions = {
   threadType: Thread['type']
 }
 
-export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, participants, fbid, users }: MapMessageCommonOptions) {
+export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'single', participants, fbid, users }: MapMessageCommonOptions): Message {
   const message = JSON.parse(m.message) as IGMessageInDB
   let seen: boolean | { [participantID: string]: Date } = false
   if (threadType !== 'single') {
@@ -98,5 +99,80 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
 }
 
 export function mapMessages(messages: DBMessageSelectWithAttachments[], opts: MapMessageCommonOptions) {
-  return messages.map(m => mapMessage(m, opts))
+  return messages.sort((m1, m2) => {
+    if (m1.primarySortKey === m2.primarySortKey) return 0
+    return m1.primarySortKey > m2.primarySortKey ? 1 : -1
+  }).map(m => mapMessage(m, opts))
+}
+
+export function mapParticipants(_participants: DBParticipantSelect[], fbid: string) {
+  const participants: Participant[] = _participants.map(p => ({
+    id: p.contacts.id,
+    username: p.contacts.username,
+    fullName: p.contacts.name,
+    imgURL: p.contacts.profilePictureUrl,
+    isSelf: p.contacts.id === fbid,
+    displayText: p.contacts.name,
+    hasExited: false,
+    isAdmin: Boolean(p.isAdmin),
+  }))
+
+  if (participants?.length > 1) {
+    const otherParticipant = participants.findIndex(p => !p.isSelf)
+    if (otherParticipant !== 0) {
+      const item = participants[otherParticipant]
+      participants.splice(otherParticipant, 1)
+      participants.unshift(item)
+    }
+  }
+
+  return participants.filter(p => !!p?.id)
+}
+
+export function mapThread(t: {
+  threadKey: string
+  thread: string
+  lastActivityTimestampMs: Date
+  folderName: string
+  messages?: DBMessageSelectWithAttachments[]
+  participants: DBParticipantSelect[]
+}, fbid: string) {
+  const thread = JSON.parse(t.thread) as IGThreadInDB | null
+  const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
+  const participants = mapParticipants(t.participants, fbid)
+
+  const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
+
+  // let mutedUntil = null
+  // if (thread.muteExpireTimeMs !== 0) {
+  //   if (thread.muteExpireTimeMs === -1) {
+  //     mutedUntil = 'forever'
+  //   } else {
+  //     mutedUntil = new Date(thread.muteExpireTimeMs)
+  //   }
+  // }
+  // logger.debug(`mutedUntil: ${mutedUntil}`)
+  return {
+    id: t.threadKey as string,
+    title: threadType === 'group' && thread?.threadName,
+    isUnread,
+    folderType: t.folderName,
+    // ...mutedUntil && { mutedUntil },
+    isReadOnly: false,
+    imgURL: thread?.threadPictureUrl,
+    type: threadType,
+    participants: {
+      items: participants,
+      hasMore: false,
+    },
+    messages: {
+      items: mapMessages(t.messages, {
+        fbid,
+        participants: t.participants,
+        threadType,
+        users: participants,
+      }),
+      hasMore: false,
+    },
+  } as const
 }

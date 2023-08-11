@@ -1,24 +1,20 @@
-import { asc, inArray, sql } from 'drizzle-orm'
-import type { Participant, ThreadType } from '@textshq/platform-sdk'
-import { InboxName } from '@textshq/platform-sdk'
+import { asc, eq, inArray, sql } from 'drizzle-orm'
+import { InboxName, Message } from '@textshq/platform-sdk'
 import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
 
 import type { DrizzleDB } from './db'
-import { IGThreadInDB, messages, threads } from './schema'
-import { mapMessages } from '../mappers'
-import { getLogger } from '../logger'
-
-const logger = getLogger('helpers')
+import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './schema'
+import { mapMessages, mapParticipants, mapThread } from '../mappers'
 
 export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
-  ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
+  ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
   columns: {
     folderName: true,
     lastActivityTimestampMs: true,
     threadKey: true,
     thread: true,
   },
-  orderBy: [asc(threads.lastActivityTimestampMs)],
+  orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
   with: {
     participants: {
       columns: {
@@ -57,90 +53,106 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         },
         reactions: true,
       },
-      orderBy: [asc(messages.primarySortKey)],
+      orderBy: [asc(messagesSchema.primarySortKey)],
     },
   },
-}).map(t => {
-  logger.debug(`queryThreads: ${t.threadKey}`, {
-    t,
-    thread: t.thread,
-    tParsed: JSON.parse(t.thread),
-  })
-  const thread = JSON.parse(t.thread) as IGThreadInDB | null
-  const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
-  let participants: Participant[] = t.participants.map(p => ({
-    id: p.contacts.id,
-    username: p.contacts.username,
-    fullName: p.contacts.name,
-    imgURL: p.contacts.profilePictureUrl,
-    isSelf: p.contacts.id === fbid,
-    displayText: p.contacts.name,
-    hasExited: false,
-    isAdmin: Boolean(p.isAdmin),
-  }))
-
-  if (participants?.length > 1) {
-    const otherParticipant = participants.findIndex(p => !p.isSelf)
-    if (otherParticipant !== 0) {
-      const item = participants[otherParticipant]
-      participants.splice(otherParticipant, 1)
-      participants.unshift(item)
-    }
-  }
-
-  participants = participants.filter(p => !!p?.id)
-  const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
-
-  // let mutedUntil = null
-  // if (thread.muteExpireTimeMs !== 0) {
-  //   if (thread.muteExpireTimeMs === -1) {
-  //     mutedUntil = 'forever'
-  //   } else {
-  //     mutedUntil = new Date(thread.muteExpireTimeMs)
-  //   }
-  // }
-  // logger.debug(`mutedUntil: ${mutedUntil}`)
-  return {
-    id: t.threadKey as string,
-    title: threadType === 'group' && thread?.threadName,
-    isUnread,
-    folderType: t.folderName,
-    // ...mutedUntil && { mutedUntil },
-    isReadOnly: false,
-    imgURL: thread?.threadPictureUrl,
-    type: threadType,
-    participants: {
-      items: participants,
-      hasMore: false,
-    },
-    messages: {
-      items: mapMessages(t.messages.sort((m1, m2) => {
-        if (m1.primarySortKey === m2.primarySortKey) return 0
-        return m1.primarySortKey > m2.primarySortKey ? 1 : -1
-      }), {
-        fbid,
-        participants: t.participants,
-        threadType,
-        users: participants,
-      }),
-      hasMore: false,
-    },
-  } as const
-}).filter(t => {
+}).map(t => mapThread(t, fbid)).filter(t => {
   if (inbox === null) return true
   return t.folderType === inbox
 })
 
-export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string, threadKey: string) => {
-  logger.debug('queryMessages', messageIds)
-  const thread = await queryThreads(db, [threadKey], fbid)
-  if (thread?.length === 0) return []
-  const { messages: newMessages } = thread[0]
-  return newMessages.items.filter(m => messageIds === 'ALL' || messageIds.includes(m.id))
+export function getThread(db: DrizzleDB, threadKey: string) {
+  const t = db.query.threads.findFirst({
+    where: eq(threadsSchema.threadKey, threadKey),
+    with: {
+      participants: {
+        columns: {
+          userId: true,
+          isAdmin: true,
+          readWatermarkTimestampMs: true,
+        },
+        with: {
+          contacts: {
+            columns: {
+              id: true,
+              name: true,
+              username: true,
+              profilePictureUrl: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  return {
+    ...t,
+    thread: JSON.parse(t.thread) as IGThreadInDB,
+  } as const
 }
+
+export type ThreadQueryResult = ReturnType<typeof getThread>
+
+export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQueryResult, messageIds: string[] | 'ALL', fbid: string): Message[] => {
+  const t = typeof threadKeyOrThread === 'string' ? getThread(db, threadKeyOrThread) : threadKeyOrThread
+  const messages = db.query.messages.findMany({
+    where: messageIds === 'ALL' ? undefined : inArray(messagesSchema.messageId, messageIds),
+    columns: {
+      raw: true,
+      message: true,
+      threadKey: true,
+      messageId: true,
+      offlineThreadingId: true,
+      primarySortKey: true,
+      timestampMs: true,
+      senderId: true,
+    },
+    with: {
+      attachments: {
+        columns: {
+          raw: true,
+          attachmentFbid: true,
+          attachment: true,
+        },
+      },
+      reactions: true,
+      thread: {
+        with: {
+          participants: {
+            columns: {
+              userId: true,
+              isAdmin: true,
+              readWatermarkTimestampMs: true,
+            },
+            with: {
+              contacts: {
+                columns: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  profilePictureUrl: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [asc(messagesSchema.primarySortKey)],
+
+  })
+  if (!messages || messages.length === 0) return []
+  return mapMessages(messages, {
+    threadType: t?.thread.threadType === '1' ? 'single' : 'group',
+    users: mapParticipants(t.participants, fbid),
+    participants: t.participants,
+    fbid,
+  })
+}
+
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 
 export const hasSomeCachedData = async (db: DrizzleDB) => ({
-  hasThreads: hasData(db, threads),
-  hasMessages: hasData(db, messages),
+  hasThreads: hasData(db, threadsSchema),
+  hasMessages: hasData(db, messagesSchema),
 })

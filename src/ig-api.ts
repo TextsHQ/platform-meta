@@ -555,7 +555,7 @@ export default class InstagramAPI {
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform since the user scrolled up in the thread
       const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
-      const messages = newMessageIds.length > 0 ? await queryMessages(this.papi.db, newMessageIds, this.fbid, rawd.insertNewMessageRange[0].threadKey!) : []
+      const messages = newMessageIds.length > 0 ? queryMessages(this.papi.db, rawd.insertNewMessageRange[0].threadKey!, newMessageIds, this.fbid) : []
 
       this.logger.info('new messages are', messages)
       this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
@@ -609,7 +609,7 @@ export default class InstagramAPI {
     if (rawd.insertMessage) {
       // new message to send to the platform
       const rawm = rawd.insertMessage
-      const messages = await queryMessages(this.papi.db, [rawm[0].messageId], this.fbid, rawm[0].threadKey!)
+      const messages = queryMessages(this.papi.db, rawm[0].threadKey!, [rawm[0].messageId], this.fbid)
       this.logger.info('insertMessage: queryMessages', messages)
       if (messages?.length > 0) {
         this.papi.onEvent?.([{
@@ -623,11 +623,11 @@ export default class InstagramAPI {
     }
 
     if (rawd.updateReadReceipt) {
-      rawd.updateReadReceipt.forEach(async r => {
-        if (!r.readActionTimestampMs) return
+      for (const r of rawd.updateReadReceipt) {
+        if (!r.readActionTimestampMs) continue
         const newestMessage = this.getNewestMessage(r.threadKey!)
         this.logger.debug('updateReadReceipt: newestMessage', newestMessage)
-        const messages = await queryMessages(this.papi.db, 'ALL', this.fbid, r.threadKey!)
+        const messages = queryMessages(this.papi.db, r.threadKey, 'ALL', this.fbid)
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
@@ -635,7 +635,7 @@ export default class InstagramAPI {
           mutationType: 'update',
           entries: messages,
         }])
-      })
+      }
     }
 
     if (
