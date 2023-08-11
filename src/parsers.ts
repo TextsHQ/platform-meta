@@ -117,7 +117,7 @@ const parseMap = {
     timestampMs: getAsMS(parseValue<string>(a[5])),
     messageId: parseValue<string>(a[8]),
     offlineThreadingId: parseValue<string>(a[9]),
-    authorityLevel: getAsNumber(a[2]),
+    authorityLevel: parseValue(a[2]),
     primarySortKey: parseValue<string>(a[6]),
     senderId: parseValue<string>(a[10]),
     isAdminMessage: parseValue<boolean>(a[12]),
