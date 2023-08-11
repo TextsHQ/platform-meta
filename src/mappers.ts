@@ -129,14 +129,17 @@ export function mapParticipants(_participants: DBParticipantSelect[], fbid: stri
   return participants.filter(p => !!p?.id)
 }
 
-export function mapThread(t: {
-  threadKey: string
-  thread: string
-  lastActivityTimestampMs: Date
-  folderName: string
-  messages?: DBMessageSelectWithAttachments[]
-  participants: DBParticipantSelect[]
-}, fbid: string) {
+export function mapThread(
+  t: {
+    threadKey: string
+    thread: string
+    lastActivityTimestampMs: Date
+    folderName: string
+    messages?: DBMessageSelectWithAttachments[]
+    participants: DBParticipantSelect[]
+  },
+  fbid: string,
+) {
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
   const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
   const participants = mapParticipants(t.participants, fbid)
@@ -164,6 +167,11 @@ export function mapThread(t: {
     participants: {
       items: participants,
       hasMore: false,
+    },
+    partialLastMessage: thread.snippet && {
+      text: thread.snippet,
+      senderID: thread.snippetSenderContactId,
+      isSender: thread.snippetSenderContactId === fbid,
     },
     messages: {
       items: mapMessages(t.messages, {

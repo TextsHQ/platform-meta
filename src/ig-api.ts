@@ -281,24 +281,26 @@ export default class InstagramAPI {
     return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
   }
 
-  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, initialRequest?: boolean) {
+  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, isInitialRequest?: boolean) {
     let rawd: ParsedPayload
-    this.logger.info('initial payload', initialRequest)
-    this.logger.info('ig-api handlePayload raw payload', payload)
+    this.logger.debug('handlePayload init', { isInitialRequest, requestId, requestType, payload })
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
-      texts.Sentry.captureException(err)
+      texts.Sentry.captureException(err, {
+        extra: {
+          // payload, // do not send, contains sensitive data
+          isInitialRequest,
+          requestId,
+          requestType,
+        },
+      })
       console.error(err)
-      this.logger.error('handlePayload error', { err, errString: err.toString(), payload })
+      this.logger.error('handlePayload error', { isInitialRequest, requestId, requestType, payload }, { err, errString: err.toString() })
       return
     }
 
-    this.logger.debug('ig-api handlePayload parsed payload', {
-      requestId,
-      requestType,
-      rawd,
-    })
+    this.logger.debug('handlePayload parsed payload', rawd)
 
     if (requestId && requestType) {
       if (rawd.issueNewError) {
@@ -307,6 +309,8 @@ export default class InstagramAPI {
         const [mainError, ...otherErrors] = errors || []
         if (mainError) {
           requestRejector(mainError)
+          // sentry should be captured upstream
+          // texts.Sentry.captureException(new Error(mainError))
         }
         if (otherErrors && otherErrors.length > 0) {
           otherErrors.forEach(text => {
@@ -341,7 +345,7 @@ export default class InstagramAPI {
     }
 
     // below handles case of fixing gaps in the cache when client is offline
-    if (rawd.upsertMessage && initialRequest && hasSomeCachedData(this.papi.db)) {
+    if (rawd.upsertMessage && isInitialRequest && hasSomeCachedData(this.papi.db)) {
       // for each message, check if it exists in the cache
       // if it doesn't, call fetch more messages from the socket using the threadKey and messageID
       // if it does, do nothing
@@ -556,7 +560,7 @@ export default class InstagramAPI {
       for (const key of keys) {
         if (this.papi.sendPromiseMap.has(key)) {
           const [resolve] = this.papi.sendPromiseMap.get(key)
-          this.logger.info('resolve threads')
+          this.logger.debug('resolve', key)
           this.papi.sendPromiseMap.delete(key)
           resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
         }
@@ -566,10 +570,10 @@ export default class InstagramAPI {
       const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
       const messages = newMessageIds.length > 0 ? queryMessages(this.papi.db, rawd.insertNewMessageRange[0].threadKey!, newMessageIds, this.fbid) : []
 
-      this.logger.info('new messages are', messages)
-      this.logger.info('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
+      this.logger.debug('new messages are', messages)
+      this.logger.debug('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
       const threadID = rawd.insertNewMessageRange[0].threadKey
-      this.logger.info('thread id in ig-papi is', threadID)
+      this.logger.debug('thread id in ig-papi is', threadID)
 
       if (messages?.length > 0) {
         this.papi.onEvent?.([{
@@ -619,7 +623,7 @@ export default class InstagramAPI {
       // new message to send to the platform
       const rawm = rawd.insertMessage
       const messages = queryMessages(this.papi.db, rawm[0].threadKey!, [rawm[0].messageId], this.fbid)
-      this.logger.info('insertMessage: queryMessages', messages)
+      this.logger.debug('insertMessage: queryMessages', messages)
       if (messages?.length > 0) {
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
@@ -686,7 +690,7 @@ export default class InstagramAPI {
   }
 
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
-    this.logger.info('deleteThenInsertThread', _threads)
+    this.logger.debug('deleteThenInsertThread', _threads)
 
     const threads = _threads.map(t => {
       const { raw, threadKey, lastActivityTimestampMs, folderName, ...thread } = t
@@ -707,13 +711,10 @@ export default class InstagramAPI {
       } as const
     })
 
-    this.logger.info('deleteThenInsertThread', threads)
-
     return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
-    this.logger.debug('verifyContactRowExists', contactRows)
     const mappedContacts = contactRows.map(c => {
       const { id, raw, name, profilePictureUrl, username, ...contact } = c
       return {
@@ -729,12 +730,11 @@ export default class InstagramAPI {
   }
 
   addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
-    this.logger.info('addParticipantIdToGroupThread', participants)
     return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
   upsertMessage(_messages: ParsedPayload['insertMessage'] | ParsedPayload['upsertMessage']) {
-    this.logger.info('upsertMessage', _messages)
+    this.logger.debug('upsertMessage', _messages)
 
     const messages = _messages.filter(m => m?.threadKey !== null).map(m => {
       const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
@@ -761,8 +761,6 @@ export default class InstagramAPI {
       } as const
     })
 
-    this.logger.info('upsert messages', messages)
-
     return this.papi.db
       .insert(schema.messages)
       .values(messages)
@@ -780,7 +778,6 @@ export default class InstagramAPI {
   }
 
   upsertAttachments(_attachments: ParsedPayload['insertBlobAttachment'] | ParsedPayload['insertXmaAttachment']) {
-    this.logger.info('upsertAttachments', _attachments)
     const attachments = _attachments.filter(a => !Array.isArray(a.playableUrl)).map(a => {
       const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
 
@@ -803,11 +800,9 @@ export default class InstagramAPI {
     })
 
     if (attachments.length === 0) {
-      this.logger.debug('upsertAttachments: no attachments to add', _attachments)
+      this.logger.error('upsertAttachments: no attachments to add', _attachments)
       return
     }
-
-    this.logger.info('upsertAttachments', attachments)
 
     return this.papi.db
       .insert(schema.attachments)
@@ -941,14 +936,14 @@ export default class InstagramAPI {
   }
 
   async sendMedia(threadID: string, opts: MessageSendOptions, { filePath, fileName }: { filePath: string, fileName: string }) {
-    this.logger.info('sendMedia about to call uploadFile')
+    this.logger.debug('sendMedia about to call uploadFile')
     const res = await this.uploadFile(threadID, filePath, fileName)
     const metadata = res.payload.metadata[0] as {
       image_id?: string
       video_id?: string
       gif_id?: string
     }
-    this.logger.info('sendMedia', res, metadata)
+    this.logger.debug('sendMedia', res, metadata)
     return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
   }
 }
