@@ -221,6 +221,12 @@ const parseMap = {
     contactViewerRelationship: parseValue(a[19]),
     gender: parseValue(a[18]),
   }),
+  deleteThenInsertContact: (a: RawItem) => ({
+    id: a[0][1],
+    profilePictureUrl: a[2] == null ? '' : a[2],
+    name: a[9],
+    username: a[41],
+  }),
   insertBlobAttachment: (a: RawItem) => ({
     raw: JSON.stringify(a),
     filename: a[0],
