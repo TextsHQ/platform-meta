@@ -1,0 +1,23 @@
+{
+  "app_id": "936619743392459",
+  "payload": {
+    "tasks": [
+      {
+        "label": "511",
+        "payload": {
+          "thread_key": 9716251158416109,
+          "old_ig_folder": 1,
+          "new_ig_folder": 0,
+          "sync_group": 1
+        },
+        "queue_name": "9716251158416109",
+        "task_id": 80,
+        "failure_count": null
+      }
+    ],
+    "epoch_id": 7095567379874750465,
+    "version_id": "6414029378692015"
+  },
+  "request_id": 45,
+  "type": 3
+}
