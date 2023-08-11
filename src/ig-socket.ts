@@ -761,7 +761,7 @@ export default class InstagramWebSocket {
         sync_group: 1,
       }),
       queue_name: thread_key.toString(),
-      task_id: 1,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
   }
@@ -852,16 +852,33 @@ export default class InstagramWebSocket {
     })
   }
 
-  async changeThreadFolder(threadID: string, old_ig_folder: number, new_ig_folder: number) {
+  // does not work for moving threads out of the message requests folder
+  // prefer this.moveOutOfMessageRequests
+  // since we pretend General and Primary are the same, this method is unused
+  async changeThreadFolder(thread_key: string, old_ig_folder: number, new_ig_folder: number) {
     await this.publishTask('change thread folder', {
       label: '511',
       payload: JSON.stringify({
-        thread_key: threadID,
+        thread_key,
         old_ig_folder,
         new_ig_folder,
         sync_group: 1,
       }),
-      queue_name: threadID,
+      queue_name: thread_key,
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+  }
+
+  async moveOutOfMessageRequests(thread_key: string) {
+    await this.publishTask('move out of message requests', {
+      label: '66',
+      payload: JSON.stringify({
+        thread_key,
+        sync_group: 1,
+        ig_folder: 1,
+      }),
+      queue_name: 'message_request',
       task_id: this.genTaskId(),
       failure_count: null,
     })
