@@ -10,7 +10,7 @@ import { getLogger } from '../logger'
 
 const logger = getLogger('helpers')
 
-export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
+export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL, messageIDs: string[] | 'ALL' = null) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threads.threadKey, threadIDs) }),
   columns: {
     folderName: true,
@@ -58,6 +58,10 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
         reactions: true,
       },
       orderBy: [asc(messages.primarySortKey)],
+      // if threadIDs.length === 1 and messageIDs is not empty or ALL then filter messages
+      ...(threadIDs.length === 1 && messageIDs !== 'ALL' && messageIDs?.length > 0 && {
+        where: inArray(messages.messageId, messageIDs),
+      }),
     },
   },
 }).map(t => {
@@ -133,7 +137,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
 
 export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL', fbid: string, threadKey: string) => {
   logger.debug('queryMessages', messageIds)
-  const thread = await queryThreads(db, [threadKey], fbid)
+  const thread = await queryThreads(db, [threadKey], fbid, null, messageIds)
   if (thread?.length === 0) return []
   const { messages: newMessages } = thread[0]
   return newMessages.items.filter(m => messageIds === 'ALL' || messageIds.includes(m.id))
