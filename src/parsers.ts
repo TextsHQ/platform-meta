@@ -369,7 +369,16 @@ const parseMap = {
     hasMoreAfter: Boolean(a[4]),
   }),
   removeOptimisticGroupThread: (a: RawItem) => ({
-    offlineThreadingId: a[0],
+    offlineThreadingId: parseValue<string>(a[0]),
+  }),
+  taskExists: (a: RawItem) => ({
+    taskId: parseValue<string>(a[0]),
+  }),
+  issueNewError: (a: RawItem) => ({
+    requestId: parseValue<string>(a[0]),
+    errorId: parseValue<string>(a[1]), // @TODO: not sure what this value is
+    errorTitle: parseValue<string>(a[2]),
+    errorMessage: parseValue<string>(a[3]),
   }),
 } as const
 
