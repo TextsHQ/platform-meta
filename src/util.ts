@@ -92,7 +92,7 @@ export function parseValue<T extends string | number | boolean | null>(value: st
 
 export function fixEmoji(emoji: string) {
   if (!emoji) return ''
-  if (emoji === '❤️' || emoji === '❤') return '❤️'
+  if (emoji === '❤') return '❤️'
   return emoji
 }
 
