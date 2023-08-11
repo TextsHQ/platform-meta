@@ -361,20 +361,73 @@ export default class PlatformInstagram implements PlatformAPI {
     if (objName === 'thread') {
       const thread = this.db.query.threads.findFirst({
         where: eq(schema.threads.threadKey, objectID),
+        columns: {
+          threadKey: true,
+          thread: true,
+          lastActivityTimestampMs: true,
+          folderName: true,
+          raw: true,
+        },
+        with: {
+          participants: {
+            columns: {
+              userId: true,
+              isAdmin: true,
+              readWatermarkTimestampMs: true,
+            },
+            with: {
+              contacts: {
+                columns: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  profilePictureUrl: true,
+                },
+              },
+            },
+          },
+        },
       })
       return JSON.stringify({
-        t: thread.thread,
-        r: thread.raw,
-      })
+        ...thread,
+        thread: JSON.parse(thread.thread),
+        raw: JSON.parse(thread.raw),
+      }, null, 2)
     }
     if (objName === 'message') {
       const message = this.db.query.messages.findFirst({
         where: eq(schema.messages.messageId, objectID),
+        columns: {
+          raw: true,
+          message: true,
+          threadKey: true,
+          messageId: true,
+          offlineThreadingId: true,
+          primarySortKey: true,
+          timestampMs: true,
+          senderId: true,
+        },
+        with: {
+          attachments: {
+            columns: {
+              raw: true,
+              attachmentFbid: true,
+              attachment: true,
+            },
+          },
+          reactions: true,
+        },
       })
       return JSON.stringify({
-        m: message.message,
-        r: message.raw,
-      })
+        ...message,
+        message: JSON.parse(message.message),
+        raw: JSON.parse(message.raw),
+        attachments: message.attachments?.map(a => ({
+          ...a,
+          attachment: JSON.parse(a.attachment),
+          raw: JSON.parse(a.raw),
+        })),
+      }, null, 2)
     }
   }
 
