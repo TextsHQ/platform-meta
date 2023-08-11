@@ -1,6 +1,7 @@
-import { asc, inArray } from 'drizzle-orm'
+import { asc, inArray, sql } from 'drizzle-orm'
 import type { Participant, ThreadType } from '@textshq/platform-sdk'
 import { InboxName } from '@textshq/platform-sdk'
+import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
 
 import type { DrizzleDB } from './db'
 import { IGThreadInDB, messages, threads } from './schema'
@@ -134,3 +135,9 @@ export const queryMessages = async (db: DrizzleDB, messageIds: string[] | 'ALL',
   const { messages: newMessages } = thread[0]
   return newMessages.items.filter(m => messageIds === 'ALL' || messageIds.includes(m.id))
 }
+const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
+
+export const hasSomeCachedData = async (db: DrizzleDB) => ({
+  hasThreads: hasData(db, threads),
+  hasMessages: hasData(db, messages),
+})

@@ -4,7 +4,7 @@ import { texts, type FetchOptions, type User, MessageSendOptions, InboxName } fr
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
-import { queryMessages, queryThreads } from './store/helpers'
+import { hasSomeCachedData, queryMessages, queryThreads } from './store/helpers'
 
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
@@ -279,11 +279,12 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, true)
   }
 
-  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver) {
+  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, initialRequest?: boolean) {
     let rawd: ParsedPayload
+    this.logger.info('initial payload', initialRequest)
     this.logger.info('ig-api handlePayload raw payload', payload)
     try {
       rawd = parseRawPayload(payload)
@@ -292,7 +293,7 @@ export default class InstagramAPI {
       this.logger.error('ig-api handlePayload error', { err, errString: err.toString(), payload })
       return
     }
-    this.logger.debug('ig-api handlePayload', {
+    this.logger.info('ig-api handlePayload parsed payload', {
       requestId,
       requestType,
       rawd,
@@ -316,6 +317,46 @@ export default class InstagramAPI {
       }
     }
 
+    // below handles case of fixing gaps in the cache when client is offline
+    if (rawd.upsertMessage && initialRequest && hasSomeCachedData(this.papi.db)) {
+      // for each message, check if it exists in the cache
+      // if it doesn't, call fetch more messages from the socket using the threadKey and messageID
+      // if it does, do nothing
+      rawd.upsertMessage.forEach(async m => {
+        // make sure thread already exists
+        const thread = this.papi.db.query.threads.findFirst({
+          where: eq(schema.threads.threadKey, m.threadKey),
+        })
+        if (!thread) return
+        // check if last message already in cache
+        const message = this.papi.db.query.messages.findFirst({
+          where: and(
+            eq(schema.messages.threadKey, m.threadKey),
+            eq(schema.messages.messageId, m.messageId),
+          ),
+        })
+        if (message) return
+        const newestMessageCache = this.getNewestMessage(m.threadKey)
+        this.logger.info(`message ${m.messageId} does not exist in cache, calling fetchMessages`)
+        let limit = 0
+        while (limit < 10) {
+          const resp = await this.papi.socket.fetchMessages(m.threadKey, m.messageId, new Date(m.timestampMs))
+          if (!resp?.messages?.length) return
+          // check if any of resp.messages is = to newestMessageCache.messageId
+          const newMessageIds = resp.messages.map(rm => rm.id)
+          if (newMessageIds.includes(newestMessageCache.messageId)) {
+            this.logger.info(`newestMessageCache ${newestMessageCache.messageId} found in fetchMessages`)
+            return
+          }
+          limit++
+        }
+        if (limit === 10) {
+          // TODO delete all old messages in cache
+        }
+      })
+    } else {
+      this.logger.info('no need to fix cache')
+    }
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread

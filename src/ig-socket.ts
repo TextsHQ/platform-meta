@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions, Thread, Message } from '@textshq/platform-sdk'
 import { InboxName } from '@textshq/platform-sdk'
 import {
   createPromise,
@@ -508,23 +508,22 @@ export default class InstagramWebSocket {
     return promise
   }
 
-  async fetchMessages(threadID: string) {
+  async fetchMessages(threadID: string, messageID: string, timestamp: Date) {
     if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
       this.logger.info('already fetching messages')
       return Promise.reject(new Error('already fetching messages'))
     }
-    const sendPromise = new Promise((resolve, reject) => {
+    const sendPromise = new Promise<{ messages: Message[], hasMoreBefore: boolean }>((resolve, reject) => {
       this.papi.sendPromiseMap.set(`messages-${threadID}`, [resolve, reject])
     })
-    const lastMessage = this.papi.api.getOldestMessage(threadID)
-    this.logger.info('fetchMessages', { threadID, lastMessage })
+    this.logger.info('fetchMessages', { threadID, messageID, timestamp })
     this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: threadID,
         direction: 0,
-        reference_timestamp_ms: Number(lastMessage.timestampMs.getTime()),
-        reference_message_id: lastMessage.messageId,
+        reference_timestamp_ms: Number(timestamp.getTime()),
+        reference_message_id: messageID,
         sync_group: 1,
         cursor: this.papi.api.cursor,
       }),
@@ -551,11 +550,14 @@ export default class InstagramWebSocket {
     }>((resolve, reject) => {
       this.papi.sendPromiseMap.set(key, [resolve, reject])
     })
-
+    const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
     this.publishTask(`get threads (${inbox})`, {
       label: '145',
       payload: JSON.stringify({
-        ...(inbox === InboxName.NORMAL ? this.getLastThreadReference() : {
+        ...(inbox === InboxName.NORMAL ? {
+          reference_thread_key,
+          reference_activity_timestamp,
+        } : {
           reference_thread_key: 0,
           reference_activity_timestamp: 9999999999999,
         }),
