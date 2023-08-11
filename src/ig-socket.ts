@@ -563,27 +563,75 @@ export default class InstagramWebSocket {
       this.papi.sendPromiseMap.set(key, [resolve, reject])
     })
     const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
-    this.publishTask(`get threads (${inbox})`, {
-      label: '145',
-      payload: JSON.stringify({
-        ...(inbox === InboxName.NORMAL ? {
-          reference_thread_key,
-          reference_activity_timestamp,
-        } : {
+    this.publishTask('get -1 threads', [
+      {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key: -1,
           reference_thread_key: 0,
           reference_activity_timestamp: 9999999999999,
+          additional_pages_to_fetch: 0,
+          cursor: this.papi.api.cursor,
+          messaging_tag: null,
+          sync_group: 1,
         }),
-        is_after: 0,
-        parent_thread_key: inbox === InboxName.NORMAL ? 0 : -1,
-        additional_pages_to_fetch: 0,
-        messaging_tag: null,
-        sync_group: 1,
-        cursor: this.papi.api.cursor,
-      }),
-      queue_name: 'trq',
-      task_id: this.genTaskId(),
-      failure_count: null,
-    })
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+      {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key: -1,
+          reference_thread_key: 0,
+          reference_activity_timestamp: 9999999999999,
+          additional_pages_to_fetch: 0,
+          cursor: null,
+          messaging_tag: null,
+          sync_group: 95,
+        }),
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+      {
+        label: '313',
+        payload: JSON.stringify({
+          cursor: this.papi.api.cursor,
+          filter: 3,
+          is_after: 0,
+          parent_thread_key: 0,
+          reference_activity_timestamp,
+          reference_thread_key,
+          secondary_filter: 0,
+          filter_value: '',
+          sync_group: 1,
+        }),
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+    ])
+    this.publishTask('get threads (main)', [
+      {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key: 0,
+          reference_thread_key,
+          reference_activity_timestamp,
+          additional_pages_to_fetch: 0,
+          cursor: this.papi.api.cursor,
+          messaging_tag: null,
+          sync_group: 1,
+        }),
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+    ])
     this.logger.info('promising threads')
     return sendPromise
   }
