@@ -69,8 +69,11 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
-  const text = message.text && (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text)
+  const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
+  if (message.text === '' && !message.textHeading) {
+    message.textHeading = 'No longer available'
+  }
   return {
     // _original: JSON.stringify({
     //   message,
