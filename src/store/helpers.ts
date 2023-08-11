@@ -35,7 +35,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     },
     messages: {
       columns: {
-        raw: true,
+        raw: false,
         threadKey: true,
         messageId: true,
         timestampMs: true,
@@ -46,7 +46,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
       with: {
         attachments: {
           columns: {
-            raw: true,
+            raw: false,
             attachmentFbid: true,
             attachment: true,
           },
@@ -119,7 +119,7 @@ export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQ
     with: {
       attachments: {
         columns: {
-          raw: true,
+          raw: false,
           attachmentFbid: true,
           attachment: true,
         },

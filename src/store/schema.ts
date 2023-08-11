@@ -30,7 +30,6 @@ export const messages = sqliteTable('messages', {
 })
 
 type AttachmentInJoin = {
-  raw: string
   attachmentFbid: string
   attachment: string
 }

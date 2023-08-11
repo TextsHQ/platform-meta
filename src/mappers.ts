@@ -15,10 +15,10 @@ function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
 export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
   return {
-    _original: JSON.stringify({
-      attachment,
-      raw: a.raw,
-    }),
+    // _original: JSON.stringify({
+    //   attachment,
+    //   raw: a.raw,
+    // }),
     id: a.attachmentFbid,
     type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType),
     size: {
