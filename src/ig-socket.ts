@@ -898,7 +898,7 @@ export default class InstagramWebSocket {
       payload: JSON.stringify({
         thread_id,
         otid: otid.toString(),
-        source: 65544,
+        source: (2 ** 16) + 8,
         send_type: 5,
         sync_group: 1,
         forwarded_msg_id,
