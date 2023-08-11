@@ -59,6 +59,8 @@ CREATE TABLE `reactions` (
 CREATE TABLE `threads` (
 	`threadKey` text PRIMARY KEY NOT NULL,
 	`thread` text,
+	`lastActivityTimestampMs` integer,
+	`folderName` text,
 	`raw` text
 );
 --> statement-breakpoint

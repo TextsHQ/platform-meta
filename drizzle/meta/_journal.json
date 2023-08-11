@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1691637150662,
-      "tag": "0000_spicy_marvel_boy",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1691649096811,
-      "tag": "0001_modern_goliath",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1691656535938,
-      "tag": "0002_concerned_wolverine",
+      "when": 1691714647659,
+      "tag": "0000_outstanding_blizzard",
       "breakpoints": true
     }
   ]

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "b49c4aad-e5c5-4d3c-89ff-866bbcc89461",
+  "id": "63fe05ef-41a3-47b0-b53d-846fe862ce9e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -397,6 +397,20 @@
         },
         "thread": {
           "name": "thread",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastActivityTimestampMs": {
+          "name": "lastActivityTimestampMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "folderName": {
+          "name": "folderName",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
