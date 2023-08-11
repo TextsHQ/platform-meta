@@ -853,7 +853,7 @@ export default class InstagramWebSocket {
   }
 
   // does not work for moving threads out of the message requests folder
-  // prefer this.moveOutOfMessageRequests
+  // prefer this.approveThread
   // since we pretend General and Primary are the same, this method is unused
   async changeThreadFolder(thread_key: string, old_ig_folder: number, new_ig_folder: number) {
     await this.publishTask('change thread folder', {
@@ -870,7 +870,7 @@ export default class InstagramWebSocket {
     })
   }
 
-  async moveOutOfMessageRequests(thread_key: string) {
+  async approveThread(thread_key: string) {
     await this.publishTask('move out of message requests', {
       label: '66',
       payload: JSON.stringify({

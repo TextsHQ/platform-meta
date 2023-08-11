@@ -174,7 +174,7 @@ export default class PlatformInstagram implements PlatformAPI {
         hasMore: hasMoreBefore,
       }
     }
-    const messages = await queryMessages(this.db, threadID, 'ALL', this.api.fbid)
+    const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
     return {
       items: messages,
       hasMore: this.api.messagesHasMoreBefore.get(threadID),
@@ -290,6 +290,12 @@ export default class PlatformInstagram implements PlatformAPI {
 
     if ('mutedUntil' in updates) {
       promises.push(this.socket.muteThread(threadID, updates.mutedUntil === 'forever' ? -1 : 0))
+    }
+
+    if ('folderName' in updates) {
+      if (updates.folderName === InboxName.NORMAL) {
+        promises.push(this.socket.approveThread(threadID))
+      }
     }
 
     await Promise.all(promises)

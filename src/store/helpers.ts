@@ -96,7 +96,7 @@ export type ThreadQueryResult = ReturnType<typeof getThread>
 export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQueryResult, messageIds: string[] | 'ALL', fbid: string): Message[] => {
   const t = typeof threadKeyOrThread === 'string' ? getThread(db, threadKeyOrThread) : threadKeyOrThread
   const messages = db.query.messages.findMany({
-    where: messageIds === 'ALL' ? undefined : inArray(messagesSchema.messageId, messageIds),
+    where: messageIds === 'ALL' ? eq(messagesSchema.threadKey, t.threadKey) : inArray(messagesSchema.messageId, messageIds),
     columns: {
       raw: true,
       message: true,
