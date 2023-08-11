@@ -781,14 +781,14 @@ export default class InstagramWebSocket {
   async changeThreadFolder(threadID: string, old_ig_folder: number, new_ig_folder: number) {
     await this.publishTask('change thread folder', {
       label: '511',
-      payload: {
+      payload: JSON.stringify({
         thread_key: threadID,
         old_ig_folder,
         new_ig_folder,
         sync_group: 1,
-      },
+      }),
       queue_name: threadID,
-      task_id: 80,
+      task_id: this.genTaskId(),
       failure_count: null,
     })
   }
