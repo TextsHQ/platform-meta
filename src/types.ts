@@ -14,5 +14,6 @@ export interface SerializedSession {
   fbid: string
   igUserId: string
   lsd: string
+  wwwClaim: string
   lastCursor: string
 }

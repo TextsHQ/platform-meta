@@ -55,6 +55,8 @@ export default class InstagramAPI {
 
   lsd: SerializedSession['lsd']
 
+  wwwClaim: SerializedSession['wwwClaim']
+
   cursor: string
 
   lastThreadReference: {
@@ -67,8 +69,8 @@ export default class InstagramAPI {
 
   private readonly http = texts.createHttpClient()
 
-  private httpRequest(url: string, opts: FetchOptions) {
-    return this.http.requestAsString(url, {
+  private async httpRequest(url: string, opts: FetchOptions) {
+    const res = await this.http.requestAsString(url, {
       cookieJar: this.jar,
       ...opts,
       headers: {
@@ -77,6 +79,9 @@ export default class InstagramAPI {
         ...opts.headers,
       },
     })
+    const wwwClaim = res.headers['x-ig-set-www-claim']
+    if (wwwClaim) this.wwwClaim = String(wwwClaim)
+    return res
   }
 
   async init() {
@@ -152,7 +157,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        // 'x-ig-www-claim': '',
+        'x-ig-www-claim': this.wwwClaim,
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}${username}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -207,7 +212,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        // 'x-ig-www-claim': '',
+        'x-ig-www-claim': this.wwwClaim,
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}}/`,
         'x-instagram-ajax': '1007993177',

@@ -101,6 +101,7 @@ export default class PlatformInstagram implements PlatformAPI {
     lsd: this.api.lsd,
     fbid: this.api.fbid,
     igUserId: this.api.igUserId,
+    wwwClaim: this.api.wwwClaim,
     lastCursor: this.api.cursor,
   })
 
