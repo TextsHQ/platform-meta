@@ -883,4 +883,31 @@ export default class InstagramWebSocket {
       failure_count: null,
     })
   }
+
+  /**
+   * @param thread_id thread id to forward to
+   * @param forwarded_msg_id message id to forward
+   */
+  async forwardMessage(thread_id: string, forwarded_msg_id: string) {
+    if (!thread_id) throw new Error('thread_id is required')
+    if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('messageID is required')
+
+    const { otid } = getTimeValues()
+    await this.publishTask('forward message', {
+      label: '46',
+      payload: JSON.stringify({
+        thread_id,
+        otid: otid.toString(),
+        source: 65544,
+        send_type: 5,
+        sync_group: 1,
+        forwarded_msg_id,
+        strip_forwarded_msg_caption: 0,
+        initiating_source: 1,
+      }),
+      queue_name: thread_id,
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })
+  }
 }

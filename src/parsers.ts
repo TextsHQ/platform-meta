@@ -82,7 +82,7 @@ const parseMap = {
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9][1],
       folderName: getInboxNameFromIGFolder(parseValue<string>(a[10])),
-      parentThreadKey: a[35][1],
+      parentThreadKey: parseValue<string>(a[35]),
       lastActivityTimestampMs: getAsMS(a[0][1]),
       snippet: a[2],
       threadName: a[3][1],

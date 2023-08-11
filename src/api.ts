@@ -377,4 +377,8 @@ export default class PlatformInstagram implements PlatformAPI {
       })
     }
   }
+
+  forwardMessage = async (_threadID: ThreadID, messageID: MessageID, threadIDs: ThreadID[]) => {
+    await Promise.all(threadIDs.map(tid => this.socket.forwardMessage(tid, messageID)))
+  }
 }
