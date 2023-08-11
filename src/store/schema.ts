@@ -144,3 +144,8 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
 
 }))
 export type DBReaction = InferModel<typeof reactions, 'select'>
+
+export const keyValues = sqliteTable('key_values', {
+  key: text('key').notNull().primaryKey(),
+  value: text('value'),
+})
