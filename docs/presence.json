@@ -1,0 +1,39 @@
+{
+  "request_id": null,
+  "payload": {
+    "name": null,
+    "step": [
+      1,
+      [
+        5,
+        "deleteThenInsertContactPresence",
+        [
+          19,
+          "102637284471489"
+        ],
+        [
+          19,
+          "2"
+        ],
+        [
+          19,
+          "1691770536000"
+        ],
+        [
+          19,
+          "1691772337000"
+        ],
+        [
+          19,
+          "105830141657088"
+        ],
+        "",
+        false
+      ]
+    ]
+  },
+  "sp": [
+    "deleteThenInsertContactPresence"
+  ],
+  "target": 3
+}
