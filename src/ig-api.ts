@@ -278,7 +278,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, true)
+    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
   }
 
   async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, initialRequest?: boolean) {
