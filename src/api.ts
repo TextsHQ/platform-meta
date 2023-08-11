@@ -428,7 +428,7 @@ export default class PlatformInstagram implements PlatformAPI {
         attachments: message.attachments?.map(a => ({
           ...a,
           attachment: JSON.parse(a.attachment),
-          raw: JSON.parse(a.raw),
+          // raw: JSON.parse(a.raw),
         })),
       }, null, 2)
     }

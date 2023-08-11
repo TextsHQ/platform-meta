@@ -20,15 +20,18 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
     //   raw: a.raw,
     // }),
     id: a.attachmentFbid,
-    type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType),
+    type: mapMimeTypeToAttachmentType(attachment.previewUrlMimeType || attachment.playableUrlMimeType),
     size: {
       width: attachment.previewWidth,
       height: attachment.previewHeight,
     },
-    mimeType: attachment.playableUrlMimeType,
+    mimeType: attachment.previewUrlMimeType || attachment.playableUrlMimeType,
     fileSize: attachment.playableDurationMs,
     fileName: attachment.filename,
-    srcURL: attachment.playableUrl,
+    srcURL: attachment.previewUrl || attachment.playableUrl,
+    extra: {
+      titleText: attachment.titleText,
+    },
   }
 }
 
@@ -72,9 +75,14 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
   const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
-  if (message.text === '' && !message.textHeading) {
+
+  const attachments = m.attachments.map(a => mapAttachment(a))
+  const attachmentWithText = attachments.find(a => !!a.extra?.titleText)?.extra?.titleText
+
+  if (message.text === '' && !message.textHeading && !attachmentWithText) {
     message.textHeading = 'No longer available'
   }
+
   return {
     // _original: JSON.stringify({
     //   message,
@@ -89,9 +97,10 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     linkedMessageID,
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
-    attachments: m.attachments.map(a => mapAttachment(a)),
+    attachments,
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading: !linkedMessageID && (message.textHeading || message.replySnippet),
+    textFooter: attachmentWithText,
     seen,
     links: message.links,
     parseTemplate: isAction,
