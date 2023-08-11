@@ -30,7 +30,8 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
     fileName: attachment.filename,
     srcURL: attachment.previewUrl || attachment.playableUrl,
     extra: {
-      titleText: attachment.titleText,
+      text: attachment.descriptionText || attachment.titleText,
+      igType: attachment.attachmentType,
     },
   }
 }
@@ -77,7 +78,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
   const attachments = m.attachments.map(a => mapAttachment(a))
-  const attachmentWithText = attachments.find(a => !!a.extra?.titleText)?.extra?.titleText
+  const attachmentWithText = attachments.find(a => !!a.extra?.text)?.extra?.text
 
   if (message.text === '' && !message.textHeading && attachments?.length === 0) {
     message.textHeading = 'No longer available'
@@ -91,13 +92,14 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
+    isDeleted: message.isUnsent,
     text,
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
     linkedMessageID,
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
-    attachments,
+    attachments: attachments.filter(a => !!a.srcURL),
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading: !linkedMessageID && (message.textHeading || message.replySnippet),
     textFooter: attachmentWithText,
