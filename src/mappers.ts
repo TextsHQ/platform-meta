@@ -67,7 +67,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType, part
   }
 
   const isAction = message.isAdminMessage
-  const senderUsername = users.find(u => u.id === m.senderId)?.username
+  const senderUsername = users.find(u => u?.id === m.senderId)?.username
   const text = message.text && (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text)
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
   return {

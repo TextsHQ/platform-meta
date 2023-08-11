@@ -68,7 +68,7 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
   })
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
   const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
-  const participants: Participant[] = t.participants.map(p => ({
+  let participants: Participant[] = t.participants.map(p => ({
     id: p.contacts.id,
     username: p.contacts.username,
     fullName: p.contacts.name,
@@ -79,13 +79,16 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
     isAdmin: Boolean(p.isAdmin),
   }))
 
-  const otherParticipant = participants.findIndex(p => !p.isSelf)
-  if (otherParticipant !== 0) {
-    const item = participants[otherParticipant]
-    participants.splice(otherParticipant, 1)
-    participants.unshift(item)
+  if (participants?.length > 1) {
+    const otherParticipant = participants.findIndex(p => !p.isSelf)
+    if (otherParticipant !== 0) {
+      const item = participants[otherParticipant]
+      participants.splice(otherParticipant, 1)
+      participants.unshift(item)
+    }
   }
 
+  participants = participants.filter(p => !!p?.id)
   const threadType: ThreadType = thread?.threadType === '1' ? 'single' : 'group'
 
   // let mutedUntil = null

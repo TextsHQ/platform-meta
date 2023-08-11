@@ -305,6 +305,11 @@ const parseReplaceOptimsiticMessage = (a: RawItem) => ({
   messageId: a[1],
 })
 
+const parseReplaceOptimisticThread = (a: RawItem) => ({
+  offlineThreadingId: parseValue<string>(a[0]),
+  threadId: parseValue<string>(a[1]),
+})
+
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
 const parseSearchArguments = (a: RawItem) => ({
@@ -395,6 +400,7 @@ const parseMap = {
   updateThreadParticipantAdminStatus: parseUpdateThreadParticipantAdminStatus,
   removeParticipantFromThread: parseRemoveParticipantFromThread,
   replaceOptimsiticMessage: parseReplaceOptimsiticMessage,
+  replaceOptimisticThread: parseReplaceOptimisticThread,
   updateReadReceipt: parseUpdateReadReceipt,
   insertAttachmentItem: parseInsertAttachmentItem,
   insertAttachmentCta: parseInsertAttachmentCta,

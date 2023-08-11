@@ -430,9 +430,14 @@ export default class InstagramWebSocket {
   }
 
   async createGroupThread(participants: string[]) {
-    const { otid } = getTimeValues()
+    const { otid, now } = getTimeValues()
     const thread_id = genClientContext()
-    const response = await this.publishTask('create group thread', {
+    const response = await this.publishTask<{
+      replaceOptimisticThread: {
+        offlineThreadingId: string
+        threadId: string
+      }
+    }>('create group thread', {
       label: '130',
       payload: JSON.stringify({
         participants,
@@ -448,7 +453,7 @@ export default class InstagramWebSocket {
       failure_count: null,
     })
     this.logger.info('create group thread response', response)
-    return thread_id
+    return { now, offlineThreadingId: response?.replaceOptimisticThread?.offlineThreadingId, threadId: response?.replaceOptimisticThread?.threadId }
   }
 
   private lastTaskId = 0

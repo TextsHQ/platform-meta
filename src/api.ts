@@ -235,7 +235,42 @@ export default class PlatformInstagram implements PlatformAPI {
       missingUserIDs,
       resp,
     })
-    throw new Error('Method not implemented.')
+    const participants = [
+      ...users.map(user => ({
+        id: user.id,
+        fullName: user.name,
+        imgURL: user.profilePictureUrl,
+        username: user.username,
+        isSelf: user.id === this.api.fbid,
+        isAdmin: user.id === this.api.fbid,
+      })),
+      ...missingUserIDs.map(userID => ({
+        id: userID,
+        isSelf: userID === this.api.fbid,
+        isAdmin: userID === this.api.fbid,
+        // fullName: null,
+        // imgURL: null,
+        // username: null,
+      })),
+    ].filter(Boolean)
+
+    return {
+      id: resp.threadId,
+      title: null,
+      imgURL: null,
+      isUnread: false,
+      isReadOnly: false,
+      messages: {
+        items: [],
+        hasMore: false,
+      },
+      participants: {
+        items: participants,
+        hasMore: false,
+      },
+      timestamp: new Date(resp.now),
+      type: 'group' as const,
+    }
   }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
