@@ -288,11 +288,13 @@ export default class InstagramAPI {
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
+      texts.Sentry.captureException(err)
       console.error(err)
-      this.logger.error('ig-api handlePayload error', { err, errString: err.toString(), payload })
+      this.logger.error('handlePayload error', { err, errString: err.toString(), payload })
       return
     }
-    this.logger.info('ig-api handlePayload parsed payload', {
+
+    this.logger.debug('ig-api handlePayload parsed payload', {
       requestId,
       requestType,
       rawd,
@@ -316,6 +318,7 @@ export default class InstagramAPI {
                 },
               },
             ])
+            texts.Sentry.captureException(new Error(text))
           })
         }
       } else {
@@ -342,38 +345,44 @@ export default class InstagramAPI {
       // for each message, check if it exists in the cache
       // if it doesn't, call fetch more messages from the socket using the threadKey and messageID
       // if it does, do nothing
-      rawd.upsertMessage.forEach(async m => {
+      for (const m of rawd.upsertMessage) {
         // make sure thread already exists
         const thread = this.papi.db.query.threads.findFirst({
           where: eq(schema.threads.threadKey, m.threadKey),
+          columns: {
+            threadKey: true,
+          },
         })
-        if (!thread) return
+        if (!thread) continue
         // check if last message already in cache
         const message = this.papi.db.query.messages.findFirst({
           where: and(
             eq(schema.messages.threadKey, m.threadKey),
             eq(schema.messages.messageId, m.messageId),
           ),
+          columns: {
+            messageId: true,
+          },
         })
-        if (message) return
+        if (message?.messageId) continue
         const newestMessageCache = this.getNewestMessage(m.threadKey)
         this.logger.info(`message ${m.messageId} does not exist in cache, calling fetchMessages`)
         let limit = 0
         while (limit < 10) {
           const resp = await this.papi.socket.fetchMessages(m.threadKey, m.messageId, new Date(m.timestampMs))
-          if (!resp?.messages?.length) return
+          if (!resp?.messages?.length) continue
           // check if any of resp.messages is = to newestMessageCache.messageId
           const newMessageIds = resp.messages.map(rm => rm.id)
           if (newMessageIds.includes(newestMessageCache.messageId)) {
             this.logger.info(`newestMessageCache ${newestMessageCache.messageId} found in fetchMessages`)
-            return
+            continue
           }
           limit++
         }
         if (limit === 10) {
           // TODO delete all old messages in cache
         }
-      })
+      }
     } else {
       this.logger.info('no need to fix cache')
     }

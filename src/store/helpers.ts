@@ -152,7 +152,7 @@ export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQ
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 
-export const hasSomeCachedData = async (db: DrizzleDB) => ({
+export const hasSomeCachedData = (db: DrizzleDB) => ({
   hasThreads: hasData(db, threadsSchema),
   hasMessages: hasData(db, messagesSchema),
 })
