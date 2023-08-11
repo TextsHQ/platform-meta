@@ -1,6 +1,7 @@
 import { AttachmentType, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
+import { fixEmoji } from './util'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -34,7 +35,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
 export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][number]) {
   return {
     id: r.actorId,
-    reactionKey: r.reaction,
+    reactionKey: fixEmoji(r.reaction),
     participantID: r.actorId,
     emoji: true,
   }

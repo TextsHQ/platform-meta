@@ -1,6 +1,6 @@
 import type { DBParticipantInsert } from './store/schema'
 import type { IGThread, IGMessage } from './ig-types'
-import { getAsDate, getAsMS, getAsNumber, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
+import { fixEmoji, getAsDate, getAsMS, getAsNumber, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
 import { IGContact } from './ig-types'
 
 type RawItem = string[]
@@ -181,7 +181,7 @@ const parseMap = {
     timestampMs: getAsDate(a[1][1]),
     messageId: a[2],
     actorId: a[3][1],
-    reaction: a[4],
+    reaction: fixEmoji(getAsString(a[4])),
   }),
   addParticipantIdToGroupThread: (a: RawItem): DBParticipantInsert => ({
     raw: JSON.stringify(a),

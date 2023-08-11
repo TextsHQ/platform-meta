@@ -769,7 +769,7 @@ export default class InstagramAPI {
   }
 
   addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
-    this.logger.info('addReactions', reactions)
+    this.logger.debug('addReactions', reactions)
     return this.papi.db
       .insert(schema.reactions)
       .values(reactions)

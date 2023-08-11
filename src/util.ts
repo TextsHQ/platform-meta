@@ -90,6 +90,12 @@ export function parseValue<T extends string | number | boolean | null>(value: st
   return value[1] as T
 }
 
+export function fixEmoji(emoji: string) {
+  if (!emoji) return ''
+  if (emoji === '❤️' || emoji === '❤') return '❤️'
+  return emoji
+}
+
 export const getRetryTimeout = (attempt: number) =>
   Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
 
