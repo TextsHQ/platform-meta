@@ -30,6 +30,7 @@ import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
 import { queryMessages, queryThreads } from './store/helpers'
 import * as schema from './store/schema'
+import { preparedQueries } from './store/queries'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -55,6 +56,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
   pendingEvents: ServerEvent[] = []
 
+  preparedQueries: ReturnType<typeof preparedQueries>
+
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
@@ -65,7 +68,10 @@ export default class PlatformInstagram implements PlatformAPI {
     if (texts.isLoggingEnabled) this.logger.info('starting ig', { dataDirPath, accountID })
 
     this.db = await getDB(accountID, dataDirPath)
+    this.preparedQueries = preparedQueries(this.db)
 
+    this.logger.info('setting key', this.preparedQueries.setKeyValue.run({ key: 'test', value: 'test' }))
+    this.logger.info('loading keys', this.preparedQueries.getAllKeyValues.all())
     if (!session?.jar) return
     const { jar, ua, authMethod, clientId, dtsg, fbid } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)

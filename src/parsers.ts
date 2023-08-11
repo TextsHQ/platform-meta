@@ -1,6 +1,6 @@
 import type { DBParticipantInsert } from './store/schema'
 import type { IGThread, IGMessage, IGAttachment } from './ig-types'
-import { fixEmoji, getAsDate, getAsMS, getAsNumber, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
+import { fixEmoji, getAsDate, getAsMS, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
 import { IGContact } from './ig-types'
 
 type RawItem = string[]

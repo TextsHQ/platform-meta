@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { resolve } from 'path'
 import { unlink, access, mkdir } from 'fs/promises'
 
+import { texts } from '@textshq/platform-sdk'
 import * as schema from './schema'
 import { sleep } from '../util'
 import { getLogger } from '../logger'
@@ -31,11 +32,11 @@ async function createDirectoryIfNotExists(dataDirPath: string) {
 
 async function removeDatabaseFile(sqlitePath: string) {
   try {
-    logger.debug('removing database file', { sqlitePath })
+    logger.warn('removing database file', { sqlitePath })
     await unlink(sqlitePath)
   } catch (error) {
     if (error.code === 'ENOENT') {
-      logger.debug('database file does not exist', { sqlitePath })
+      logger.warn('database file does not exist', { sqlitePath })
     } else {
       logger.error('error occurred while removing the database file', { sqlitePath }, error)
     }
@@ -50,7 +51,10 @@ async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt =
   } catch (e) {
     console.error(e)
     logger.error('error migrating database', e.toString())
-    // await removeDatabaseFile(sqlitePath)
+    texts.Sentry.captureException(e)
+    if (retryAttempt === 1) {
+      await removeDatabaseFile(sqlitePath)
+    }
     if (retryAttempt > 1) {
       throw new Error(e)
     }
