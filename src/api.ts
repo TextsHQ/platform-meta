@@ -31,6 +31,7 @@ import { createPromise } from './util'
 import { queryMessages, queryThreads } from './store/helpers'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
+import KeyValueStore from './store/kv'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -44,6 +45,8 @@ export default class PlatformInstagram implements PlatformAPI {
   db: DrizzleDB
 
   api = new InstagramAPI(this)
+
+  kv = new KeyValueStore(this)
 
   socket = new InstagramWebSocket(this)
 
@@ -70,8 +73,10 @@ export default class PlatformInstagram implements PlatformAPI {
     this.db = await getDB(accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
 
-    this.logger.info('setting key', this.preparedQueries.setKeyValue.run({ key: 'test', value: 'test' }))
-    this.logger.info('loading keys', this.preparedQueries.getAllKeyValues.all())
+    this.kv.set('lastCursor', 'test')
+    this.kv.set('authMethod', new Date().toISOString())
+
+    this.logger.info('loading keys', this.kv.getAll())
     if (!session?.jar) return
     const { jar, ua, authMethod, clientId, dtsg, fbid } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)

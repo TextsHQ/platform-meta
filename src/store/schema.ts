@@ -141,7 +141,6 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
   thread: one(threads, { fields: [messages.threadKey], references: [threads.threadKey] }),
   reactions: many(reactions),
   attachments: many(attachments),
-
 }))
 export type DBReaction = InferModel<typeof reactions, 'select'>
 
