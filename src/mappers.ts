@@ -72,10 +72,10 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
   const text = message.text && (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text)
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
   return {
-    _original: JSON.stringify({
-      message,
-      raw: m.raw,
-    }),
+    // _original: JSON.stringify({
+    //   message,
+    //   raw: m.raw,
+    // }), // get original object works for debugging
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
@@ -83,9 +83,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     isSender: m.senderId === fbid,
     threadID: m.threadKey,
     linkedMessageID,
-    // forwardedFrom: message.isForwarded && message.replySnippet && {
-    //   text: message.replySnippet,
-    // },
+    forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
     attachments: m.attachments.map(a => mapAttachment(a)),
     reactions: m.reactions.map(r => mapReaction(r)),

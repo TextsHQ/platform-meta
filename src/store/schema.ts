@@ -21,7 +21,7 @@ export const messages = sqliteTable('messages', {
   raw: text('raw'),
   // message: blob('message', { mode: 'json' }).$type<RawMessage>(),
   message: text('message'),
-  threadKey: text('threadKey').notNull().references(() => threads.threadKey),
+  threadKey: text('threadKey').notNull(),
   messageId: text('messageId').primaryKey(),
   offlineThreadingId: text('offlineThreadingId'),
   primarySortKey: text('primarySortKey'),
@@ -36,7 +36,7 @@ type AttachmentInJoin = {
 }
 
 export type DBMessageSelect = InferModel<typeof messages, 'select'>
-export type DBMessageSelectDefault = Pick<DBMessageSelect, 'raw' | 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'primarySortKey' | 'senderId'>
+export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'primarySortKey' | 'senderId'>
 export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
   attachments: AttachmentInJoin[]
   reactions: DBReaction[]

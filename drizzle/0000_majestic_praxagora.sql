@@ -28,8 +28,7 @@ CREATE TABLE `messages` (
 	`offlineThreadingId` text,
 	`primarySortKey` text,
 	`timestampMs` integer,
-	`senderId` text NOT NULL,
-	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action
+	`senderId` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `participants` (

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "63fe05ef-41a3-47b0-b53d-846fe862ce9e",
+  "id": "55a53882-c70a-4752-aa24-bd858ee65e8e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -209,21 +209,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "messages_threadKey_threads_threadKey_fk": {
-          "name": "messages_threadKey_threads_threadKey_fk",
-          "tableFrom": "messages",
-          "tableTo": "threads",
-          "columnsFrom": [
-            "threadKey"
-          ],
-          "columnsTo": [
-            "threadKey"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },

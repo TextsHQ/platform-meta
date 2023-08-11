@@ -64,6 +64,13 @@ export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', f
 export function getThread(db: DrizzleDB, threadKey: string) {
   const t = db.query.threads.findFirst({
     where: eq(threadsSchema.threadKey, threadKey),
+    columns: {
+      threadKey: true,
+      thread: true,
+      lastActivityTimestampMs: true,
+      folderName: true,
+      // raw: true,
+    },
     with: {
       participants: {
         columns: {
@@ -85,6 +92,8 @@ export function getThread(db: DrizzleDB, threadKey: string) {
     },
   })
 
+  if (!t) throw new Error(`Thread ${threadKey} not found`)
+
   return {
     ...t,
     thread: JSON.parse(t.thread) as IGThreadInDB,
@@ -98,7 +107,7 @@ export const queryMessages = (db: DrizzleDB, threadKeyOrThread: string | ThreadQ
   const messages = db.query.messages.findMany({
     where: messageIds === 'ALL' ? eq(messagesSchema.threadKey, t.threadKey) : inArray(messagesSchema.messageId, messageIds),
     columns: {
-      raw: true,
+      // raw: true,
       message: true,
       threadKey: true,
       messageId: true,
