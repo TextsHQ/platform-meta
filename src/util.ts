@@ -48,9 +48,13 @@ export const sleep = (ms: number) => new Promise(resolve => { setTimeout(resolve
 export function createPromise<T>() {
   const p: {
     resolve?: (value: T | PromiseLike<T>) => void
+    reject?: (reason?: any) => void
     promise?: Promise<T>
   } = {}
-  p.promise = new Promise<T>(resolve => { p.resolve = resolve })
+  p.promise = new Promise<T>((resolve, reject) => {
+    p.resolve = resolve
+    p.reject = reject
+  })
   return p
 }
 

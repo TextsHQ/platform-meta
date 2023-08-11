@@ -1,15 +1,14 @@
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { texts, type FetchOptions, type User, MessageSendOptions, InboxName } from '@textshq/platform-sdk'
+import { texts, type FetchOptions, type User, type MessageSendOptions, InboxName, ServerEventType } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
-import { ServerEventType } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import { hasSomeCachedData, queryMessages, queryThreads } from './store/helpers'
 
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
-import type { RequestResolverResolver, RequestResolverType } from './ig-socket'
+import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
@@ -282,7 +281,7 @@ export default class InstagramAPI {
     return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, true)
   }
 
-  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, initialRequest?: boolean) {
+  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, initialRequest?: boolean) {
     let rawd: ParsedPayload
     this.logger.info('initial payload', initialRequest)
     this.logger.info('ig-api handlePayload raw payload', payload)
@@ -301,6 +300,7 @@ export default class InstagramAPI {
 
     if (requestId && requestType) {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
+      // requestRejector()
       requestResolver(rawd)
     }
 

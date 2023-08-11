@@ -3,7 +3,7 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { MessageContent, MessageSendOptions, Thread, Message } from '@textshq/platform-sdk'
-import { InboxName } from '@textshq/platform-sdk'
+import { InboxName, texts } from '@textshq/platform-sdk'
 import {
   createPromise,
   genClientContext,
@@ -28,6 +28,7 @@ type IGSocketTask = {
 
 export type RequestResolverType = '_ignored' | `sendMessage-${string}` | 'sendTypingIndicator'
 export type RequestResolverResolver = (response?: any) => void
+export type RequestResolverRejector = (response?: any) => void
 
 const lsAppSettings = {
   qos: 1,
@@ -468,12 +469,12 @@ export default class InstagramWebSocket {
     return ++this.lastRequestId
   }
 
-  private requestResolvers: Map<number, [RequestResolverType, RequestResolverResolver]> = new Map()
+  private requestResolvers: Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]> = new Map()
 
   // Promise resolves to a parsed and mapped version of the response based on the type
   private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
     const request_id = this.genRequestId()
-    const { promise, resolve } = createPromise<Response>()
+    const { promise, resolve, reject } = createPromise<Response>()
     const logPrefix = `[REQUEST #${request_id}][${type}]` + (debugLabel ? `[${debugLabel}]` : '')
     this.logger.info(logPrefix, 'sent')
     const resolver = (response: Response) => {
@@ -481,7 +482,13 @@ export default class InstagramWebSocket {
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    this.requestResolvers.set(request_id, [type, resolver])
+    const rejector = (response: Response) => {
+      this.logger.error(logPrefix, 'got rejection', response)
+      texts.error('request rejected', response)
+      reject(response)
+      this.requestResolvers.delete(request_id)
+    }
+    this.requestResolvers.set(request_id, [type, resolver, rejector])
     return { request_id, promise }
   }
 
