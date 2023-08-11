@@ -228,7 +228,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const users = this.api.getContacts(userIDs)
     /// compare with userIDs to see if all users were found
     const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
-    // await this.socket.sendMessage(userIDs[0], { text: 'test' }, { pendingMessageID: 'test' })
+    await this.socket.requestContacts(missingUserIDs)
 
     this.logger.debug('createThread', {
       users,

@@ -301,7 +301,7 @@ export default class InstagramAPI {
     if (requestId && requestType) {
       if (rawd.issueNewError) {
         this.logger.error(`[${requestId}] error for ${requestType}`, rawd)
-        const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage}) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
+        const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage }) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
         const [mainError, ...otherErrors] = errors || []
         if (mainError) {
           requestRejector(mainError)
@@ -316,7 +316,7 @@ export default class InstagramAPI {
                 },
               },
             ])
-          } )
+          })
         }
       } else {
         this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)

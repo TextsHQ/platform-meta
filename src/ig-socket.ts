@@ -588,6 +588,18 @@ export default class InstagramWebSocket {
     return sendPromise
   }
 
+  async requestContacts(contactIDs: string[]) {
+    await this.publishTask('request contacts', contactIDs.map(contact_id => ({
+      label: '207',
+      payload: JSON.stringify({
+        contact_id,
+      }),
+      queue_name: 'cpq_v2',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    })))
+  }
+
   async muteThread(thread_key: string, mute_expiration_time_ms: -1 | 0) {
     await this.publishTask('mute thread', {
       label: '144',
