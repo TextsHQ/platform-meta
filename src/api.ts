@@ -34,6 +34,8 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 
+// const MESSAGE_PAGE_SIZE = 20
+
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
 
@@ -235,8 +237,16 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.pQueue.addPromise(this.fetchMessages(threadID, pagination).then(() => {}))
+    // const { direction = 'before', cursor } = pagination || {}
+    // const directionIsBefore = direction === 'before'
+    // const orderDirection = directionIsBefore ? desc : asc
+    // let where = eq(schema.messages.threadKey, threadID)
+
     return {
-      items: this.api.queryMessages(threadID, 'ALL'),
+      items: this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
+        // orderBy: [orderDirection(messagesSchema.primarySortKey)],
+        // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
+      }),
       hasMore: true,
     }
   }

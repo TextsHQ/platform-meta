@@ -101,7 +101,7 @@ export function getThread(db: DrizzleDB, threadKey: string) {
   } as const
 }
 
-export type QueryMessagesWhere = Parameters<DrizzleDB['query']['messages']['findMany']>[0]['where']
+export type QueryMessagesArgs = Parameters<DrizzleDB['query']['messages']['findMany']>[0]
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 

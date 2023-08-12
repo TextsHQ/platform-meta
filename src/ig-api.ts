@@ -11,7 +11,11 @@ import {
   Message,
 } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
-import { hasSomeCachedData, QueryMessagesWhere, queryThreads } from './store/helpers'
+import {
+  hasSomeCachedData,
+  QueryMessagesArgs,
+  queryThreads,
+} from './store/helpers'
 
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
@@ -1037,8 +1041,8 @@ export default class InstagramAPI {
     }
   }
 
-  queryMessages(threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesWhere): Message[] {
-    let where: QueryMessagesWhere
+  queryMessages(threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs?: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>>): Message[] {
+    let where: QueryMessagesArgs['where']
     if (messageIdsOrWhere === 'ALL') {
       where = eq(messagesSchema.threadKey, threadKey)
     } else if (Array.isArray(messageIdsOrWhere)) {
@@ -1090,6 +1094,7 @@ export default class InstagramAPI {
         },
       },
       orderBy: [asc(messagesSchema.primarySortKey)],
+      ...extraArgs,
     })
     if (!messages || messages.length === 0) return []
     const { thread: t, participants } = messages[0].thread
