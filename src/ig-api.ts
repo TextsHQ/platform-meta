@@ -402,6 +402,7 @@ export default class InstagramAPI {
     if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
 
     if (rawd.addParticipantIdToGroupThread) await this.addParticipantIdToGroupThread(rawd.addParticipantIdToGroupThread)
+    if (rawd.removeParticipantFromThread) this.removeParticipantFromThread(rawd.removeParticipantFromThread)
 
     if (rawd.upsertMessage?.length > 0 || rawd.insertMessage?.length > 0) {
       const messages = [
@@ -751,8 +752,45 @@ export default class InstagramAPI {
     return this.papi.db.insert(schema.contacts).values(mappedContacts).onConflictDoNothing().run()
   }
 
-  addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
-    return this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
+  async addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
+    participants.forEach(p => {
+      const contact = this.getContact(p.userId)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectIDs: { threadID: p.threadKey },
+        objectName: 'participant',
+        mutationType: 'upsert',
+        entries: [{
+          id: p.userId,
+          isAdmin: p.isAdmin,
+          username: contact?.username,
+          fullName: contact?.name,
+          imgURL: contact?.profilePictureUrl,
+        }],
+      }])
+    })
+    this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
+  }
+
+  removeParticipantFromThread(participants: ParsedPayload['removeParticipantFromThread']) {
+    participants.forEach(p => {
+      const contact = this.getContact(p.userId)
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectIDs: { threadID: p.threadKey },
+        objectName: 'participant',
+        mutationType: 'upsert',
+        entries: [{
+          id: p.userId,
+          username: contact?.username,
+          fullName: contact?.name,
+          imgURL: contact?.profilePictureUrl,
+          hasExited: true,
+          isAdmin: false,
+        }],
+      }])
+      this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, p.threadKey)).run()
+    })
   }
 
   upsertMessage(_messages: ParsedPayload['insertMessage'] | ParsedPayload['upsertMessage']) {

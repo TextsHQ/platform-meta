@@ -194,6 +194,11 @@ const parseMap = {
     lastDeliveredActionTimestampMs: a[5][1] ? getAsDate(a[5][1]) : null,
     isAdmin: Boolean(a[6]),
   }),
+  removeParticipantFromThread: (a: RawItem) => ({
+    raw: JSON.stringify(a),
+    threadKey: parseValue<string>(a[0]),
+    userId: parseValue<string>(a[1]),
+  }),
   verifyContactRowExists: (a: RawItem): IGContact => ({
     raw: JSON.stringify(a),
     id: a[0][1],
@@ -392,7 +397,7 @@ const parseMap = {
   upsertSyncGroupThreadsRange: (a: RawItem) => ({
     hasMoreBefore: Boolean(a[3]),
     minLastActivityTimestampMs: getAsMS(a[2][1]),
-    minThreadKey: getAsMS(a[5][1]),
+    minThreadKey: parseValue<string>(a[5]),
   }),
   insertSearchResult: (a: RawItem) => ({
     // query: a[0],
@@ -487,10 +492,6 @@ const parseMap = {
     threadKey: a[0][1],
     participantId: a[1][1],
     isAdmin: Boolean(a[2]),
-  }),
-  removeParticipantFromThread: (a: RawItem) => ({
-    threadKey: a[0][1],
-    contactId: a[1][1],
   }),
   replaceOptimsiticMessage: (a: RawItem) => ({
     offlineThreadingId: a[0],
