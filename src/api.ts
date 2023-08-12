@@ -80,13 +80,6 @@ export default class PlatformInstagram implements PlatformAPI {
     if (!session?.jar) return
     const { jar } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)
-    // this.api.ua = ua
-    // this.api.authMethod = authMethod
-    // this.api.clientId = clientId
-    // this.api.dtsg = dtsg
-    // this.api.fbid = fbid
-    // this.api.cursor = session.lastCursor
-
     await this.api.init()
     this._initPromise.resolve()
   }

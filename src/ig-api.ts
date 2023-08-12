@@ -738,7 +738,12 @@ export default class InstagramAPI {
       } as const
     })
 
-    return this.papi.db.insert(schema.threads).values(threads).onConflictDoNothing().run()
+    for (const t of threads) {
+      this.papi.db.insert(schema.threads).values(t).onConflictDoUpdate({
+        target: schema.threads.threadKey,
+        set: { ...t },
+      }).run()
+    }
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
@@ -753,7 +758,13 @@ export default class InstagramAPI {
         username,
       }
     })
-    return this.papi.db.insert(schema.contacts).values(mappedContacts).onConflictDoNothing().run()
+
+    for (const c of mappedContacts) {
+      this.papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
+        target: schema.contacts.id,
+        set: { ...c },
+      }).run()
+    }
   }
 
   async addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
@@ -772,8 +783,11 @@ export default class InstagramAPI {
           imgURL: contact?.profilePictureUrl,
         }],
       }])
+      this.papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
+        target: [schema.participants.threadKey, schema.participants.userId],
+        set: { ...p },
+      }).run()
     })
-    this.papi.db.insert(schema.participants).values(participants).onConflictDoNothing().run()
   }
 
   removeParticipantFromThread(participants: ParsedPayload['removeParticipantFromThread']) {
@@ -825,20 +839,26 @@ export default class InstagramAPI {
       } as const
     })
 
-    return this.papi.db
-      .insert(schema.messages)
-      .values(messages)
-      .onConflictDoNothing()
-      .run()
+    for (const m of messages) {
+      this.papi.db.insert(schema.messages).values(m).onConflictDoUpdate({
+        target: schema.messages.messageId,
+        set: { ...m },
+      }).run()
+    }
   }
 
   addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
     this.logger.debug('addReactions', reactions)
-    return this.papi.db
-      .insert(schema.reactions)
-      .values(reactions)
-      .onConflictDoNothing()
-      .run()
+    for (const r of reactions) {
+      this.papi.db
+        .insert(schema.reactions)
+        .values(r)
+        .onConflictDoUpdate({
+          target: [schema.reactions.threadKey, schema.reactions.messageId, schema.reactions.actorId],
+          set: { ...r },
+        })
+        .run()
+    }
   }
 
   upsertAttachments(_attachments: ParsedPayload['insertBlobAttachment'] | ParsedPayload['insertXmaAttachment']) {
@@ -868,11 +888,12 @@ export default class InstagramAPI {
       return
     }
 
-    return this.papi.db
-      .insert(schema.attachments)
-      .values(attachments)
-      .onConflictDoNothing()
-      .run()
+    for (const a of attachments) {
+      this.papi.db.insert(schema.attachments).values(a).onConflictDoUpdate({
+        target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
+        set: { ...a },
+      }).run()
+    }
   }
 
   updateReadReceipt(readReceipts: IGReadReceipt[]) {
