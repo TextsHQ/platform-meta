@@ -196,20 +196,14 @@ export default class PlatformInstagram implements PlatformAPI {
         hasMore: hasMoreBefore,
       }
     }
-    const [pmessageID, ptimestamp] = pagination.cursor.split('-')
+    const [pmessageID, ptimestamp] = pagination.cursor?.split('-') ?? []
 
     if (pmessageID !== lastMessage.messageId) {
       // return all messages older than the requested message
-      const olderMessageIDs = await this.db.query.messages.findMany({
-        where: and(
-          eq(schema.messages.threadKey, threadID),
-          lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
-        ),
-        columns: {
-          messageId: true,
-        },
-      }).map(({ messageId }) => messageId)
-      const messages = await queryMessages(this.db, threadID, olderMessageIDs, this.api.fbid)
+      const messages = queryMessages(this.db, threadID, and(
+        eq(schema.messages.threadKey, threadID),
+        lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
+      ), this.api.fbid)
       return {
         items: messages,
         hasMore: hasMoreBefore,
