@@ -174,7 +174,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const { hasMoreBefore } = await this.db.query.threads.findFirst({
+    const { hasMoreBefore } = this.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadID),
       columns: { hasMoreBefore: true },
     })
