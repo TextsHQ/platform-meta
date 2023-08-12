@@ -550,6 +550,13 @@ const parseMap = {
     errorTitle: parseValue<string>(a[2]),
     errorMessage: parseValue<string>(a[3]),
   }),
+  updateDeliveryReceipt: (a: RawItem) => ({
+    raw: JSON.stringify(a), // [19,\"1691805678773\"],[19,\"9859151144155618\"],[19,\"17844105197232431\"],[19,\"1691805679040\"]]]
+  }),
+  deleteThread: (a: RawItem) => ({
+    raw: JSON.stringify(a),
+    threadKey: parseValue<string>(a[0]),
+  }),
 } as const
 
 type ParseFunctions = typeof parseMap

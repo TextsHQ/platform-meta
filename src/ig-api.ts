@@ -429,6 +429,28 @@ export default class InstagramAPI {
 
     if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
 
+    if (rawd.deleteThread?.length > 0) {
+      rawd.deleteThread.forEach(({ threadKey }) => {
+        this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+        this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
+
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'thread',
+          objectIDs: { threadID: threadKey! },
+          mutationType: 'delete',
+          entries: [threadKey],
+        }, {
+          type: ServerEventType.STATE_SYNC,
+          mutationType: 'delete-all',
+          objectName: 'message',
+          objectIDs: { threadID: threadKey },
+        }])
+      })
+    }
+
+    // updateDeliveryReceipt
+
     if (rawd.insertNewMessageRange) {
       rawd.insertNewMessageRange.forEach(r => {
         this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${r.hasMoreBefore}`)
