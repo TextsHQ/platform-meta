@@ -81,7 +81,7 @@ export default class InstagramWebSocket {
     // this.lastRequestId = 0
 
     this.ws = new WebSocket(
-      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.clientId}`,
+      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}`,
       {
         origin: 'https://www.instagram.com',
         headers: {
@@ -211,13 +211,13 @@ export default class InstagramWebSocket {
       keepalive: 10,
       username: JSON.stringify({
         // u: "17841418030588216", // doesnt seem to matter
-        u: this.papi.api.fbid,
+        u: this.papi.kv.get('fbid'),
         s: this.mqttSid,
         cp: 3,
         ecp: 10,
         chat_on: true,
         fg: false,
-        d: this.papi.api.clientId, // client id
+        d: this.papi.kv.get('clientId'), // client id
         ct: 'cookie_auth',
         mqtt_sid: '', // @TODO: should we use the one from the cookie?
         aid: 936619743392459, // app id
@@ -406,7 +406,7 @@ export default class InstagramWebSocket {
         thread_key: threadID,
         timestamp_ms: Number(message.timestampMs.getTime()),
         message_id: messageID,
-        actor_id: this.papi.api.fbid,
+        actor_id: this.papi.kv.get('fbid'),
         reaction,
         reaction_style: null,
         sync_group: 1,
@@ -548,7 +548,7 @@ export default class InstagramWebSocket {
         reference_timestamp_ms: Number(timestamp.getTime()),
         reference_message_id: messageID,
         sync_group: 1,
-        cursor: this.papi.api.cursor,
+        cursor: this.papi.kv.get('cursor-1'),
       }),
       queue_name: `mrq.${threadID}`,
       task_id: this.genTaskId(),
@@ -584,7 +584,7 @@ export default class InstagramWebSocket {
           reference_thread_key: 0,
           reference_activity_timestamp: 9999999999999,
           additional_pages_to_fetch: 0,
-          cursor: this.papi.api.cursor,
+          cursor: this.papi.kv.get('cursor-1'),
           messaging_tag: null,
           sync_group: 1,
         }),
@@ -611,7 +611,7 @@ export default class InstagramWebSocket {
       {
         label: '313',
         payload: JSON.stringify({
-          cursor: this.papi.api.cursor,
+          cursor: this.papi.kv.get('cursor-1'),
           filter: 3,
           is_after: 0,
           parent_thread_key: 0,
@@ -635,7 +635,7 @@ export default class InstagramWebSocket {
           reference_thread_key,
           reference_activity_timestamp,
           additional_pages_to_fetch: 0,
-          cursor: this.papi.api.cursor,
+          cursor: this.papi.kv.get('cursor-1'),
           messaging_tag: null,
           sync_group: 1,
         }),
@@ -832,7 +832,7 @@ export default class InstagramWebSocket {
   private getLastThreadReference() {
     return {
       ...this.papi.api.lastThreadReference,
-      cursor: this.papi.api.cursor,
+      cursor: this.papi.kv.get('cursor-1'),
     }
   }
 
@@ -854,7 +854,7 @@ export default class InstagramWebSocket {
           database: 1,
           epoch_id,
           failure_count: null,
-          last_applied_cursor: this.papi.api.cursor,
+          last_applied_cursor: this.papi.kv.get('cursor-1'),
           sync_params: null,
           version: VERSION_ID,
         }),

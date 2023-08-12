@@ -28,7 +28,7 @@ import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
 import { createPromise } from './util'
-import { queryMessages, queryThreads } from './store/helpers'
+import { queryThreads } from './store/helpers'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -65,7 +65,7 @@ export default class PlatformInstagram implements PlatformAPI {
   constructor(readonly accountID: string) {}
 
   init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
-    if (session && typeof session.dtsg === 'undefined') throw new ReAuthError() // upgrade from android-based session
+    if (session && session._v !== 'v3') throw new ReAuthError() // upgrade from android-based session
 
     await fs.mkdir(dataDirPath, { recursive: true })
 
@@ -74,18 +74,15 @@ export default class PlatformInstagram implements PlatformAPI {
     this.db = await getDB(accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
 
-    this.kv.set('lastCursor', 'test')
-    this.kv.set('authMethod', new Date().toISOString())
-
     this.logger.info('loading keys', this.kv.getAll())
     if (!session?.jar) return
-    const { jar, ua, authMethod, clientId, dtsg, fbid } = session
+    const { jar } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)
-    this.api.ua = ua
-    this.api.authMethod = authMethod
-    this.api.clientId = clientId
-    this.api.dtsg = dtsg
-    this.api.fbid = fbid
+    // this.api.ua = ua
+    // this.api.authMethod = authMethod
+    // this.api.clientId = clientId
+    // this.api.dtsg = dtsg
+    // this.api.fbid = fbid
     // this.api.cursor = session.lastCursor
 
     await this.api.init()
@@ -121,16 +118,17 @@ export default class PlatformInstagram implements PlatformAPI {
   logout = () => this.api.logout()
 
   serializeSession = (): SerializedSession => ({
+    _v: 'v3',
     jar: this.api.jar.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
-    clientId: this.api.clientId,
-    dtsg: this.api.dtsg,
-    lsd: this.api.lsd,
-    fbid: this.api.fbid,
-    igUserId: this.api.igUserId,
-    wwwClaim: this.api.wwwClaim,
-    lastCursor: this.api.cursor,
+    // clientId: this.api.clientId,
+    // dtsg: this.api.dtsg,
+    // lsd: this.api.lsd,
+    // fbid: this.api.fbid,
+    // igUserId: this.api.igUserId,
+    // wwwClaim: this.api.wwwClaim,
+    // lastCursor: this.api.cursor,
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
@@ -161,7 +159,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
     }
 
-    const threads = await queryThreads(this.db, 'ALL', this.api.fbid, folderName)
+    const threads = await queryThreads(this.db, 'ALL', this.kv.get('fbid'), folderName)
     this.logger.info('getThreads, returning threads from db', threads)
     const { hasMoreBefore } = this.api.lastThreadReference
     return {
@@ -171,8 +169,8 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+
+  fetchMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     const { hasMoreBefore } = this.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadID),
       columns: { hasMoreBefore: true },
@@ -193,7 +191,7 @@ export default class PlatformInstagram implements PlatformAPI {
           hasMore: newHasMoreBefore,
         }
       }
-      const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
+      const messages = this.api.queryMessages(threadID, 'ALL')
       this.logger.info('getMessages returning queryMessages of all')
 
       return {
@@ -208,10 +206,10 @@ export default class PlatformInstagram implements PlatformAPI {
       this.logger.info('id is not last message id')
 
       // return all messages older than the requested message
-      const messages = queryMessages(this.db, threadID, and(
-        eq(schema.messages.threadKey, threadID),
-        lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
-      ), this.api.fbid)
+      const messages = this.api.queryMessages(threadID, and(
+          eq(schema.messages.threadKey, threadID),
+          lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
+      ))
       this.logger.info('returning queryMessages of older messages')
 
       return {
@@ -231,17 +229,26 @@ export default class PlatformInstagram implements PlatformAPI {
       }
     }
     return {
-      items: [],
+      items: this.api.queryMessages(threadID, 'ALL'),
+      hasMore: true,
+    }
+  }
+
+
+  getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+    this.pQueue.addPromise(this.fetchMessages(threadID, pagination).then(() => {}))
+    return {
+      items: this.api.queryMessages(threadID, 'ALL'),
       hasMore: true,
     }
   }
 
   getThread = async (threadID: string): PAPIReturn<'getThread'> => {
-    const t = await queryThreads(this.db, [threadID], this.api.fbid, null)
+    const t = queryThreads(this.db, [threadID], this.kv.get('fbid'), null)
     return t[0]
   }
 
-  getMessage = (threadID: ThreadID, messageID: MessageID) => queryMessages(this.db, threadID, [messageID], this.api.fbid)[0]
+  getMessage = (threadID: ThreadID, messageID: MessageID) => this.api.queryMessages(threadID, [messageID])[0]
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
@@ -302,19 +309,20 @@ export default class PlatformInstagram implements PlatformAPI {
       missingUserIDs,
       resp,
     })
+    const fbid = this.kv.get('fbid')
     const participants = [
       ...users.map(user => ({
         id: user.id,
         fullName: user.name,
         imgURL: user.profilePictureUrl,
         username: user.username,
-        isSelf: user.id === this.api.fbid,
-        isAdmin: user.id === this.api.fbid,
+        isSelf: user.id === fbid,
+        isAdmin: user.id === fbid,
       })),
       ...missingUserIDs.map(userID => ({
         id: userID,
-        isSelf: userID === this.api.fbid,
-        isAdmin: userID === this.api.fbid,
+        isSelf: userID === fbid,
+        isAdmin: userID === fbid,
         // fullName: null,
         // imgURL: null,
         // username: null,
@@ -375,7 +383,7 @@ export default class PlatformInstagram implements PlatformAPI {
       const userMessage: Message = {
         id: messageId || pendingMessageID,
         timestamp,
-        senderID: this.api.fbid,
+        senderID: this.kv.get('fbid'),
         isSender: true,
         linkedMessageID: quotedMessageID,
         attachments: [{
@@ -392,7 +400,7 @@ export default class PlatformInstagram implements PlatformAPI {
       timestamp,
       text,
       linkedMessageID: quotedMessageID,
-      senderID: this.api.fbid,
+      senderID: this.kv.get('fbid'),
       isSender: true,
     }]
   }

@@ -9,11 +9,12 @@ export interface SerializedSession {
   jar: CookieJar.Serialized
   ua?: string
   authMethod?: 'login-window' | 'extension'
-  clientId: string
-  dtsg: string
-  fbid: string
-  igUserId: string
-  lsd: string
-  wwwClaim: string
-  lastCursor: string
+  _v: 'v3'
+  // clientId: string
+  // dtsg: string
+  // fbid: string
+  // igUserId: string
+  // lsd: string
+  // wwwClaim: string
+  // lastCursor: string
 }

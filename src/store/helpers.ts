@@ -1,12 +1,12 @@
 import { asc, desc, eq, inArray, sql } from 'drizzle-orm'
-import { InboxName, Message } from '@textshq/platform-sdk'
+import { InboxName } from '@textshq/platform-sdk'
 import { AnySQLiteTable } from 'drizzle-orm/sqlite-core'
 
 import type { DrizzleDB } from './db'
 import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './schema'
-import { mapMessages, mapParticipants, mapThread } from '../mappers'
+import { mapThread } from '../mappers'
 
-export const queryThreads = async (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
+export const queryThreads = (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
   ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
   columns: {
     folderName: true,
@@ -102,71 +102,6 @@ export function getThread(db: DrizzleDB, threadKey: string) {
 }
 
 export type QueryMessagesWhere = Parameters<DrizzleDB['query']['messages']['findMany']>[0]['where']
-
-export const queryMessages = (db: DrizzleDB, threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesWhere, fbid: string): Message[] => {
-  let where: QueryMessagesWhere
-  if (messageIdsOrWhere === 'ALL') {
-    where = eq(messagesSchema.threadKey, threadKey)
-  } else if (Array.isArray(messageIdsOrWhere)) {
-    where = inArray(messagesSchema.messageId, messageIdsOrWhere)
-  } else {
-    where = messageIdsOrWhere
-  }
-  const messages = db.query.messages.findMany({
-    where,
-    columns: {
-      // raw: true,
-      message: true,
-      threadKey: true,
-      messageId: true,
-      offlineThreadingId: true,
-      primarySortKey: true,
-      timestampMs: true,
-      senderId: true,
-    },
-    with: {
-      attachments: {
-        columns: {
-          raw: false,
-          attachmentFbid: true,
-          attachment: true,
-        },
-      },
-      reactions: true,
-      thread: {
-        with: {
-          participants: {
-            columns: {
-              userId: true,
-              isAdmin: true,
-              readWatermarkTimestampMs: true,
-            },
-            with: {
-              contacts: {
-                columns: {
-                  id: true,
-                  name: true,
-                  username: true,
-                  profilePictureUrl: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    orderBy: [asc(messagesSchema.primarySortKey)],
-  })
-  if (!messages || messages.length === 0) return []
-  const { thread: t, participants } = messages[0].thread
-  const thread = JSON.parse(t) as IGThreadInDB
-  return mapMessages(messages, {
-    threadType: thread?.threadType === '1' ? 'single' : 'group',
-    users: mapParticipants(participants, fbid),
-    participants,
-    fbid,
-  })
-}
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
 

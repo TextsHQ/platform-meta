@@ -1,9 +1,17 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { texts, type FetchOptions, type User, type MessageSendOptions, InboxName, ServerEventType } from '@textshq/platform-sdk'
+import {
+  texts,
+  type FetchOptions,
+  type User,
+  type MessageSendOptions,
+  InboxName,
+  ServerEventType,
+  Message,
+} from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
-import { hasSomeCachedData, queryMessages, queryThreads } from './store/helpers'
+import { hasSomeCachedData, QueryMessagesWhere, queryThreads } from './store/helpers'
 
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
@@ -14,6 +22,8 @@ import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
 import { getOriginalURL } from './util'
+import { IGThreadInDB, messages as messagesSchema } from './store/schema'
+import { mapMessages, mapParticipants } from './mappers'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -32,8 +42,6 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
-  // viewerConfig: IGParsedViewerConfig
-
   private logger = getLogger('ig-api')
 
   constructor(private readonly papi: Instagram) {}
@@ -43,20 +51,6 @@ export default class InstagramAPI {
   jar: CookieJar
 
   ua: SerializedSession['ua'] = texts.constants.USER_AGENT
-
-  clientId: SerializedSession['clientId']
-
-  dtsg: SerializedSession['dtsg']
-
-  fbid: SerializedSession['fbid']
-
-  igUserId: SerializedSession['igUserId']
-
-  lsd: SerializedSession['lsd']
-
-  wwwClaim: SerializedSession['wwwClaim']
-
-  cursor: string
 
   lastThreadReference: {
     reference_thread_key: string
@@ -79,17 +73,21 @@ export default class InstagramAPI {
       },
     })
     const wwwClaim = res.headers['x-ig-set-www-claim']
-    if (wwwClaim) this.wwwClaim = String(wwwClaim)
+    if (wwwClaim) this.papi.kv.set('wwwClaim', String(wwwClaim))
     return res
   }
 
   async init() {
-    const { clientId, dtsg, lsd, fbid, config } = await this.getClientId()
-    this.clientId = clientId
-    this.dtsg = dtsg
-    this.fbid = fbid
-    this.lsd = lsd
-    this.igUserId = config.id
+    const { clientId, fb_dtsg, lsd, fbid, config } = await this.getClientId()
+
+    this.papi.kv.setMany({
+      clientId,
+      fb_dtsg,
+      fbid,
+      lsd,
+      igUserId: config.id,
+      _viewerConfig: JSON.stringify(config),
+    })
 
     this.papi.currentUser = {
       // id: config.id, // this is the instagram id but fbid is instead used for chat
@@ -118,7 +116,7 @@ export default class InstagramAPI {
       },
     })
     const clientId = body.slice(body.indexOf('{"clientID":')).split('"')[3]
-    const dtsg = body.slice(body.indexOf('DTSGInitialData')).split('"')[4]
+    const fb_dtsg = body.slice(body.indexOf('DTSGInitialData')).split('"')[4]
     const fbid = body.match(/"IG_USER_EIMU":"([^"]+)"/)?.[1]
     const lsd = body.match(/"LSD",\[\],\{"token":"([^"]+)"\}/)?.[1]
     const sharedData = body.match(/"XIGSharedData",\[\],({.*?})/s)[1]
@@ -129,7 +127,7 @@ export default class InstagramAPI {
       // eslint-disable-next-line no-useless-escape
       }}`.replace(/\\\"/g, '"'),
     )
-    return { clientId, lsd, dtsg, fbid, config }
+    return { clientId, lsd, fb_dtsg, fbid, config }
   }
 
   getCookies() {
@@ -156,7 +154,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        'x-ig-www-claim': this.wwwClaim,
+        'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}${username}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -183,7 +181,7 @@ export default class InstagramAPI {
         'content-type': 'application/x-www-form-urlencoded',
       },
       // todo: maybe use FormData instead:
-      body: new URLSearchParams({ fb_dtsg: this.dtsg, variables: JSON.stringify(variables), doc_id }).toString(),
+      body: new URLSearchParams({ fb_dtsg: this.papi.kv.get('fb_dtsg'), variables: JSON.stringify(variables), doc_id }).toString(),
     })
     const json = JSON.parse(response.body)
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
@@ -194,7 +192,7 @@ export default class InstagramAPI {
     const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/web/accounts/logout/ajax/', {
       // todo: refactor headers
       method: 'POST',
-      body: `one_tap_app_login=1&user_id=${this.igUserId}`,
+      body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
       headers: {
         accept: '*/*',
         'accept-language': 'en-US,en;q=0.9',
@@ -211,7 +209,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        'x-ig-www-claim': this.wwwClaim,
+        'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: INSTAGRAM_BASE_URL,
         'x-instagram-ajax': '1007993177',
@@ -220,7 +218,7 @@ export default class InstagramAPI {
     })
     const json = JSON.parse(response.body)
     if (json.status !== 'ok') {
-      throw new Error(`logout ${this.igUserId} failed: ${JSON.stringify(json, null, 2)}`)
+      throw new Error(`logout ${this.papi.kv.get('igUserId')} failed: ${JSON.stringify(json, null, 2)}`)
     }
   }
 
@@ -267,12 +265,12 @@ export default class InstagramAPI {
 
   async getInitialPayload() {
     const response = await this.graphqlCall('6195354443842040', {
-      deviceId: this.clientId,
+      deviceId: this.papi.kv.get('clientId'),
       requestId: 0,
       requestPayload: JSON.stringify({
         database: 1,
         epoch_id: 0,
-        last_applied_cursor: this.cursor,
+        last_applied_cursor: this.papi.kv.get('cursor-1'),
         sync_params: JSON.stringify({}),
         version: 9477666248971112,
       }),
@@ -554,7 +552,9 @@ export default class InstagramAPI {
     }
 
     if (rawd.cursor) {
-      this.cursor = rawd.cursor
+      this.papi.kv.set('cursor-1', rawd.cursor)
+      this.papi.kv.set('_lastReceivedCursor', rawd.cursor)
+      // this.cursor = rawd.cursor
     }
 
     // todo:
@@ -564,7 +564,7 @@ export default class InstagramAPI {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
-      const threads = await queryThreads(this.papi.db, newThreadIds, this.fbid)
+      const threads = queryThreads(this.papi.db, newThreadIds, this.papi.kv.get('fbid'))
 
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -585,7 +585,7 @@ export default class InstagramAPI {
     } else if (rawd.insertNewMessageRange) {
       // new messages to send to the platform since the user scrolled up in the thread
       const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
-      const messages = newMessageIds.length > 0 ? queryMessages(this.papi.db, rawd.insertNewMessageRange[0].threadKey!, newMessageIds, this.fbid) : []
+      const messages = newMessageIds.length > 0 ? this.queryMessages(rawd.insertNewMessageRange[0].threadKey!, newMessageIds) : []
 
       const threadID = rawd.insertNewMessageRange[0].threadKey
       this.logger.debug('rawd.insertNewMessageRange', {
@@ -594,15 +594,15 @@ export default class InstagramAPI {
         insertNewMessageRange: rawd.insertNewMessageRange,
       })
 
-      // if (messages?.length > 0) {
-      //   this.papi.onEvent?.([{
-      //     type: ServerEventType.STATE_SYNC,
-      //     objectName: 'message',
-      //     objectIDs: { threadID: threadID! },
-      //     mutationType: 'upsert',
-      //     entries: messages,
-      //   }])
-      // }
+      if (messages?.length > 0) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'message',
+          objectIDs: { threadID: threadID! },
+          mutationType: 'upsert',
+          entries: messages,
+        }])
+      }
 
       if (this.papi.socket.asyncRequestResolver.has(`messages-${threadID}`)) {
         const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
@@ -647,7 +647,7 @@ export default class InstagramAPI {
     if (rawd.insertMessage) {
       // new message to send to the platform
       const rawm = rawd.insertMessage
-      const messages = queryMessages(this.papi.db, rawm[0].threadKey!, [rawm[0].messageId], this.fbid)
+      const messages = this.queryMessages(rawm[0].threadKey!, [rawm[0].messageId])
       this.logger.debug('insertMessage: queryMessages', messages)
       if (messages?.length > 0) {
         this.papi.onEvent?.([{
@@ -665,7 +665,7 @@ export default class InstagramAPI {
         if (!r.readActionTimestampMs) continue
         const newestMessage = this.getNewestMessage(r.threadKey!)
         this.logger.debug('updateReadReceipt: newestMessage', newestMessage)
-        const messages = queryMessages(this.papi.db, r.threadKey, 'ALL', this.fbid)
+        const messages = this.queryMessages(r.threadKey, 'ALL')
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
@@ -927,7 +927,7 @@ export default class InstagramAPI {
     formData.append('farr', file, { filename: fileName })
     const res = await this.httpRequest(INSTAGRAM_BASE_URL + 'ajax/mercury/upload.php?' + new URLSearchParams({
       __a: '1',
-      fb_dtsg: this.dtsg,
+      fb_dtsg: this.papi.kv.get('fb_dtsg'),
     }).toString(), {
       method: 'POST',
       body: formData,
@@ -948,7 +948,7 @@ export default class InstagramAPI {
         'sec-fetch-site': 'same-origin',
         'viewport-width': '1280',
         'x-asbd-id': '129477',
-        'x-fb-lsd': this.lsd,
+        'x-fb-lsd': this.papi.kv.get('lsd'),
       },
     })
 
@@ -996,7 +996,7 @@ export default class InstagramAPI {
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
-        'x-ig-www-claim': this.wwwClaim,
+        'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: INSTAGRAM_BASE_URL,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -1006,5 +1006,71 @@ export default class InstagramAPI {
     if (json.status !== 'ok') {
       throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
     }
+  }
+
+  queryMessages(threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesWhere): Message[] {
+    let where: QueryMessagesWhere
+    if (messageIdsOrWhere === 'ALL') {
+      where = eq(messagesSchema.threadKey, threadKey)
+    } else if (Array.isArray(messageIdsOrWhere)) {
+      where = inArray(messagesSchema.messageId, messageIdsOrWhere)
+    } else {
+      where = messageIdsOrWhere
+    }
+    const messages = this.papi.db.query.messages.findMany({
+      where,
+      columns: {
+        // raw: true,
+        message: true,
+        threadKey: true,
+        messageId: true,
+        offlineThreadingId: true,
+        primarySortKey: true,
+        timestampMs: true,
+        senderId: true,
+      },
+      with: {
+        attachments: {
+          columns: {
+            raw: false,
+            attachmentFbid: true,
+            attachment: true,
+          },
+        },
+        reactions: true,
+        thread: {
+          with: {
+            participants: {
+              columns: {
+                userId: true,
+                isAdmin: true,
+                readWatermarkTimestampMs: true,
+              },
+              with: {
+                contacts: {
+                  columns: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    profilePictureUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [asc(messagesSchema.primarySortKey)],
+    })
+    if (!messages || messages.length === 0) return []
+    const { thread: t, participants } = messages[0].thread
+    const thread = JSON.parse(t) as IGThreadInDB
+    const fbid = this.papi.kv.get('fbid')
+    return mapMessages(messages, {
+      threadType: thread?.threadType === '1' ? 'single' : 'group',
+      users: mapParticipants(participants, fbid),
+      participants,
+      fbid,
+    })
   }
 }
