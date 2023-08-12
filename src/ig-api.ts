@@ -440,11 +440,6 @@ export default class InstagramAPI {
           objectIDs: { threadID: threadKey! },
           mutationType: 'delete',
           entries: [threadKey],
-        }, {
-          type: ServerEventType.STATE_SYNC,
-          mutationType: 'delete-all',
-          objectName: 'message',
-          objectIDs: { threadID: threadKey },
         }])
       })
     }
