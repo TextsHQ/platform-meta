@@ -442,10 +442,10 @@ export default class InstagramAPI {
         // this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
 
         // resolve all promises in promise map for this thread
-        if (this.papi.sendPromiseMap.has(`messages-${r.threadKey!}`)) {
-          const [resolve] = this.papi.sendPromiseMap.get(`messages-${r.threadKey!}`)
+        if (this.papi.socket.asyncRequestResolver.has(`messages-${r.threadKey!}`)) {
+          const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${r.threadKey!}`)
           this.logger.info(`resolving messages-${r.threadKey!}`)
-          this.papi.sendPromiseMap.delete(`messages-${r.threadKey!}`)
+          this.papi.socket.asyncRequestResolver.delete(`messages-${r.threadKey!}`)
           resolve({ messages: [], hasMoreBefore: r.hasMoreBefore })
         }
       })
@@ -558,10 +558,10 @@ export default class InstagramAPI {
       }])
       const keys = [`threads-${InboxName.NORMAL}`, `threads-${InboxName.REQUESTS}`] as const
       for (const key of keys) {
-        if (this.papi.sendPromiseMap.has(key)) {
-          const [resolve] = this.papi.sendPromiseMap.get(key)
+        if (this.papi.socket.asyncRequestResolver.has(key)) {
+          const { resolve } = this.papi.socket.asyncRequestResolver.get(key)
           this.logger.debug('resolve', key)
-          this.papi.sendPromiseMap.delete(key)
+          this.papi.socket.asyncRequestResolver.delete(key)
           resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
         }
       }
@@ -587,10 +587,10 @@ export default class InstagramAPI {
       //   }])
       // }
 
-      if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
-        const [resolve] = this.papi.sendPromiseMap.get(`messages-${threadID}`)
-        // this.logger.info(`resolving messages-${threadID}`) 
-        this.papi.sendPromiseMap.delete(`messages-${threadID}`)
+      if (this.papi.socket.asyncRequestResolver.has(`messages-${threadID}`)) {
+        const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
+        // this.logger.info(`resolving messages-${threadID}`)
+        this.papi.socket.asyncRequestResolver.delete(`messages-${threadID}`)
         resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
       } else {
         // throw if this arrived without requested

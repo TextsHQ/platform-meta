@@ -52,8 +52,6 @@ export default class PlatformInstagram implements PlatformAPI {
 
   socket = new InstagramWebSocket(this)
 
-  sendPromiseMap = new Map<string, [(value) => void, (err: Error) => void]>()
-
   onEvent: OnServerEventCallback = events => {
     this.logger.info('instagram got server event before ready', JSON.stringify(events, null, 2))
     this.pendingEvents.push(...events)
@@ -177,7 +175,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const { hasMoreBefore } = this.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadID),
       columns: { hasMoreBefore: true },
-    })
+    }) ?? { hasMoreBefore: true }
     const lastMessage = this.api.getOldestMessage(threadID)
 
     this.logger.info('getMessages threadID, pagination, hasMoreBefore, lastmessage', { threadID, pagination, hasMoreBefore, lastMessage })
@@ -233,7 +231,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
     return {
       items: [],
-      hasMore: false,
+      hasMore: true,
     }
   }
 

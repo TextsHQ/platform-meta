@@ -193,7 +193,7 @@ export function mapThread(
         threadType,
         users: participants,
       }),
-      hasMore: false,
+      hasMore: true,
     },
   } as const
 }

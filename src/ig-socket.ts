@@ -469,7 +469,11 @@ export default class InstagramWebSocket {
     return ++this.lastRequestId
   }
 
-  private requestResolvers: Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]> = new Map()
+  // requests that respond to a request_id
+  private requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
+
+  // requests that we manually track
+  asyncRequestResolver = new Map<`messages-${string}` | `threads-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }>()
 
   // Promise resolves to a parsed and mapped version of the response based on the type
   private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
@@ -521,13 +525,16 @@ export default class InstagramWebSocket {
   }
 
   async fetchMessages(threadID: string, messageID: string, timestamp: Date) {
-    if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
+    const key = `messages-${threadID}` as const
+    if (this.papi.socket.asyncRequestResolver.has(key)) {
+      const { promise } = this.papi.socket.asyncRequestResolver.get(key)!
       this.logger.info('already fetching messages')
-      return Promise.reject(new Error('already fetching messages'))
+      return promise as Promise<{ messages: Message[], hasMoreBefore: boolean }>
     }
-    const sendPromise = new Promise<{ messages: Message[], hasMoreBefore: boolean }>((resolve, reject) => {
-      this.papi.sendPromiseMap.set(`messages-${threadID}`, [resolve, reject])
-    })
+
+    const { resolve, promise, reject } = createPromise<{ messages: Message[], hasMoreBefore: boolean }>()
+    this.papi.socket.asyncRequestResolver.set(`messages-${threadID}`, { promise, resolve, reject })
+
     this.logger.info('fetchMessages', { threadID, messageID, timestamp })
     this.publishTask('fetch messages', {
       label: '228',
@@ -544,24 +551,25 @@ export default class InstagramWebSocket {
       failure_count: null,
     })
     this.logger.info(`promising messages-${threadID}`)
-    return sendPromise
+    return promise
   }
 
   fetchThreads(inbox: InboxName.NORMAL | InboxName.REQUESTS) {
-    const key = `threads-${inbox}`
-    if (this.papi.sendPromiseMap.has(key)) {
-      return this.papi.sendPromiseMap.get(key) as unknown as Promise<{
+    const key = `threads-${inbox}` as const
+    if (this.papi.socket.asyncRequestResolver.has(key)) {
+      return this.papi.socket.asyncRequestResolver.get(key) as unknown as Promise<{
         threads: Thread[]
         hasMoreBefore: boolean
       }>
     }
 
-    const sendPromise = new Promise<{
+    const { resolve, promise, reject } = createPromise<{
       threads: Thread[]
       hasMoreBefore: boolean
-    }>((resolve, reject) => {
-      this.papi.sendPromiseMap.set(key, [resolve, reject])
-    })
+    }>()
+
+    this.papi.socket.asyncRequestResolver.set(key, { promise, resolve, reject })
+
     const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
     this.publishTask('get -1 threads', [
       {
@@ -633,7 +641,7 @@ export default class InstagramWebSocket {
       },
     ])
     this.logger.info('promising threads')
-    return sendPromise
+    return promise
   }
 
   async requestContacts(contactIDs: string[]) {
