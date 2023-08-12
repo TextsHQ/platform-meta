@@ -430,12 +430,16 @@ export default class InstagramAPI {
     if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
 
     if (rawd.insertNewMessageRange) {
-      rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore.set(r.threadKey!, r.hasMoreBefore) })
+      rawd.insertNewMessageRange.forEach(r => {
+        this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${r.hasMoreBefore}`)
+        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+      })
     }
 
     if (rawd.updateExistingMessageRange) {
       rawd.updateExistingMessageRange.forEach(r => {
-        this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
+        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).returning()
+        // this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
 
         // resolve all promises in promise map for this thread
         if (this.papi.sendPromiseMap.has(`messages-${r.threadKey!}`)) {
@@ -592,7 +596,7 @@ export default class InstagramAPI {
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
         objectIDs: { },
-        mutationType: 'upsert',
+        mutationType: 'update',
         entries: [{
           id: rawd.updateThreadMuteSetting[0].threadKey!,
           mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
@@ -641,7 +645,7 @@ export default class InstagramAPI {
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
           objectIDs: { threadID: r.threadKey!, messageID: newestMessage.messageId! },
-          mutationType: 'upsert',
+          mutationType: 'update',
           entries: messages,
         }])
       }

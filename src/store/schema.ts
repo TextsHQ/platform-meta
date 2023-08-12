@@ -13,6 +13,7 @@ export const threads = sqliteTable('threads', {
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
   folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
   raw: text('raw'),
+  hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
 })
 
 export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'primarySortKey' | 'senderId'>
