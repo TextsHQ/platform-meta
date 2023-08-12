@@ -101,9 +101,19 @@ export function getThread(db: DrizzleDB, threadKey: string) {
   } as const
 }
 
-export const queryMessages = (db: DrizzleDB, threadKey: string, messageIds: string[] | 'ALL', fbid: string): Message[] => {
+export type QueryMessagesWhere = Parameters<DrizzleDB['query']['messages']['findMany']>[0]['where']
+
+export const queryMessages = (db: DrizzleDB, threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesWhere, fbid: string): Message[] => {
+  let where: QueryMessagesWhere = undefined
+  if (messageIdsOrWhere === 'ALL') {
+    where = eq(messagesSchema.threadKey, threadKey)
+  } else if (Array.isArray(messageIdsOrWhere)) {
+    where = inArray(messagesSchema.messageId, messageIdsOrWhere)
+  } else {
+    where = messageIdsOrWhere
+  }
   const messages = db.query.messages.findMany({
-    where: messageIds === 'ALL' ? eq(messagesSchema.threadKey, threadKey) : inArray(messagesSchema.messageId, messageIds),
+    where,
     columns: {
       // raw: true,
       message: true,
