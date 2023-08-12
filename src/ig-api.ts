@@ -835,18 +835,10 @@ export default class InstagramAPI {
   }
 
   getContact(contactId: string) {
-    return this.papi.db
-      .select({
-        id: schema.contacts.id,
-        profilePictureUrl: schema.contacts.profilePictureUrl,
-        name: schema.contacts.name,
-        username: schema.contacts.username,
-        contact: schema.contacts.contact,
-      })
-      .from(schema.contacts)
-      .limit(1)
-      .where(eq(schema.contacts.id, contactId))
-      .get()
+    const contact = this.papi.preparedQueries.getContact.get({ contactId })
+    if (contact?.id) return contact
+    this.papi.pQueue.addPromise(this.papi.socket.requestContacts([contactId]).then(() => {}))
+    return null
   }
 
   getContacts(contactIds: string[]) {

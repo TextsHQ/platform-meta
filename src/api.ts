@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type {
   ClientContext,
   CurrentUser,
@@ -32,6 +31,7 @@ import { queryMessages, queryThreads } from './store/helpers'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
+import { PromiseQueue } from './p-queue'
 
 export default class PlatformInstagram implements PlatformAPI {
   private _initPromise = createPromise<void>()
@@ -47,6 +47,8 @@ export default class PlatformInstagram implements PlatformAPI {
   api = new InstagramAPI(this)
 
   kv = new KeyValueStore(this)
+
+  pQueue = new PromiseQueue()
 
   socket = new InstagramWebSocket(this)
 
@@ -185,7 +187,7 @@ export default class PlatformInstagram implements PlatformAPI {
         this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
         return {
           items: messages,
-          hasMore: hasMoreBefore,
+          hasMore: newHasMoreBefore,
         }
       }
       const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
@@ -220,7 +222,7 @@ export default class PlatformInstagram implements PlatformAPI {
       this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
       return {
         items: messages,
-        hasMore: hasMoreBefore,
+        hasMore: newHasMoreBefore,
       }
     }
     return {
@@ -258,7 +260,7 @@ export default class PlatformInstagram implements PlatformAPI {
     if (userIDs.length === 1) {
       const [userID] = userIDs
       const user = this.api.getContact(userID)
-      await this.socket.createThread(userID)
+      this.pQueue.addPromise(this.socket.createThread(userID))
 
       return {
         id: userID,
@@ -396,13 +398,13 @@ export default class PlatformInstagram implements PlatformAPI {
     return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }
 
-  deleteMessage = (threadID: string, messageID: string, forEveryone?: boolean) => this.socket.unsendMessage(messageID)
+  deleteMessage = (threadID: string, messageID: string, _forEveryone?: boolean) => this.socket.unsendMessage(messageID)
 
-  sendReadReceipt = (threadID: string, messageID: string, messageCursor?: string) => this.socket.sendReadReceipt(threadID, Date.now())
+  sendReadReceipt = (threadID: string, _messageID: string, _messageCursor?: string) => this.socket.sendReadReceipt(threadID, Date.now())
 
   addReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, reactionKey)
 
-  removeReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, '')
+  removeReaction = (threadID: string, messageID: string, _reactionKey: string) => this.socket.addReaction(threadID, messageID, '')
 
   addParticipant = (threadID: string, participantID: string) => this.socket.addParticipants(threadID, [participantID])
 
