@@ -14,7 +14,7 @@ export const getLogger = (_p?: string) => {
     }).join(' '))
 
   return {
-    debug: texts.IS_DEV ? logger('log', 'debug') : () => {},
+    debug: logger('log', 'debug'),
     info: logger('log', 'info'),
     warn: logger('log', 'warn'),
     error: logger('error', 'error'),

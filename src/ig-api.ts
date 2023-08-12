@@ -430,12 +430,16 @@ export default class InstagramAPI {
     if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
 
     if (rawd.insertNewMessageRange) {
-      rawd.insertNewMessageRange.forEach(r => { this.messagesHasMoreBefore.set(r.threadKey!, r.hasMoreBefore) })
+      rawd.insertNewMessageRange.forEach(r => {
+        this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${r.hasMoreBefore}`)
+        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+      })
     }
 
     if (rawd.updateExistingMessageRange) {
       rawd.updateExistingMessageRange.forEach(r => {
-        this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
+        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).returning()
+        // this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
 
         // resolve all promises in promise map for this thread
         if (this.papi.sendPromiseMap.has(`messages-${r.threadKey!}`)) {
@@ -566,33 +570,41 @@ export default class InstagramAPI {
       const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
       const messages = newMessageIds.length > 0 ? queryMessages(this.papi.db, rawd.insertNewMessageRange[0].threadKey!, newMessageIds, this.fbid) : []
 
-      this.logger.debug('new messages are', messages)
-      this.logger.debug('rawd.insertNewMessageRange', rawd.insertNewMessageRange)
       const threadID = rawd.insertNewMessageRange[0].threadKey
-      this.logger.debug('thread id in ig-papi is', threadID)
+      this.logger.debug('rawd.insertNewMessageRange', {
+        threadID,
+        messages,
+        insertNewMessageRange: rawd.insertNewMessageRange,
+      })
 
-      if (messages?.length > 0) {
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: threadID! },
-          mutationType: 'upsert',
-          entries: messages,
-        }])
-      }
+      // if (messages?.length > 0) {
+      //   this.papi.onEvent?.([{
+      //     type: ServerEventType.STATE_SYNC,
+      //     objectName: 'message',
+      //     objectIDs: { threadID: threadID! },
+      //     mutationType: 'upsert',
+      //     entries: messages,
+      //   }])
+      // }
 
       if (this.papi.sendPromiseMap.has(`messages-${threadID}`)) {
         const [resolve] = this.papi.sendPromiseMap.get(`messages-${threadID}`)
-        this.logger.info(`resolving messages-${threadID}`)
+        // this.logger.info(`resolving messages-${threadID}`) 
         this.papi.sendPromiseMap.delete(`messages-${threadID}`)
         resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
+      } else {
+        // throw if this arrived without requested
+        const err = new Error(`no promise for messages-${threadID}`)
+        texts.Sentry.captureException(err)
+        this.logger.error(err)
+        console.error(err)
       }
     } else if (rawd.updateThreadMuteSetting) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
         objectIDs: { },
-        mutationType: 'upsert',
+        mutationType: 'update',
         entries: [{
           id: rawd.updateThreadMuteSetting[0].threadKey!,
           mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
@@ -641,7 +653,7 @@ export default class InstagramAPI {
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
           objectIDs: { threadID: r.threadKey!, messageID: newestMessage.messageId! },
-          mutationType: 'upsert',
+          mutationType: 'update',
           entries: messages,
         }])
       }

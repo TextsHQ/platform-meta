@@ -104,7 +104,7 @@ export function getThread(db: DrizzleDB, threadKey: string) {
 export type QueryMessagesWhere = Parameters<DrizzleDB['query']['messages']['findMany']>[0]['where']
 
 export const queryMessages = (db: DrizzleDB, threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesWhere, fbid: string): Message[] => {
-  let where: QueryMessagesWhere = undefined
+  let where: QueryMessagesWhere
   if (messageIdsOrWhere === 'ALL') {
     where = eq(messagesSchema.threadKey, threadKey)
   } else if (Array.isArray(messageIdsOrWhere)) {

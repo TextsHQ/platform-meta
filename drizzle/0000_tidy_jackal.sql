@@ -65,7 +65,8 @@ CREATE TABLE `threads` (
 	`thread` text,
 	`lastActivityTimestampMs` integer,
 	`folderName` text,
-	`raw` text
+	`raw` text,
+	`hasMoreBefore` integer
 );
 --> statement-breakpoint
 CREATE TABLE `typing_indicators` (

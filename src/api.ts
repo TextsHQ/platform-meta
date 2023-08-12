@@ -18,7 +18,7 @@ import type {
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
 import fs from 'fs/promises'
 import url from 'url'
-import { eq } from 'drizzle-orm'
+import { eq, and, lt } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -172,22 +172,56 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  getMessages = async (threadID: string, _pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const messagesHasMoreBefore = this.api.messagesHasMoreBefore.get(threadID)
-    this.logger.info('getMessages', { messagesHasMoreBefore })
-    if (messagesHasMoreBefore) {
-      const lastMessage = this.api.getOldestMessage(threadID)
-      const { messages, hasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
-      this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+    const { hasMoreBefore } = this.db.query.threads.findFirst({
+      where: eq(schema.threads.threadKey, threadID),
+      columns: { hasMoreBefore: true },
+    })
+    const lastMessage = this.api.getOldestMessage(threadID)
+
+    this.logger.info('getMessages threadID, pagination, hasMoreBefore', { threadID, pagination, hasMoreBefore })
+    if (!pagination) {
+      if (hasMoreBefore) {
+        const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
+        this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
+        return {
+          items: messages,
+          hasMore: newHasMoreBefore,
+        }
+      }
+      const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
       return {
         items: messages,
         hasMore: hasMoreBefore,
       }
     }
-    const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
+    const [pmessageID, ptimestamp] = pagination.cursor?.split('-') ?? []
+
+    if (pmessageID !== lastMessage.messageId) {
+      // return all messages older than the requested message
+      const messages = queryMessages(this.db, threadID, and(
+        eq(schema.messages.threadKey, threadID),
+        lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
+      ), this.api.fbid)
+      return {
+        items: messages,
+        hasMore: hasMoreBefore,
+        oldestCursor: `${lastMessage.messageId}-${lastMessage.timestampMs}`,
+      }
+    }
+    // the requested message is the oldest message
+    if (hasMoreBefore) {
+      const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, pmessageID, new Date(Number(ptimestamp))) as any
+      this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
+      return {
+        items: messages,
+        hasMore: newHasMoreBefore,
+      }
+    }
     return {
-      items: messages,
-      hasMore: this.api.messagesHasMoreBefore.get(threadID),
+      items: [],
+      hasMore: false,
     }
   }
 
