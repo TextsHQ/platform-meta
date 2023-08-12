@@ -180,30 +180,42 @@ export default class PlatformInstagram implements PlatformAPI {
     })
     const lastMessage = this.api.getOldestMessage(threadID)
 
-    this.logger.info('getMessages threadID, pagination, hasMoreBefore', { threadID, pagination, hasMoreBefore })
+    this.logger.info('getMessages threadID, pagination, hasMoreBefore, lastmessage', { threadID, pagination, hasMoreBefore, lastMessage })
     if (!pagination) {
+      this.logger.info('getMessages no pagination')
+
       if (hasMoreBefore) {
+        this.logger.info('getMessages hasMoreBefore')
+
         const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
         this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
         return {
           items: messages,
           hasMore: newHasMoreBefore,
+          oldestCursor: `${lastMessage.messageId}-${lastMessage.timestampMs}`,
         }
       }
       const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
+      this.logger.info('getMessages returning queryMessages of all')
+
       return {
         items: messages,
         hasMore: hasMoreBefore,
       }
     }
     const [pmessageID, ptimestamp] = pagination.cursor?.split('-') ?? []
+    this.logger.info('getMessages splitting cursor')
 
     if (pmessageID !== lastMessage.messageId) {
+      this.logger.info('id is not last message id')
+
       // return all messages older than the requested message
       const messages = queryMessages(this.db, threadID, and(
         eq(schema.messages.threadKey, threadID),
         lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
       ), this.api.fbid)
+      this.logger.info('returning queryMessages of older messages')
+
       return {
         items: messages,
         hasMore: hasMoreBefore,
@@ -212,6 +224,8 @@ export default class PlatformInstagram implements PlatformAPI {
     }
     // the requested message is the oldest message
     if (hasMoreBefore) {
+      this.logger.info('pmessageID is last message id and hasMoreBefore')
+
       const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, pmessageID, new Date(Number(ptimestamp))) as any
       this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
       return {
