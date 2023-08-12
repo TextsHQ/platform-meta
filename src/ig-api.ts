@@ -1,8 +1,8 @@
+import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import { texts, type FetchOptions, type User, type MessageSendOptions, InboxName, ServerEventType } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
-import fs from 'fs/promises'
 import { hasSomeCachedData, queryMessages, queryThreads } from './store/helpers'
 
 import * as schema from './store/schema'

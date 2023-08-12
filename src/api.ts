@@ -1,3 +1,5 @@
+import fs from 'fs/promises'
+import url from 'url'
 import type {
   ClientContext,
   CurrentUser,
@@ -16,8 +18,6 @@ import type {
   User,
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
-import fs from 'fs/promises'
-import url from 'url'
 import { eq, and, lt } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
