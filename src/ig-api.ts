@@ -429,16 +429,7 @@ export default class InstagramAPI {
 
     if (rawd.deleteThread?.length > 0) {
       rawd.deleteThread.forEach(({ threadKey }) => {
-        this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
-        this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
-
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'thread',
-          objectIDs: { threadID: threadKey! },
-          mutationType: 'delete',
-          entries: [threadKey],
-        }])
+        this.deleteThreadFromDB(threadKey!)
       })
     }
 
@@ -1072,5 +1063,20 @@ export default class InstagramAPI {
       participants,
       fbid,
     })
+  }
+
+  async deleteThreadFromDB(threadKey: string) {
+    this.papi.onEvent?.([{
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'thread',
+      objectIDs: { threadID: threadKey! },
+      mutationType: 'delete',
+      entries: [threadKey],
+    }])
+
+    this.papi.db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadKey)).run()
+    this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
+    this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadKey)).run()
+    this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
   }
 }

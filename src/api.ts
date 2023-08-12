@@ -169,7 +169,6 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-
   fetchMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     const { hasMoreBefore } = this.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadID),
@@ -207,8 +206,8 @@ export default class PlatformInstagram implements PlatformAPI {
 
       // return all messages older than the requested message
       const messages = this.api.queryMessages(threadID, and(
-          eq(schema.messages.threadKey, threadID),
-          lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
+        eq(schema.messages.threadKey, threadID),
+        lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
       ))
       this.logger.info('returning queryMessages of older messages')
 
@@ -233,7 +232,6 @@ export default class PlatformInstagram implements PlatformAPI {
       hasMore: true,
     }
   }
-
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     this.pQueue.addPromise(this.fetchMessages(threadID, pagination).then(() => {}))
