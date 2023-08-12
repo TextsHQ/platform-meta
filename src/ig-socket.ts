@@ -73,8 +73,12 @@ export default class InstagramWebSocket {
     })
 
     this.mqttSid = getMqttSid()
-    this.lastTaskId = 0
-    this.lastRequestId = 0
+
+    // ig web on reconnections does not reset last task id and last request id
+    // but on initial connection (page load) they are 0, since we keep these in memory
+    // just not resetting mirrors the ig web behavior
+    // this.lastTaskId = 0
+    // this.lastRequestId = 0
 
     this.ws = new WebSocket(
       `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.api.clientId}`,
