@@ -22,6 +22,7 @@ const info: PlatformInfo = {
     Attribute.SUPPORTS_GROUP_PARTICIPANT_ROLE_CHANGE,
     Attribute.SUPPORTS_FORWARD,
     Attribute.SORT_MESSAGES_ON_PUSH,
+    Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
   reactions: {
     supported: {
@@ -49,6 +50,11 @@ const info: PlatformInfo = {
       video: 25 * 1024 * 1024,
       audio: 25 * 1024 * 1024,
       files: 25 * 1024 * 1024,
+    },
+  },
+  notifications: {
+    web: {
+      vapidKey: 'BIBn3E_rWTci8Xn6P9Xj3btShT85Wdtne0LtwNUyRQ5XjFNkuTq9j4MPAVLvAFhXrUU1A9UxyxBA7YIOjqDIDHI', // browser_push_pub_key
     },
   },
   typingDurationMs: 5000,

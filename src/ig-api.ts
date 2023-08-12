@@ -213,7 +213,7 @@ export default class InstagramAPI {
         'x-ig-app-id': APP_ID,
         'x-ig-www-claim': this.wwwClaim,
         'x-requested-with': 'XMLHttpRequest',
-        Referer: `${INSTAGRAM_BASE_URL}}/`,
+        Referer: INSTAGRAM_BASE_URL,
         'x-instagram-ajax': '1007993177',
         'content-type': 'application/x-www-form-urlencoded',
       },
@@ -951,5 +951,43 @@ export default class InstagramAPI {
     }
     this.logger.debug('sendMedia', res, metadata)
     return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
+  }
+
+  async webPushRegister(endpoint: string, p256dh: string, auth: string) {
+    const formData = new FormData()
+    formData.append('device_token', endpoint)
+    formData.append('device_type', 'web_vapid')
+    formData.append('mid', crypto.randomUUID()) // should be someting that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
+    formData.append('subscription_keys', JSON.stringify({ auth, p256dh }))
+    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/web/push/register/', {
+      method: 'POST',
+      body: formData,
+      // todo: refactor headers
+      headers: {
+        accept: '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
+        'sec-ch-ua-full-version-list':
+          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.5.0"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'viewport-width': '1280',
+        'x-asbd-id': '129477',
+        'x-csrftoken': this.getCSRFToken(),
+        'x-ig-app-id': APP_ID,
+        'x-ig-www-claim': this.wwwClaim,
+        'x-requested-with': 'XMLHttpRequest',
+        Referer: INSTAGRAM_BASE_URL,
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+      },
+    })
+    const json = JSON.parse(response.body)
+    if (json.status !== 'ok') {
+      throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
+    }
   }
 }

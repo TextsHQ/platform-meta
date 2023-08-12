@@ -9,6 +9,7 @@ import type {
   MessageContent,
   MessageID,
   MessageSendOptions,
+  NotificationsInfo,
   OnServerEventCallback,
   PaginationArg,
   PlatformAPI,
@@ -492,5 +493,11 @@ export default class PlatformInstagram implements PlatformAPI {
 
   forwardMessage = async (_threadID: ThreadID, messageID: MessageID, threadIDs: ThreadID[]) => {
     await Promise.all(threadIDs.map(tid => this.socket.forwardMessage(tid, messageID)))
+  }
+
+  registerForPushNotifications = async (type: keyof NotificationsInfo, token: string) => {
+    if (type !== 'web') throw Error('invalid type')
+    const parsed: PushSubscriptionJSON = JSON.parse(token)
+    await this.api.webPushRegister(parsed.endpoint, parsed.keys.p256dh, parsed.keys.auth)
   }
 }
