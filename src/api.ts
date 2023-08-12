@@ -192,7 +192,6 @@ export default class PlatformInstagram implements PlatformAPI {
         return {
           items: messages,
           hasMore: newHasMoreBefore,
-          oldestCursor: `${lastMessage.messageId}-${lastMessage.timestampMs}`,
         }
       }
       const messages = queryMessages(this.db, threadID, 'ALL', this.api.fbid)
@@ -219,7 +218,6 @@ export default class PlatformInstagram implements PlatformAPI {
       return {
         items: messages,
         hasMore: hasMoreBefore,
-        oldestCursor: `${lastMessage.messageId}-${lastMessage.timestampMs}`,
       }
     }
     // the requested message is the oldest message
