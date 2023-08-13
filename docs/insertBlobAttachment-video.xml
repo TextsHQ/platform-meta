@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1.500S" type="static"
+     mediaPresentationDuration="PT0H0M6.941S" maxSegmentDuration="PT0H0M2.933S"
+     profiles="urn:mpeg:dash:profile:isoff-on-demand:2011,http://dashif.org/guidelines/dash264">
+    <Period
+            duration="PT0H0M6.941S">
+        <AdaptationSet segmentAlignment="true" maxWidth="720"
+                       maxHeight="720" maxFrameRate="30" par="1:1" lang="und" subsegmentAlignment="true"
+                       subsegmentStartsWithSAP="1">
+            <Representation id="810975877166743v" mimeType="video/mp4"
+                            codecs="avc1.640015" width="360" height="360" frameRate="30" sar="1:1"
+                            startWithSAP="1" bandwidth="368479" FBDefaultQuality="1" FBQualityClass="sd"
+                            FBQualityLabel="360p">
+                <BaseURL>
+                    https://scontent.xx.fbcdn.net/v/t39.15294-2/365741940_135831469565568_2742901538649354544_n.mp4?_nc_cat=101&ccb=1-7&_nc_sid=9a5d50&efg=eyJ2ZW5jb2RlX3RhZyI6ImRhc2hfMV8yX3ZpZGVvIn0u00253D&_nc_ohc=vzCpqb_05SYAX_0PjYC&_nc_ht=scontent.xx&oh=03_AdQi48pzsw1PCYZ5iAKdGzVMnc5NQ-jkp_SWkhZhjUx7Fw&oe=64DB414F</BaseURL>
+                <SegmentBase indexRangeExact="true" indexRange="865-932">
+                    <Initialization range="0-864" />
+                </SegmentBase>
+            </Representation>
+            <Representation id="1047614276596849v" mimeType="video/mp4"
+                            codecs="avc1.64000C" width="180" height="180" frameRate="30" sar="1:1"
+                            startWithSAP="1" bandwidth="155995" FBQualityClass="sd" FBQualityLabel="180p">
+                <BaseURL>
+                    https://scontent.xx.fbcdn.net/v/t39.15294-2/365722510_1095869841818750_8114021981728248453_n.mp4?_nc_cat=104&ccb=1-7&_nc_sid=9a5d50&efg=eyJ2ZW5jb2RlX3RhZyI6ImRhc2hfMV80X3ZpZGVvIn0u00253D&_nc_ohc=fLPXl6sMqEwAX9EqF1L&_nc_ht=scontent.xx&oh=03_AdSetw5qEJBaOKuid_WfNcuiEnILtpIkhEs6vKWGcB2FOQ&oe=64DB24AA</BaseURL>
+                <SegmentBase indexRangeExact="true" indexRange="864-931">
+                    <Initialization range="0-863" />
+                </SegmentBase>
+            </Representation>
+            <Representation id="1661230884379318v" mimeType="video/mp4"
+                            codecs="avc1.4D401F" width="720" height="720" frameRate="30" sar="1:1"
+                            startWithSAP="1" bandwidth="892832" FBQualityClass="hd" FBQualityLabel="720p">
+                <BaseURL>
+                    https://scontent.xx.fbcdn.net/v/t39.15294-2/365648251_1463137214488103_610206272073817884_n.mp4?_nc_cat=111&ccb=1-7&_nc_sid=9a5d50&efg=eyJ2ZW5jb2RlX3RhZyI6ImRhc2hfb3JpZ19yZXNfdmlkZW8ifQu00253Du00253D&_nc_ohc=PHhJqiVZq4gAX8qMqpu&_nc_ht=scontent.xx&oh=03_AdQlfX6ysPmXK3J636sh5f_EaokL5dOj2Il8-j9WVOj20Q&oe=64DB4EF9</BaseURL>
+                <SegmentBase indexRangeExact="true" indexRange="859-926">
+                    <Initialization range="0-858" />
+                </SegmentBase>
+            </Representation>
+        </AdaptationSet>
+        <AdaptationSet segmentAlignment="true" lang="und"
+                       subsegmentAlignment="true" subsegmentStartsWithSAP="1">
+            <Representation
+                    id="1608339589575576a" mimeType="audio/mp4" codecs="mp4a.40.2"
+                    audioSamplingRate="44100" startWithSAP="1" bandwidth="67701" FBDefaultQuality="1">
+                <AudioChannelConfiguration
+                        schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2" />
+                <BaseURL>
+                    https://scontent.xx.fbcdn.net/v/t39.15294-2/365577950_823251045977694_7664010596087213151_n.mp4?_nc_cat=103&ccb=1-7&_nc_sid=9a5d50&efg=eyJ2ZW5jb2RlX3RhZyI6ImRhc2hfYXVkaW8ifQu00253Du00253D&_nc_ohc=u9uuxPbdTBUAX_iLrHf&_nc_ht=scontent.xx&oh=03_AdTYFItYDzUKLTk5Lwld9fvuwHLGn3XS3yZuTnZ9AVA68Q&oe=64DB9594</BaseURL>
+                <SegmentBase indexRangeExact="true" indexRange="801-880">
+                    <Initialization range="0-800" />
+                </SegmentBase>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>
