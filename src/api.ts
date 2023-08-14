@@ -27,8 +27,6 @@ import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import { PAPIReturn, SerializedSession } from './types'
-import { createPromise } from './util'
-import { queryThreads } from './store/helpers'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -37,12 +35,6 @@ import { PromiseQueue } from './p-queue'
 // const MESSAGE_PAGE_SIZE = 20
 
 export default class PlatformInstagram implements PlatformAPI {
-  private _initPromise = createPromise<void>()
-
-  get initPromise() {
-    return this._initPromise.promise
-  }
-
   logger = getLogger()
 
   db: DrizzleDB
@@ -81,7 +73,6 @@ export default class PlatformInstagram implements PlatformAPI {
     const { jar } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)
     await this.api.init()
-    this._initPromise.resolve()
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -106,7 +97,6 @@ export default class PlatformInstagram implements PlatformAPI {
     }
     this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
     await this.api.init()
-    this._initPromise.resolve()
     return { type: 'success' }
   }
 
@@ -117,13 +107,6 @@ export default class PlatformInstagram implements PlatformAPI {
     jar: this.api.jar.toJSON(),
     ua: this.api.ua,
     authMethod: this.api.authMethod ?? 'login-window',
-    // clientId: this.api.clientId,
-    // dtsg: this.api.dtsg,
-    // lsd: this.api.lsd,
-    // fbid: this.api.fbid,
-    // igUserId: this.api.igUserId,
-    // wwwClaim: this.api.wwwClaim,
-    // lastCursor: this.api.cursor,
   })
 
   subscribeToEvents = async (onEvent: OnServerEventCallback) => {
@@ -154,7 +137,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
     }
 
-    const threads = await queryThreads(this.db, 'ALL', this.kv.get('fbid'), folderName)
+    const threads = this.api.queryThreads('ALL', folderName)
     this.logger.info('getThreads, returning threads from db', threads)
     const { hasMoreBefore } = this.api.lastThreadReference
     return {
@@ -245,7 +228,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getThread = async (threadID: string): PAPIReturn<'getThread'> => {
-    const t = queryThreads(this.db, [threadID], this.kv.get('fbid'), null)
+    const t = this.api.queryThreads([threadID])
     return t[0]
   }
 

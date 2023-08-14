@@ -13,8 +13,7 @@ import {
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import {
   hasSomeCachedData,
-  QueryMessagesArgs,
-  queryThreads,
+  type QueryMessagesArgs,
 } from './store/helpers'
 
 import * as schema from './store/schema'
@@ -25,9 +24,10 @@ import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
-import { getOriginalURL } from './util'
-import { IGThreadInDB, messages as messagesSchema } from './store/schema'
-import { mapMessages, mapParticipants } from './mappers'
+import { createPromise, getOriginalURL } from './util'
+import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
+import { mapMessages, mapParticipants, mapThread } from './mappers'
+import { DrizzleDB } from './store/db'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -46,6 +46,12 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
+  private _initPromise = createPromise<void>()
+
+  get initPromise() {
+    return this._initPromise.promise
+  }
+
   private logger = getLogger('ig-api')
 
   constructor(private readonly papi: Instagram) {}
@@ -100,7 +106,9 @@ export default class InstagramAPI {
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
     }
-    await this.getInitialPayload()
+
+    this._initPromise.resolve()
+    return { type: 'success' }
   }
 
   private async getClientId() {
@@ -400,7 +408,7 @@ export default class InstagramAPI {
         }
       }
 
-      await this.deleteThenInsertThread(threads)
+      this.deleteThenInsertThread(threads)
     }
 
     if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
@@ -560,7 +568,7 @@ export default class InstagramAPI {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
-      const threads = queryThreads(this.papi.db, newThreadIds, this.papi.kv.get('fbid'))
+      const threads = this.queryThreads(newThreadIds)
 
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -1142,5 +1150,60 @@ export default class InstagramAPI {
     this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
     this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadKey)).run()
     this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+  }
+
+  queryThreads(threadIDs: string[] | 'ALL', inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) {
+    return this.papi.db.query.threads.findMany({
+      ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
+      columns: {
+        folderName: true,
+        lastActivityTimestampMs: true,
+        threadKey: true,
+        thread: true,
+      },
+      orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
+      with: {
+        participants: {
+          columns: {
+            userId: true,
+            isAdmin: true,
+            readWatermarkTimestampMs: true,
+          },
+          with: {
+            contacts: {
+              columns: {
+                id: true,
+                name: true,
+                username: true,
+                profilePictureUrl: true,
+              },
+            },
+          },
+        },
+        messages: {
+          columns: {
+            raw: false,
+            threadKey: true,
+            messageId: true,
+            timestampMs: true,
+            senderId: true,
+            message: true,
+            primarySortKey: true,
+          },
+          with: {
+            attachments: {
+              columns: {
+                raw: false,
+                attachmentFbid: true,
+                attachment: true,
+              },
+            },
+            reactions: true,
+          },
+          orderBy: [desc(messagesSchema.primarySortKey)],
+          limit: 1,
+        },
+      },
+    }).map(t => mapThread(t, this.papi.kv.get('fbid')))
   }
 }
