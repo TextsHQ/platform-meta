@@ -11,6 +11,7 @@ import {
   Message,
 } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
+import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import {
   hasSomeCachedData,
   QueryMessagesArgs,
@@ -81,6 +82,15 @@ export default class InstagramAPI {
     return res
   }
 
+  private async httpJSONRequest(url: string, opts: FetchOptions) {
+    const res = await this.httpRequest(url, opts)
+    if (res.body[0] === '<') {
+      console.log(res.statusCode, url, res.body)
+      throw new ExpectedJSONGotHTMLError(res.statusCode, res.body)
+    }
+    return { statusCode: res.statusCode, headers: res.headers, json: JSON.parse(res.body) }
+  }
+
   async init() {
     const { clientId, fb_dtsg, lsd, fbid, config } = await this.getClientId()
 
@@ -140,7 +150,7 @@ export default class InstagramAPI {
 
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
-    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
+    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
       // todo: refactor headers
       headers: {
         accept: '*/*',
@@ -164,7 +174,6 @@ export default class InstagramAPI {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     })
-    const json = JSON.parse(response.body)
     const data = await json.data
     const userInfo = data?.data?.user
     const user: User = {
@@ -179,7 +188,7 @@ export default class InstagramAPI {
   }
 
   async graphqlCall<T extends {}>(doc_id: string, variables: T) {
-    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/graphql/', {
+    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/graphql/', {
       method: 'POST',
       headers: {
         'content-type': 'application/x-www-form-urlencoded',
@@ -187,13 +196,12 @@ export default class InstagramAPI {
       // todo: maybe use FormData instead:
       body: new URLSearchParams({ fb_dtsg: this.papi.kv.get('fb_dtsg'), variables: JSON.stringify(variables), doc_id }).toString(),
     })
-    const json = JSON.parse(response.body)
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
     return { data: json }
   }
 
   async logout() {
-    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/web/accounts/logout/ajax/', {
+    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/web/accounts/logout/ajax/', {
       // todo: refactor headers
       method: 'POST',
       body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
@@ -220,7 +228,6 @@ export default class InstagramAPI {
         'content-type': 'application/x-www-form-urlencoded',
       },
     })
-    const json = JSON.parse(response.body)
     if (json.status !== 'ok') {
       throw new Error(`logout ${this.papi.kv.get('igUserId')} failed: ${JSON.stringify(json, null, 2)}`)
     }
@@ -1030,7 +1037,7 @@ export default class InstagramAPI {
     formData.append('device_type', 'web_vapid')
     formData.append('mid', crypto.randomUUID()) // should be someting that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
     formData.append('subscription_keys', JSON.stringify({ auth, p256dh }))
-    const response = await this.httpRequest(INSTAGRAM_BASE_URL + 'api/v1/web/push/register/', {
+    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/web/push/register/', {
       method: 'POST',
       body: formData,
       // todo: refactor headers
@@ -1056,7 +1063,6 @@ export default class InstagramAPI {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     })
-    const json = JSON.parse(response.body)
     if (json.status !== 'ok') {
       throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
     }
