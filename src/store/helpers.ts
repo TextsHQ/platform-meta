@@ -6,6 +6,62 @@ import type { DrizzleDB } from './db'
 import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './schema'
 import { mapThread } from '../mappers'
 
+export const queryThreads = (db: DrizzleDB, threadIDs: string[] | 'ALL', fbid: string, inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) => db.query.threads.findMany({
+  ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
+  columns: {
+    folderName: true,
+    lastActivityTimestampMs: true,
+    threadKey: true,
+    thread: true,
+  },
+  orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
+  with: {
+    participants: {
+      columns: {
+        userId: true,
+        isAdmin: true,
+        readWatermarkTimestampMs: true,
+      },
+      with: {
+        contacts: {
+          columns: {
+            id: true,
+            name: true,
+            username: true,
+            profilePictureUrl: true,
+          },
+        },
+      },
+    },
+    messages: {
+      columns: {
+        raw: false,
+        threadKey: true,
+        messageId: true,
+        timestampMs: true,
+        senderId: true,
+        message: true,
+        primarySortKey: true,
+      },
+      with: {
+        attachments: {
+          columns: {
+            raw: false,
+            attachmentFbid: true,
+            attachment: true,
+          },
+        },
+        reactions: true,
+      },
+      orderBy: [desc(messagesSchema.primarySortKey)],
+      limit: 1,
+    },
+  },
+}).map(t => mapThread(t, fbid)).filter(t => {
+  if (inbox === null) return true
+  return t.folderType === inbox
+})
+
 export function getThread(db: DrizzleDB, threadKey: string) {
   const t = db.query.threads.findFirst({
     where: eq(threadsSchema.threadKey, threadKey),

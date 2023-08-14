@@ -57,27 +57,20 @@ export default class InstagramWebSocket {
   constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
-    this.logger.debug('[ws connection]', 'connecting (will for api to be ready)')
-    await this.papi.api.initPromise // wait for api to be ready
-    this.logger.debug('[ws connection]', 'connecting to ws', {
+    this.logger.debug('[ws connection]', 'connecting')
+    await this.papi.initPromise // wait for api to be ready
+    this.logger.debug('[ws connection]', 'connecting to ws')
+    try {
+      this.ws?.close()
+    } catch (err) {
+      this.logger.error('[ws connection]', 'connect error', err)
+    }
+
+    this.logger.debug('[ws connection] previous data', {
       mqttSid: this.mqttSid,
       lastTaskId: this.lastTaskId,
       lastRequestId: this.lastRequestId,
     })
-    try {
-      this.ws?.close()
-    } catch (err) {
-      this.logger.error('[ws connection]', 'failed to close previous on connect error', err)
-      texts.Sentry.captureException(err, {
-        extra: {
-          mqttSid: this.mqttSid,
-          lastTaskId: this.lastTaskId,
-          lastRequestId: this.lastRequestId,
-        },
-      })
-    }
-
-    this.logger.debug('[ws connection] previous data')
 
     this.mqttSid = getMqttSid()
 
