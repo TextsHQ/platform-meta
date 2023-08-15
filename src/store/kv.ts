@@ -9,9 +9,10 @@ type Key = `cursor-${1 | 95}`
   | 'igUserId'
   | 'lsd'
   | 'wwwClaim'
-  | 'hasMoreBefore'
-  | 'minLastActivityTimestampMs'
-  | 'minThreadKey'
+  | `groupThreadsRange-${string}` // 'groupThreadsRange-${syncGroup}'
+  // | 'hasMoreBefore'
+  // | 'minLastActivityTimestampMs'
+  // | 'minThreadKey'
   | '_lastReceivedCursor' // not used, for debugging
   | '_viewerConfig' // not used, for debugging
 

@@ -1,7 +1,7 @@
 import type { DBParticipantInsert } from './store/schema'
-import type { IGThread, IGMessage, IGAttachment } from './ig-types'
-import { fixEmoji, getAsDate, getAsMS, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
+import type { IGAttachment, IGMessage, IGThread } from './ig-types'
 import { IGContact } from './ig-types'
+import { fixEmoji, getAsDate, getAsMS, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
 
 type RawItem = string[]
 
@@ -395,8 +395,11 @@ const parseMap = {
     authorityLevel: parseValue<string>(a[122]),
   }),
   upsertSyncGroupThreadsRange: (a: RawItem) => ({
-    hasMoreBefore: Boolean(a[3]),
-    minLastActivityTimestampMs: getAsMS(a[2][1]),
+    syncGroup: parseValue<number>(a[0]),
+    parentThreadKey: parseValue<number>(a[1]),
+    minLastActivityTimestampMs: parseValue<number>(a[2]),
+    hasMoreBefore: a[3] as unknown as boolean,
+    isLoadingBefore: a[4] as unknown as boolean,
     minThreadKey: parseValue<string>(a[5]),
   }),
   insertSearchResult: (a: RawItem) => ({

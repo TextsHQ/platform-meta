@@ -701,11 +701,7 @@ export default class InstagramAPI {
     }
 
     rawd.upsertSyncGroupThreadsRange?.forEach(t => {
-      this.papi.kv.setMany({
-        hasMoreBefore: t.hasMoreBefore ? 'true' : 'false',
-        minLastActivityTimestampMs: String(t.minLastActivityTimestampMs),
-        minThreadKey: t.minThreadKey,
-      })
+      this.papi.kv.set(`groupThreadsRange-${t.syncGroup}`, JSON.stringify(t))
     })
 
     // wait for everything to be synced before resolving
@@ -715,13 +711,9 @@ export default class InstagramAPI {
     }
   }
 
-  getSyncGroupThreadsRange() {
-    const values = this.papi.kv.getMany(['hasMoreBefore', 'minLastActivityTimestampMs', 'minThreadKey'])
-    return {
-      hasMoreBefore: values.hasMoreBefore ? values.hasMoreBefore === 'true' : undefined,
-      minLastActivityTimestampMs: values.minLastActivityTimestampMs ? Number(values.minLastActivityTimestampMs) : undefined,
-      minThreadKey: values.minThreadKey ? values.minThreadKey : undefined,
-    }
+  getSyncGroupThreadsRange(syncGroup: '0' | '95' = '0') {
+    const value = this.papi.kv.get(`groupThreadsRange-${syncGroup}`)
+    return value ? JSON.parse(value) : null
   }
 
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
