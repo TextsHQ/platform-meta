@@ -1,15 +1,7 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import {
-  texts,
-  type FetchOptions,
-  type User,
-  type MessageSendOptions,
-  InboxName,
-  ServerEventType,
-  Message,
-} from '@textshq/platform-sdk'
+import { texts, InboxName, ServerEventType, type FetchOptions, type User, type MessageSendOptions, type Message } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { hasSomeCachedData, type QueryMessagesArgs } from './store/helpers'
@@ -933,6 +925,8 @@ export default class InstagramAPI {
   }
 
   fetchContactsIfNotExist(contactIds: string[]) {
+    if (contactIds.length === 0) return
+
     const existing = this.papi.db.query.contacts.findMany({
       columns: {
         id: true,
