@@ -23,7 +23,7 @@ import { APP_ID, DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, SHARED_HEADERS } 
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
-import { createPromise, getOriginalURL } from './util'
+import { createPromise, getOriginalURL, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapParticipants, mapThread } from './mappers'
 
 const fixUrl = (url: string) =>
@@ -108,7 +108,7 @@ export default class InstagramAPI {
     this.papi.currentUser = {
       // id: config.id, // this is the instagram id but fbid is instead used for chat
       id: fbid,
-      fullName: config.full_name,
+      fullName: config.full_name?.length > 0 && parseUnicodeEscapeSequences(config.full_name),
       imgURL: fixUrl(config.profile_pic_url_hd),
       username: config.username,
     }
