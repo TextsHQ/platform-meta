@@ -1,12 +1,21 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { texts, InboxName, ServerEventType, type FetchOptions, type User, type MessageSendOptions, type Message } from '@textshq/platform-sdk'
-import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
+import {
+  type FetchOptions,
+  InboxName,
+  type Message,
+  type MessageSendOptions,
+  ServerEventType,
+  texts,
+  type User,
+} from '@textshq/platform-sdk'
+import { and, asc, desc, eq, inArray, type InferModel } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { hasSomeCachedData, type QueryMessagesArgs } from './store/helpers'
 
 import * as schema from './store/schema'
+import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
@@ -15,7 +24,6 @@ import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
 import { createPromise, getOriginalURL } from './util'
-import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { mapMessages, mapParticipants, mapThread } from './mappers'
 
 const fixUrl = (url: string) =>
@@ -692,10 +700,27 @@ export default class InstagramAPI {
       })
     }
 
+    rawd.upsertSyncGroupThreadsRange?.forEach(t => {
+      this.papi.kv.setMany({
+        hasMoreBefore: t.hasMoreBefore ? 'true' : 'false',
+        minLastActivityTimestampMs: String(t.minLastActivityTimestampMs),
+        minThreadKey: t.minThreadKey,
+      })
+    })
+
     // wait for everything to be synced before resolving
     if (knownRequest && !rawd.issueNewError) {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
       requestResolver(rawd)
+    }
+  }
+
+  getSyncGroupThreadsRange() {
+    const values = this.papi.kv.getMany(['hasMoreBefore', 'minLastActivityTimestampMs', 'minThreadKey'])
+    return {
+      hasMoreBefore: values.hasMoreBefore ? values.hasMoreBefore === 'true' : undefined,
+      minLastActivityTimestampMs: values.minLastActivityTimestampMs ? Number(values.minLastActivityTimestampMs) : undefined,
+      minThreadKey: values.minThreadKey ? values.minThreadKey : undefined,
     }
   }
 
@@ -726,8 +751,8 @@ export default class InstagramAPI {
     // this.papi.db.insert(schema.threads).values(threads).run()
 
     this.papi.db.transaction(tx => {
-      tx.delete(schema.threads).where(inArray(schema.threads.threadKey, ids))
-      tx.insert(schema.threads).values(threads)
+      tx.delete(schema.threads).where(inArray(schema.threads.threadKey, ids)).run()
+      tx.insert(schema.threads).values(threads).run()
       // for (const t of threads) {
       //   tx.insert(schema.threads).values(t).onConflictDoUpdate({
       //     target: schema.threads.threadKey,
@@ -750,12 +775,14 @@ export default class InstagramAPI {
       }
     })
 
-    for (const c of mappedContacts) {
-      this.papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
-        target: schema.contacts.id,
-        set: { ...c },
-      }).run()
-    }
+    this.papi.db.transaction(tx => {
+      for (const c of mappedContacts) {
+        tx.insert(schema.contacts).values(c).onConflictDoUpdate({
+          target: schema.contacts.id,
+          set: { ...c },
+        }).run()
+      }
+    })
   }
 
   async addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {

@@ -145,7 +145,7 @@ export default class InstagramWebSocket {
     }
 
     this.ws.onerror = ev => {
-      this.logger.error('[ws connection] onerror', ev)
+      this.logger.error('[ws connection] onerror', { error: ev.error, type: ev.type, message: ev.message })
       if (!this.stop) retry()
     }
 

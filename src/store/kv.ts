@@ -3,14 +3,17 @@ import type Instagram from '../api'
 import { keyValues } from './schema'
 
 type Key = `cursor-${1 | 95}`
-| 'clientId'
-| 'fb_dtsg'
-| 'fbid'
-| 'igUserId'
-| 'lsd'
-| 'wwwClaim'
-| '_lastReceivedCursor' // not used, for debugging
-| '_viewerConfig' // not used, for debugging
+  | 'clientId'
+  | 'fb_dtsg'
+  | 'fbid'
+  | 'igUserId'
+  | 'lsd'
+  | 'wwwClaim'
+  | 'hasMoreBefore'
+  | 'minLastActivityTimestampMs'
+  | 'minThreadKey'
+  | '_lastReceivedCursor' // not used, for debugging
+  | '_viewerConfig' // not used, for debugging
 
 export default class KeyValueStore {
   constructor(private readonly papi: Instagram) {}
@@ -48,7 +51,7 @@ export default class KeyValueStore {
     return Object.fromEntries(values.map(({ key, value }) => [key, value])) as Record<Key, string>
   }
 
-  getSome(keys: Key[]) {
+  getMany(keys: Key[]) {
     const values = this.papi.db.select({ value: keyValues.value })
       .from(keyValues)
       .where(inArray(keyValues.key, keys))
