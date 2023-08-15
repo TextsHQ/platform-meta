@@ -7,7 +7,6 @@ CREATE TABLE `attachments` (
 	`timestampMs` integer,
 	`offlineAttachmentId` text,
 	PRIMARY KEY(`attachmentFbid`, `messageId`, `threadKey`),
-	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`messageId`) REFERENCES `messages`(`messageId`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -46,7 +45,6 @@ CREATE TABLE `participants` (
 	`lastDeliveredActionTimestampMs` integer,
 	`isAdmin` integer,
 	PRIMARY KEY(`threadKey`, `userId`),
-	FOREIGN KEY (`threadKey`) REFERENCES `threads`(`threadKey`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`userId`) REFERENCES `contacts`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint

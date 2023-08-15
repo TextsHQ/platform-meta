@@ -12,11 +12,7 @@ import {
 } from '@textshq/platform-sdk'
 import { asc, desc, eq, and, type InferModel, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
-import {
-  hasSomeCachedData,
-  QueryMessagesArgs,
-  queryThreads,
-} from './store/helpers'
+import { hasSomeCachedData, type QueryMessagesArgs } from './store/helpers'
 
 import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
@@ -26,9 +22,9 @@ import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
-import { getOriginalURL } from './util'
-import { IGThreadInDB, messages as messagesSchema } from './store/schema'
-import { mapMessages, mapParticipants } from './mappers'
+import { createPromise, getOriginalURL } from './util'
+import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
+import { mapMessages, mapParticipants, mapThread } from './mappers'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -47,6 +43,12 @@ const commonHeaders = {
 } as const
 
 export default class InstagramAPI {
+  private _initPromise = createPromise<void>()
+
+  get initPromise() {
+    return this._initPromise.promise
+  }
+
   private logger = getLogger('ig-api')
 
   constructor(private readonly papi: Instagram) {}
@@ -287,7 +289,9 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    return this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
+    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
+    this._initPromise?.resolve()
+    await this.papi.socket.connect()
   }
 
   async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, isInitialRequest?: boolean) {
@@ -407,7 +411,7 @@ export default class InstagramAPI {
         }
       }
 
-      await this.deleteThenInsertThread(threads)
+      this.deleteThenInsertThread(threads)
     }
 
     if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
@@ -567,7 +571,7 @@ export default class InstagramAPI {
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
-      const threads = queryThreads(this.papi.db, newThreadIds, this.papi.kv.get('fbid'))
+      const threads = this.queryThreads(newThreadIds, null)
 
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -623,7 +627,7 @@ export default class InstagramAPI {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
-        objectIDs: { },
+        objectIDs: {},
         mutationType: 'update',
         entries: [{
           id: rawd.updateThreadMuteSetting[0].threadKey!,
@@ -726,7 +730,9 @@ export default class InstagramAPI {
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
     this.logger.debug('deleteThenInsertThread', _threads)
 
+    const ids: string[] = [] // avoid double loops
     const threads = _threads.map(t => {
+      ids.push(t.threadKey)
       const { raw, threadKey, lastActivityTimestampMs, folderName, ...thread } = t
 
       // @TODO: parsers should handle this before we come here
@@ -744,13 +750,19 @@ export default class InstagramAPI {
         thread: JSON.stringify(thread),
       } as const
     })
+    // this.papi.db.delete(schema.threads).where(inArray(schema.threads.threadKey, ids)).run()
+    // this.papi.db.insert(schema.threads).values(threads).run()
 
-    for (const t of threads) {
-      this.papi.db.insert(schema.threads).values(t).onConflictDoUpdate({
-        target: schema.threads.threadKey,
-        set: { ...t },
-      }).run()
-    }
+    this.papi.db.transaction(tx => {
+      tx.delete(schema.threads).where(inArray(schema.threads.threadKey, ids))
+      tx.insert(schema.threads).values(threads)
+      // for (const t of threads) {
+      //   tx.insert(schema.threads).values(t).onConflictDoUpdate({
+      //     target: schema.threads.threadKey,
+      //     set: { ...t },
+      //   })
+      // }
+    })
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
@@ -940,6 +952,20 @@ export default class InstagramAPI {
     })
   }
 
+  fetchContactsIfNotExist(contactIds: string[]) {
+    const existing = this.papi.db.query.contacts.findMany({
+      columns: {
+        id: true,
+      },
+      where: inArray(schema.contacts.id, contactIds),
+    }).map(c => c.id)
+
+    const missing = contactIds.filter(id => !existing.includes(id))
+    if (missing.length > 0) {
+      this.papi.pQueue.addPromise(this.papi.socket.requestContacts(missing).then(() => {}))
+    }
+  }
+
   getMessage(threadKey: string, messageId: string) {
     return this.papi.db
       .select({
@@ -1046,7 +1072,7 @@ export default class InstagramAPI {
         'accept-language': 'en-US,en;q=0.9',
         'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
         'sec-ch-ua-full-version-list':
-          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
+                    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"macOS"',
         'sec-ch-ua-platform-version': '"13.5.0"',
@@ -1066,6 +1092,68 @@ export default class InstagramAPI {
     if (json.status !== 'ok') {
       throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
     }
+  }
+
+  queryThreads(threadIDs: string[] | 'ALL', inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) {
+    const threads = this.papi.db.query.threads.findMany({
+      ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
+      columns: {
+        folderName: true,
+        lastActivityTimestampMs: true,
+        threadKey: true,
+        thread: true,
+      },
+      orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
+      with: {
+        participants: {
+          columns: {
+            userId: true,
+            isAdmin: true,
+            readWatermarkTimestampMs: true,
+          },
+          with: {
+            contacts: {
+              columns: {
+                id: true,
+                name: true,
+                username: true,
+                profilePictureUrl: true,
+              },
+            },
+          },
+        },
+        messages: {
+          columns: {
+            raw: false,
+            threadKey: true,
+            messageId: true,
+            timestampMs: true,
+            senderId: true,
+            message: true,
+            primarySortKey: true,
+          },
+          with: {
+            attachments: {
+              columns: {
+                raw: false,
+                attachmentFbid: true,
+                attachment: true,
+              },
+            },
+            reactions: true,
+          },
+          orderBy: [desc(messagesSchema.primarySortKey)],
+          limit: 1,
+        },
+      },
+    }).map(t => mapThread(t, this.papi.kv.get('fbid'))).filter(t => {
+      if (inbox === null) return true
+      return t.folderType === inbox
+    })
+
+    const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
+    this.fetchContactsIfNotExist(participantIDs)
+    return threads
   }
 
   queryMessages(threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs?: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>>): Message[] {
