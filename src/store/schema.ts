@@ -62,7 +62,7 @@ export const attachments = sqliteTable('attachments', {
   raw: text('raw'),
   attachment: text('attachment'),
   // attachment: blob('attachment', { mode: 'json' }).$type<RawAttachment>(),
-  threadKey: text('threadKey').notNull().references(() => threads.threadKey),
+  threadKey: text('threadKey').notNull(), // .references(() => threads.threadKey),
   messageId: text('messageId').notNull().references(() => messages.messageId),
   attachmentFbid: text('attachmentFbid'),
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
@@ -88,7 +88,7 @@ export const contacts = sqliteTable('contacts', {
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   raw: text('raw'),
-  threadKey: text('threadKey').notNull().references(() => threads.threadKey),
+  threadKey: text('threadKey').notNull(), // .references(() => threads.threadKey),
   userId: text('userId').notNull().references(() => contacts.id),
   readWatermarkTimestampMs: integer('readWatermarkTimestampMs', { mode: 'timestamp' }),
   readActionTimestampMs: integer('readActionTimestampMs', { mode: 'timestamp' }),
