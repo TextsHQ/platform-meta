@@ -584,7 +584,9 @@ export default class InstagramWebSocket {
 
     this.papi.socket.asyncRequestResolver.set(key, { promise, resolve, reject })
 
-    const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
+    const group1 = this.papi.api.getSyncGroupThreadsRange('1')
+    // const group95 = this.papi.api.getSyncGroupThreadsRange('95')
+    // const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
     this.publishTask('get -1 threads', [
       {
         label: '145',
@@ -625,8 +627,8 @@ export default class InstagramWebSocket {
           filter: 3,
           is_after: 0,
           parent_thread_key: 0,
-          reference_activity_timestamp,
-          reference_thread_key,
+          reference_activity_timestamp: group1.minLastActivityTimestampMs,
+          reference_thread_key: group1.minThreadKey,
           secondary_filter: 0,
           filter_value: '',
           sync_group: 1,
@@ -642,8 +644,8 @@ export default class InstagramWebSocket {
         payload: JSON.stringify({
           is_after: 0,
           parent_thread_key: 0,
-          reference_thread_key,
-          reference_activity_timestamp,
+          reference_activity_timestamp: group1.minLastActivityTimestampMs,
+          reference_thread_key: group1.minThreadKey,
           additional_pages_to_fetch: 0,
           cursor: this.papi.kv.get('cursor-1'),
           messaging_tag: null,

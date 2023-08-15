@@ -711,9 +711,9 @@ export default class InstagramAPI {
     }
   }
 
-  getSyncGroupThreadsRange(syncGroup: '0' | '95' = '0') {
+  getSyncGroupThreadsRange(syncGroup?: '1' | '95') {
     const value = this.papi.kv.get(`groupThreadsRange-${syncGroup}`)
-    return value ? JSON.parse(value) : null
+    return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
   }
 
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
