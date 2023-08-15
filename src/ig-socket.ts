@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { MessageContent, MessageSendOptions, Thread, Message } from '@textshq/platform-sdk'
+import type { Message, MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
 import { InboxName, texts } from '@textshq/platform-sdk'
 import {
   createPromise,
@@ -57,7 +57,7 @@ export default class InstagramWebSocket {
   constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       this.logger.warn('[ws connection]', 'already connected')
       return
     }
