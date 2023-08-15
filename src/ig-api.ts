@@ -18,7 +18,7 @@ import * as schema from './store/schema'
 import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
-import { APP_ID, INSTAGRAM_BASE_URL } from './constants'
+import { APP_ID, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
@@ -153,20 +153,10 @@ export default class InstagramAPI {
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
     const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
-      // todo: refactor headers
+      // @TODO: refactor headers
       headers: {
         accept: '*/*',
-        'accept-language': 'en-US,en;q=0.9',
-        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
-        'sec-ch-ua-full-version-list':
-            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-ch-ua-platform-version': '"13.5.0"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'viewport-width': '1280',
+        ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
@@ -209,17 +199,7 @@ export default class InstagramAPI {
       body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
       headers: {
         accept: '*/*',
-        'accept-language': 'en-US,en;q=0.9',
-        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
-        'sec-ch-ua-full-version-list':
-            '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-ch-ua-platform-version': '"13.5.0"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'viewport-width': '1280',
+        ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
@@ -1069,17 +1049,7 @@ export default class InstagramAPI {
       // todo: refactor headers
       headers: {
         accept: '*/*',
-        'accept-language': 'en-US,en;q=0.9',
-        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
-        'sec-ch-ua-full-version-list':
-                    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-ch-ua-platform-version': '"13.5.0"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'viewport-width': '1280',
+        ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': APP_ID,
