@@ -1,8 +1,25 @@
 import fs from 'fs/promises'
 import url from 'url'
-import type { ClientContext, CurrentUser, LoginCreds, LoginResult, Message, MessageContent, MessageID, MessageSendOptions, NotificationsInfo, OnServerEventCallback, PaginationArg, PlatformAPI, ServerEvent, Thread, ThreadID, User } from '@textshq/platform-sdk'
+import type {
+  ClientContext,
+  CurrentUser,
+  LoginCreds,
+  LoginResult,
+  Message,
+  MessageContent,
+  MessageID,
+  MessageSendOptions,
+  NotificationsInfo,
+  OnServerEventCallback,
+  PaginationArg,
+  PlatformAPI,
+  ServerEvent,
+  Thread,
+  ThreadID,
+  User,
+} from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
-import { eq, and, lt } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -14,6 +31,7 @@ import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
+import { DEFAULT_PARTICIPANT_NAME } from './constants'
 
 // const MESSAGE_PAGE_SIZE = 20
 const RECREATE_DB_ON_EVERY_INIT = true
@@ -255,7 +273,7 @@ export default class PlatformInstagram implements PlatformAPI {
         participants: {
           items: [{
             id: userID,
-            fullName: user?.name,
+            fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
             imgURL: user?.profilePictureUrl,
             username: user?.username,
           }],
@@ -281,7 +299,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const participants = [
       ...users.map(user => ({
         id: user.id,
-        fullName: user.name,
+        fullName: user.name || user.username || DEFAULT_PARTICIPANT_NAME,
         imgURL: user.profilePictureUrl,
         username: user.username,
         isSelf: user.id === fbid,

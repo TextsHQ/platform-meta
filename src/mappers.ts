@@ -2,6 +2,7 @@ import { AttachmentType, Message, type Participant, type Thread, ThreadType } fr
 import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
+import { DEFAULT_PARTICIPANT_NAME } from './constants'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -102,7 +103,7 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     attachments: attachments.filter(a => !!a.srcURL),
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading: !linkedMessageID && (message.textHeading || message.replySnippet),
-    textFooter: attachmentWithText,
+    textFooter: !message.isUnsent && attachmentWithText,
     seen,
     links: message.links,
     parseTemplate: isAction,
@@ -122,7 +123,7 @@ export function mapParticipants(_participants: DBParticipantSelect[], fbid: stri
   const participants: Participant[] = _participants.map(p => ({
     id: p.contacts.id,
     username: p.contacts.username,
-    fullName: p.contacts.name,
+    fullName: p.contacts.name || p.contacts.username || DEFAULT_PARTICIPANT_NAME,
     imgURL: p.contacts.profilePictureUrl,
     isSelf: p.contacts.id === fbid,
     displayText: p.contacts.name,

@@ -19,7 +19,7 @@ import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } fr
 import { ParsedPayload, parseRawPayload } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
-import { APP_ID, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
+import { APP_ID, DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
@@ -677,7 +677,7 @@ export default class InstagramAPI {
           mutationType: 'upsert',
           entries: [{
             id: threadKey!,
-            fullName: contact.name,
+            fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
             username: contact.username,
             imgURL: contact.profilePictureUrl,
           }],
@@ -789,7 +789,7 @@ export default class InstagramAPI {
           id: p.userId,
           isAdmin: p.isAdmin,
           username: contact?.username,
-          fullName: contact?.name,
+          fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
           imgURL: contact?.profilePictureUrl,
         }],
       }])
@@ -811,7 +811,7 @@ export default class InstagramAPI {
         entries: [{
           id: p.userId,
           username: contact?.username,
-          fullName: contact?.name,
+          fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
           imgURL: contact?.profilePictureUrl,
           hasExited: true,
           isAdmin: false,

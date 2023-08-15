@@ -16,3 +16,5 @@ export const SHARED_HEADERS = {
   'sec-fetch-site': 'same-origin',
   'viewport-width': '1280',
 } as const
+
+export const DEFAULT_PARTICIPANT_NAME = 'Instagram User'
