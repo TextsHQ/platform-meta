@@ -89,6 +89,9 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     message.textHeading = 'No longer available'
   }
 
+  const textFooter = !message.isUnsent && attachmentWithText
+  const textHeading = (!linkedMessageID && (message.textHeading || message.replySnippet)) || textFooter
+
   return {
     // _original: JSON.stringify({
     //   message,
@@ -106,8 +109,8 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
     isAction,
     attachments: attachments.filter(a => !!a.srcURL),
     reactions: m.reactions.map(r => mapReaction(r)),
-    textHeading: !linkedMessageID && (message.textHeading || message.replySnippet),
-    textFooter: !message.isUnsent && attachmentWithText,
+    textHeading,
+    textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     seen,
     links: message.links,
     parseTemplate: isAction,
