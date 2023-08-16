@@ -15,13 +15,14 @@ function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
 
 export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
+  const type = mapMimeTypeToAttachmentType(attachment.playableUrlMimeType || attachment.previewUrlMimeType)
   return {
     // _original: JSON.stringify({
     //   attachment,
     //   raw: a.raw,
     // }),
     id: a.attachmentFbid,
-    type: mapMimeTypeToAttachmentType(attachment.playableUrlMimeType || attachment.previewUrlMimeType),
+    type,
     size: {
       width: attachment.previewWidth,
       height: attachment.previewHeight,
@@ -30,6 +31,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
     fileSize: attachment.playableDurationMs,
     fileName: attachment.filename,
     srcURL: attachment.playableUrl || attachment.previewUrl,
+    isGif: type === AttachmentType.VIDEO && attachment.shouldAutoplayVideo,
     extra: {
       text: attachment.descriptionText || attachment.titleText,
       igType: attachment.attachmentType,
