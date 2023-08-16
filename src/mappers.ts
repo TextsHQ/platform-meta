@@ -15,7 +15,9 @@ function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
 
 export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
-  const type = mapMimeTypeToAttachmentType(attachment.playableUrlMimeType || attachment.previewUrlMimeType)
+  const hasPlayableUrl = !!attachment.playableUrl
+  const playableUrlMimeType = hasPlayableUrl && attachment.playableUrlMimeType
+  const type = mapMimeTypeToAttachmentType(playableUrlMimeType || attachment.previewUrlMimeType)
   return {
     // _original: JSON.stringify({
     //   attachment,
