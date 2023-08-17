@@ -416,18 +416,18 @@ const parseMap = {
     // isVerified: Boolean(a[12]),
   }),
   insertNewMessageRange: (a: RawItem) => ({
-    threadKey: a[0],
-    minTimestamp: a[1],
-    maxTimestamp: a[2],
-    minMessageId: a[3],
-    maxMessageId: a[4],
+    threadKey: parseValue<string>(a[0]),
+    minTimestamp: parseValue<string>(a[1]),
+    maxTimestamp: parseValue<string>(a[2]),
+    minMessageId: parseValue<string>(a[3]),
+    maxMessageId: parseValue<string>(a[4]),
     hasMoreBeforeFlag: parseValue<boolean>(a[7]),
     hasMoreAfterFlag: parseValue<boolean>(a[8]),
   }),
   updateExistingMessageRange: (a: RawItem) => {
     const isMaxTimestamp = Boolean(a[2])
     return {
-      threadKey: a[0],
+      threadKey: parseValue<string>(a[0]),
       hasMoreBeforeFlag: a[2] && !a[3],
       hasMoreAfterFlag: !a[2] && !a[3],
       maxTimestamp: isMaxTimestamp ? a[1] : undefined,
