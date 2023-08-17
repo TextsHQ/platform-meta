@@ -683,7 +683,7 @@ export default class InstagramAPI {
         if (!r.readActionTimestampMs) continue
         const newestMessage = this.getNewestMessage(r.threadKey!)
         this.logger.debug('updateReadReceipt: newestMessage', newestMessage)
-        const messages = this.queryMessages(r.threadKey, 'ALL')
+        const messages = this.queryMessages(r.threadKey, [newestMessage.messageId])
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
@@ -1116,6 +1116,7 @@ export default class InstagramAPI {
         lastActivityTimestampMs: true,
         threadKey: true,
         thread: true,
+        ranges: true,
       },
       orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
       with: {
