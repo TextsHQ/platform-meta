@@ -416,8 +416,13 @@ const parseMap = {
     // isVerified: Boolean(a[12]),
   }),
   insertNewMessageRange: (a: RawItem) => ({
-    threadKey: a[0][1],
-    hasMoreBefore: Boolean(a[7]),
+    threadKey: a[0],
+    minTimestamp: a[1],
+    maxTimestamp: a[2],
+    minMessageId: a[3],
+    maxMessageId: a[4],
+    hasMoreBeforeFlag: a[7],
+    hasMoreAfterFlag: a[8],
   }),
   insertMessage: (a: RawItem): IGMessage => ({
     raw: JSON.stringify(a),
