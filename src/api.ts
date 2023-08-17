@@ -19,7 +19,7 @@ import type {
   User,
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
-import { eq } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -165,14 +165,29 @@ export default class PlatformInstagram implements PlatformAPI {
 
     await this.socket.fetchMessages(threadID, ranges)
 
-    // const { direction = 'before', cursor } = pagination || {}
-    // const directionIsBefore = direction === 'before'
-    // const orderDirection = directionIsBefore ? desc : asc
-    // let where = eq(schema.messages.threadKey, threadID)
+    let where = eq(schema.messages.threadKey, threadID)
+    const { primarySortKey } = this.db.query.messages.findFirst({
+      where,
+      orderBy: [desc(schema.messages.primarySortKey)],
+      columns: {
+        primarySortKey: true,
+      },
+    }) || { primarySortKey: '0' }
 
-    const items = this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
-      // orderBy: [orderDirection(messagesSchema.primarySortKey)],
-      // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
+    const { direction = 'before', cursor } = pagination || {}
+    const directionIsBefore = direction === 'before'
+    const order = directionIsBefore ? desc : asc
+    const filter = directionIsBefore ? lte : gte
+
+    if (cursor) {
+      where = and(
+        where,
+        filter(schema.messages.primarySortKey, cursor),
+      )
+    }
+    const items = this.api.queryMessages(threadID, where, {
+      orderBy: [order(schema.messages.primarySortKey)],
+      limit: 20,
     })
     return {
       items,
