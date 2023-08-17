@@ -2,10 +2,10 @@ import { resolve } from 'path'
 import { access, mkdir, unlink } from 'fs/promises'
 import Database from 'better-sqlite3'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+// import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from './schema'
-import { sleep } from '../util'
 import { getLogger } from '../logger'
+import { migrations } from './migrations'
 
 const logger = getLogger('drizzle')
 const migrationsFolder = resolve(__dirname, '../drizzle')
@@ -44,8 +44,9 @@ async function removeDatabaseFile(sqlitePath: string) {
 async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt = 0) {
   try {
     logger.debug('migrating database', { sqlitePath, retryAttempt })
-    migrate(db, { migrationsFolder })
-    await sleep(200) // @TODO: need a better way to wait for migrations to finish, `migrate` should be sync but it isn't
+    for (const migration of migrations) {
+      await db.run(migration)
+    }
   } catch (e) {
     logger.error('error migrating database', {
       sqlitePath,

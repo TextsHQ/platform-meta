@@ -5,13 +5,11 @@
   "scripts": {
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
-    "build": "tsc && yarn db:build",
+    "build": "yarn db:generate && tsc",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "yarn lint --fix",
     "watch": "yarn tsc --watch",
-    "db:generate": "drizzle-kit generate:sqlite",
-    "db:move-to-dist": "rimraf ./dist/drizzle && cp -R ./drizzle ./dist/drizzle",
-    "db:build": "yarn db:generate && yarn db:move-to-dist"
+    "db:generate": "drizzle-kit generate:sqlite && node ./create-migrations-ts.js"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
