@@ -170,11 +170,12 @@ export default class PlatformInstagram implements PlatformAPI {
     // const orderDirection = directionIsBefore ? desc : asc
     // let where = eq(schema.messages.threadKey, threadID)
 
+    const items = this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
+      // orderBy: [orderDirection(messagesSchema.primarySortKey)],
+      // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
+    })
     return {
-      items: this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
-        // orderBy: [orderDirection(messagesSchema.primarySortKey)],
-        // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
-      }),
+      items,
       hasMore: ranges.hasMoreBeforeFlag,
     }
   }

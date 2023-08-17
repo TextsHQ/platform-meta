@@ -1123,7 +1123,7 @@ export default class InstagramAPI {
             reactions: true,
           },
           orderBy: [desc(messagesSchema.primarySortKey)],
-          limit: 20,
+          limit: 1,
         },
       },
     }).map(t => mapThread(t, this.papi.kv.get('fbid'))).filter(t => {
@@ -1228,13 +1228,21 @@ export default class InstagramAPI {
 
   private syncThread(threadKey: string) {
     const t = (this.queryThreads([threadKey], null) || [])[0]
+    const messages = this.queryMessages(threadKey, 'ALL')
+    const ranges = this.getMessageRanges(threadKey)
     if (!t) return
     this.papi.onEvent?.([{
       type: ServerEventType.STATE_SYNC,
       objectName: 'thread',
       objectIDs: { threadID: t.id },
-      mutationType: 'update',
-      entries: [t],
+      mutationType: 'upsert',
+      entries: [{
+        ...t,
+        messages: {
+          items: messages,
+          hasMore: ranges.hasMoreBeforeFlag,
+        },
+      }],
     }])
   }
 }
