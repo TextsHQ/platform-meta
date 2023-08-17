@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { Message, MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
 import { InboxName } from '@textshq/platform-sdk'
 import {
   createPromise,
@@ -543,25 +543,20 @@ export default class InstagramWebSocket {
     return promise
   }
 
-  async fetchMessages(threadID: string, messageID: string, timestamp: Date) {
-    const key = `messages-${threadID}` as const
-    if (this.papi.socket.asyncRequestResolver.has(key)) {
-      const { promise } = this.papi.socket.asyncRequestResolver.get(key)!
-      this.logger.info('already fetching messages')
-      return promise as Promise<{ messages: Message[], hasMoreBefore: boolean }>
-    }
+  async fetchMessages(threadID: string, _ranges?: ReturnType<typeof this.papi.api.getMessageRanges>) {
+    const ranges = _ranges || this.papi.api.getMessageRanges(threadID)
 
-    const { resolve, promise, reject } = createPromise<{ messages: Message[], hasMoreBefore: boolean }>()
-    this.papi.socket.asyncRequestResolver.set(`messages-${threadID}`, { promise, resolve, reject })
-
-    this.logger.info('fetchMessages', { threadID, messageID, timestamp })
-    this.publishTask('fetch messages', {
+    this.logger.info('fetchMessages', {
+      threadID,
+      ranges,
+    })
+    return this.publishTask('fetch messages', {
       label: '228',
       payload: JSON.stringify({
         thread_key: threadID,
         direction: 0,
-        reference_timestamp_ms: Number(timestamp.getTime()),
-        reference_message_id: messageID,
+        reference_timestamp_ms: Number(ranges.minTimestamp),
+        reference_message_id: ranges.minMessageId,
         sync_group: 1,
         cursor: this.papi.kv.get('cursor-1'),
       }),
@@ -569,8 +564,6 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
-    this.logger.info(`promising messages-${threadID}`)
-    return promise
   }
 
   fetchThreads(inbox: InboxName.NORMAL | InboxName.REQUESTS) {

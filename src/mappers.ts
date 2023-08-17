@@ -3,6 +3,7 @@ import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
+import { ParseResult } from './parsers'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -154,6 +155,7 @@ export function mapThread(
   t: {
     threadKey: string
     thread: string
+    ranges: string
     lastActivityTimestampMs: Date
     folderName: string
     messages?: DBMessageSelectWithAttachments[]
@@ -162,6 +164,7 @@ export function mapThread(
   fbid: string,
 ) {
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
+  const ranges: ParseResult['insertNewMessageRange'] = t.ranges ? JSON.parse(t.ranges) : {}
   const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
   const participants = mapParticipants(t.participants, fbid)
 
@@ -201,7 +204,7 @@ export function mapThread(
         threadType,
         users: participants,
       }),
-      hasMore: true,
+      hasMore: ranges.hasMoreBeforeFlag,
     },
   } as const
 }

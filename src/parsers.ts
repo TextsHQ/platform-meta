@@ -416,6 +416,7 @@ const parseMap = {
     // isVerified: Boolean(a[12]),
   }),
   insertNewMessageRange: (a: RawItem) => ({
+    raw: JSON.stringify(a),
     threadKey: parseValue<string>(a[0]),
     minTimestamp: parseValue<string>(a[1]),
     maxTimestamp: parseValue<string>(a[2]),
@@ -426,12 +427,14 @@ const parseMap = {
   }),
   updateExistingMessageRange: (a: RawItem) => {
     const isMaxTimestamp = Boolean(a[2])
+    const timestamp = parseValue<string>(a[1])
     return {
+      raw: JSON.stringify(a),
       threadKey: parseValue<string>(a[0]),
       hasMoreBeforeFlag: a[2] && !a[3],
       hasMoreAfterFlag: !a[2] && !a[3],
-      maxTimestamp: isMaxTimestamp ? a[1] : undefined,
-      minTimestamp: !isMaxTimestamp ? a[1] : undefined,
+      maxTimestamp: isMaxTimestamp ? timestamp : undefined,
+      minTimestamp: !isMaxTimestamp ? timestamp : undefined,
     }
   },
   insertMessage: (a: RawItem): IGMessage => ({
