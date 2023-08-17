@@ -182,7 +182,7 @@ export default class PlatformInstagram implements PlatformAPI {
     if (cursor) {
       where = and(
         where,
-        filter(schema.messages.primarySortKey, cursor),
+        filter(schema.messages.primarySortKey, primarySortKey),
       )
     }
     const items = this.api.queryMessages(threadID, where, {
