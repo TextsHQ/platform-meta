@@ -62,13 +62,17 @@ async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt =
   }
 }
 
-const getDB = async (accountID: string, dataDirPath: string, cleanStart = false) => {
+const getDB = async (accountID: string, dataDirPath: string) => {
   await createDirectoryIfNotExists(dataDirPath)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
 
-  logger.info('initializing database at', { accountID, migrationsFolder, sqlitePath, cleanStart })
+  logger.info('initializing database at', {
+    accountID,
+    migrationsFolder,
+    sqlitePath,
+  })
 
-  if (cleanStart) await removeDatabaseFile(sqlitePath)
+  await removeDatabaseFile(sqlitePath)
 
   const sqlite = new Database(sqlitePath)
   const db = drizzle(sqlite, {

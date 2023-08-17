@@ -35,7 +35,6 @@ import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParseResult } from './parsers'
 
 // const MESSAGE_PAGE_SIZE = 20
-const RECREATE_DB_ON_EVERY_INIT = true
 
 export default class PlatformInstagram implements PlatformAPI {
   logger = getLogger()
@@ -68,7 +67,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     if (texts.isLoggingEnabled) this.logger.info('starting ig', { dataDirPath, accountID })
 
-    this.db = await getDB(accountID, dataDirPath, RECREATE_DB_ON_EVERY_INIT)
+    this.db = await getDB(accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
 
     this.logger.info('loading keys', this.kv.getAll())
@@ -174,7 +173,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     return {
       items: this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
-        orderBy: [orderDirection(messagesSchema.primarySortKey)],
+        // orderBy: [orderDirection(messagesSchema.primarySortKey)],
         // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
       }),
       hasMore: ranges.hasMoreBeforeFlag,

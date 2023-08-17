@@ -435,51 +435,50 @@ export default class InstagramAPI {
 
     // updateDeliveryReceipt
 
-    if (rawd.insertNewMessageRange) {
-      rawd.insertNewMessageRange.forEach(r => {
-        this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
-        this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'thread',
-          objectIDs: { threadID: r.threadKey },
-          mutationType: 'update',
-          entries: [{
-            id: r.threadKey,
-            messages: {
-              items: [],
-              hasMore: r.hasMoreBeforeFlag,
-            },
-          }],
-        }])
-      })
-    }
+    rawd.insertNewMessageRange?.forEach(r => {
+      this.logger.debug(`inserting ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
+      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: { threadID: r.threadKey },
+        mutationType: 'update',
+        entries: [{
+          id: r.threadKey,
+          messages: {
+            items: [],
+            hasMore: r.hasMoreBeforeFlag,
+          },
+        }],
+      }])
+    })
 
-    if (rawd.updateExistingMessageRange) {
-      rawd.updateExistingMessageRange.forEach(({
-        threadKey,
-        ...r
-      }) => {
-        const ranges = {
-          ...this.getMessageRanges(threadKey!),
-          ...r,
-        }
-        this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).returning()
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'thread',
-          objectIDs: { threadID: threadKey },
-          mutationType: 'update',
-          entries: [{
-            id: threadKey,
-            messages: {
-              items: [],
-              hasMore: r.hasMoreBeforeFlag,
-            },
-          }],
-        }])
-      })
-    }
+    rawd.updateExistingMessageRange?.forEach(({
+      threadKey,
+      ...r
+    }) => {
+      this.logger.debug(`updating ranges for thread ${threadKey} ${JSON.stringify(r, null, 2)}`)
+
+      const ranges = {
+        ...this.getMessageRanges(threadKey!),
+        ...r,
+      }
+      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).returning()
+      this.papi.onEvent?.([{
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: { threadID: threadKey },
+        mutationType: 'update',
+        entries: [{
+          id: threadKey,
+          messages: {
+            items: [],
+            hasMore: r.hasMoreBeforeFlag,
+          },
+        }],
+      }])
+    })
+
     if (rawd.insertAttachmentCta) {
       // query the attachment in the database
       // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.attachments).where(eq(schema.attachments.attachmentFbid, rawd.insertAttachmentCta[0].attachmentFbid!))
@@ -1158,7 +1157,7 @@ export default class InstagramAPI {
             reactions: true,
           },
           orderBy: [desc(messagesSchema.primarySortKey)],
-          limit: 1,
+          limit: 20,
         },
       },
     }).map(t => mapThread(t, this.papi.kv.get('fbid'))).filter(t => {
@@ -1171,7 +1170,7 @@ export default class InstagramAPI {
     return threads
   }
 
-  queryMessages(threadKey: string, messageIdsOrWhere: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs?: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>>): Message[] {
+  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs?: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>>): Message[] {
     let where: QueryMessagesArgs['where']
     if (messageIdsOrWhere === 'ALL') {
       where = eq(messagesSchema.threadKey, threadKey)
@@ -1223,7 +1222,7 @@ export default class InstagramAPI {
           },
         },
       },
-      orderBy: [asc(messagesSchema.primarySortKey)],
+      orderBy: [desc(messagesSchema.primarySortKey)],
       ...extraArgs,
     })
     if (!messages || messages.length === 0) return []
