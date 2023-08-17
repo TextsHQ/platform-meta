@@ -127,3 +127,32 @@ export const getInboxNameFromIGFolder = (folder: string) => (folder === 'inbox' 
 export function parseUnicodeEscapeSequences(str: string) {
   return decodeURIComponent(JSON.parse('"' + str.replace(/\\u([\d\w]{4})/gi, (match, grp) => '\\u' + grp) + '"'))
 }
+
+export class InstagramSocketServerError extends Error {
+  info: {
+    id: number | string
+    message: string
+  }
+
+  constructor(errorId: number | string, errorTitle: string, errorMessage: string) {
+    super(`Error ${errorId}: ${errorMessage}`)
+    this.name = errorTitle
+    this.info = {
+      id: errorId,
+      message: errorMessage,
+    }
+
+    // Ensure the instance is correctly set up
+    // If transpiling to ES5, this line is needed to correctly set up the prototype chain
+    Object.setPrototypeOf(this, InstagramSocketServerError.prototype)
+
+    // Capture the stack trace (removes the constructor call from it)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, InstagramSocketServerError)
+    }
+  }
+
+  toString() {
+    return `${this.name} (ID: ${this.info.id}): ${this.message}`
+  }
+}
