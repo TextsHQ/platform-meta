@@ -131,21 +131,23 @@ export default class PlatformInstagram implements PlatformAPI {
     const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
     this.logger.info('getThreads', { folderName, pagination })
     if (pagination) {
-      const { threads, hasMoreBefore } = await this.socket.fetchThreads(folderName)
+      const { threads } = await this.socket.fetchThreads(folderName)
+      const lastChanges = this.api.getSyncGroupThreadsRange('1')
       return {
         items: threads,
-        hasMore: hasMoreBefore,
-        oldestCursor: `${this.api.lastThreadReference.reference_thread_key}-${this.api.lastThreadReference.reference_thread_key}`,
+        hasMore: lastChanges.hasMoreBefore,
+        oldestCursor: `${lastChanges.minThreadKey}-${lastChanges.minLastActivityTimestampMs}`,
       }
     }
 
     const threads = this.api.queryThreads('ALL', folderName)
     this.logger.info('getThreads, returning threads from db', threads)
-    const { hasMoreBefore } = this.api.lastThreadReference
+    const lastChanges = this.api.getSyncGroupThreadsRange('1')
+
     return {
       items: threads,
-      hasMore: hasMoreBefore,
-      oldestCursor: `${this.api.lastThreadReference.reference_thread_key}-${this.api.lastThreadReference.reference_thread_key}`,
+      hasMore: lastChanges.hasMoreBefore,
+      oldestCursor: `${lastChanges.minThreadKey}-${lastChanges.minLastActivityTimestampMs}`,
     }
   }
 
