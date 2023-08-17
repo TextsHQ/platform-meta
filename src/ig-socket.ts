@@ -3,13 +3,14 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { Message, MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
-import { InboxName, texts } from '@textshq/platform-sdk'
+import { InboxName } from '@textshq/platform-sdk'
 import {
   createPromise,
   genClientContext,
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
+  InstagramSocketServerError,
   parseMqttPacket,
   sleep,
 } from './util'
@@ -72,14 +73,11 @@ export default class InstagramWebSocket {
     try {
       this.ws?.close()
     } catch (err) {
-      this.logger.error('[ws connection]', 'failed to close previous on connect error', err)
-      texts.Sentry.captureException(err, {
-        extra: {
-          mqttSid: this.mqttSid,
-          lastTaskId: this.lastTaskId,
-          lastRequestId: this.lastRequestId,
-        },
-      })
+      this.logger.error(err, {
+        mqttSid: this.mqttSid,
+        lastTaskId: this.lastTaskId,
+        lastRequestId: this.lastRequestId,
+      }, '[ws connection]', 'failed to close previous on connect error')
     }
 
     this.mqttSid = getMqttSid()
@@ -145,7 +143,11 @@ export default class InstagramWebSocket {
     }
 
     this.ws.onerror = ev => {
-      this.logger.error('[ws connection] onerror', { error: ev.error, type: ev.type, message: ev.message })
+      this.logger.error(ev, {}, '[ws connection] onerror', {
+        error: ev.error,
+        type: ev.type,
+        message: ev.message,
+      })
       if (!this.stop) retry()
     }
 
@@ -505,8 +507,7 @@ export default class InstagramWebSocket {
       this.requestResolvers.delete(request_id)
     }
     const rejector = (response: Response) => {
-      this.logger.error(logPrefix, 'got rejection', response)
-      texts.error('request rejected', response)
+      this.logger.error(new InstagramSocketServerError('REQUEST_RESOLVER_REJECTED', 'Request resolver rejected', `Payload: ${response}`), {}, response)
       reject(response)
       this.requestResolvers.delete(request_id)
     }

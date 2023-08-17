@@ -416,9 +416,24 @@ const parseMap = {
     // isVerified: Boolean(a[12]),
   }),
   insertNewMessageRange: (a: RawItem) => ({
-    threadKey: a[0][1],
-    hasMoreBefore: Boolean(a[7]),
+    threadKey: parseValue<string>(a[0]),
+    minTimestamp: parseValue<string>(a[1]),
+    maxTimestamp: parseValue<string>(a[2]),
+    minMessageId: parseValue<string>(a[3]),
+    maxMessageId: parseValue<string>(a[4]),
+    hasMoreBeforeFlag: parseValue<boolean>(a[7]),
+    hasMoreAfterFlag: parseValue<boolean>(a[8]),
   }),
+  updateExistingMessageRange: (a: RawItem) => {
+    const isMaxTimestamp = Boolean(a[2])
+    return {
+      threadKey: parseValue<string>(a[0]),
+      hasMoreBeforeFlag: a[2] && !a[3],
+      hasMoreAfterFlag: !a[2] && !a[3],
+      maxTimestamp: isMaxTimestamp ? a[1] : undefined,
+      minTimestamp: !isMaxTimestamp ? a[1] : undefined,
+    }
+  },
   insertMessage: (a: RawItem): IGMessage => ({
     raw: JSON.stringify(a),
     links: null,
@@ -536,12 +551,6 @@ const parseMap = {
     threadKey: a[0][1],
     messageId: a[1],
   }),
-  updateExistingMessageRange: (a: RawItem) => ({
-    threadKey: a[0][1],
-    maxTimestampMs: getAsMS(a[1][1]),
-    hasMoreBefore: Boolean(a[3]),
-    hasMoreAfter: Boolean(a[4]),
-  }),
   removeOptimisticGroupThread: (a: RawItem) => ({
     offlineThreadingId: parseValue<string>(a[0]),
   }),
@@ -563,17 +572,14 @@ const parseMap = {
   }),
 } as const
 
-type ParseFunctions = typeof parseMap
-
-// Infer the return types of parse functions
-type ParseReturnTypes = {
-  [K in keyof ParseFunctions]: ParseFunctions[K] extends (...args: any[]) => infer R ? R : never;
+export type ParseResult = {
+  [K in keyof typeof parseMap]: ReturnType<typeof parseMap[K]>;
 }
 
 // ResultType is an object with the same keys as parseMap,
 // and each value is an array of the inferred return type of the corresponding parse function.
 type ResultType = {
-  [K in keyof ParseReturnTypes]: ParseReturnTypes[K][];
+  [K in keyof typeof parseMap]: ParseResult[K][];
 }
 
 function interestedOperation(operation: any[]) {

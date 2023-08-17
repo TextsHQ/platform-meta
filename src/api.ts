@@ -32,6 +32,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
+import { ParseResult } from './parsers'
 
 // const MESSAGE_PAGE_SIZE = 20
 const RECREATE_DB_ON_EVERY_INIT = true
@@ -151,22 +152,33 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  fetchMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const { hasMoreBefore } = this.db.query.threads.findFirst({
-      where: eq(schema.threads.threadKey, threadID),
-      columns: { hasMoreBefore: true },
-    }) ?? { hasMoreBefore: true }
+  fetchMessages = async ({
+    threadID,
+    ranges,
+  }: {
+    threadID: string
+    ranges: ParseResult['insertNewMessageRange']
+  }, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     const lastMessage = this.api.getOldestMessage(threadID)
 
-    this.logger.info('getMessages threadID, pagination, hasMoreBefore, lastmessage', { threadID, pagination, hasMoreBefore, lastMessage })
+    this.logger.info('getMessages threadID, pagination, hasMoreBefore, lastmessage', {
+      threadID,
+      pagination,
+      ranges,
+      lastMessage,
+    })
     if (!pagination) {
       this.logger.info('getMessages no pagination')
 
-      if (hasMoreBefore) {
+      if (ranges.hasMoreBeforeFlag) {
         this.logger.info('getMessages hasMoreBefore')
 
         const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
-        this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
+        this.logger.info('getMessages, returning messages', {
+          messages,
+          ranges,
+          newHasMoreBefore,
+        })
         return {
           items: messages,
           hasMore: newHasMoreBefore,
@@ -177,7 +189,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
       return {
         items: messages,
-        hasMore: hasMoreBefore,
+        hasMore: ranges.hasMoreBeforeFlag,
       }
     }
     const [pmessageID, ptimestamp] = pagination.cursor?.split('-') ?? []
@@ -195,18 +207,27 @@ export default class PlatformInstagram implements PlatformAPI {
 
       return {
         items: messages,
-        hasMore: hasMoreBefore,
+        hasMore: ranges.hasMoreBeforeFlag,
       }
     }
     // the requested message is the oldest message
-    if (hasMoreBefore) {
-      this.logger.info('pmessageID is last message id and hasMoreBefore')
+    if (ranges.hasMoreBeforeFlag) {
+      this.logger.info('pmessageID is last message id and hasMoreBefore', {
+        pmessageID,
+        lastMessage,
+      })
 
-      const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, pmessageID, new Date(Number(ptimestamp))) as any
-      this.logger.info('getMessages, returning messages', { messages, hasMoreBefore })
+      const {
+        messages,
+        hasMoreBefore: _newHasMoreBefore,
+      } = await this.socket.fetchMessages(threadID, pmessageID, new Date(Number(ptimestamp))) as any
+      this.logger.info('getMessages, returning messages', {
+        messages,
+        ranges,
+      })
       return {
         items: messages,
-        hasMore: newHasMoreBefore,
+        hasMore: _newHasMoreBefore,
       }
     }
     return {
@@ -216,7 +237,16 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    this.pQueue.addPromise(this.fetchMessages(threadID, pagination).then(() => {}))
+    const thread = this.db.query.threads.findFirst({
+      where: eq(schema.threads.threadKey, threadID),
+      columns: { ranges: true },
+    })
+    const ranges: ParseResult['insertNewMessageRange'] = thread.ranges ? JSON.parse(thread.ranges) : {}
+    this.pQueue.addPromise(this.fetchMessages({
+      threadID,
+      ranges,
+    }, pagination).then(() => {
+    }))
     // const { direction = 'before', cursor } = pagination || {}
     // const directionIsBefore = direction === 'before'
     // const orderDirection = directionIsBefore ? desc : asc
@@ -227,7 +257,7 @@ export default class PlatformInstagram implements PlatformAPI {
         // orderBy: [orderDirection(messagesSchema.primarySortKey)],
         // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
       }),
-      hasMore: true,
+      hasMore: ranges.hasMoreBeforeFlag,
     }
   }
 

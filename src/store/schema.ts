@@ -1,6 +1,6 @@
-import { relations } from 'drizzle-orm'
-import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core'
 import type { InferModel } from 'drizzle-orm'
+import { relations } from 'drizzle-orm'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { InboxName } from '@textshq/platform-sdk'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
@@ -13,7 +13,8 @@ export const threads = sqliteTable('threads', {
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
   folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
   raw: text('raw'),
-  hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
+  // hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
+  ranges: text('ranges'),
 })
 
 export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'primarySortKey' | 'senderId'>

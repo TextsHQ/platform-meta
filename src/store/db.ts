@@ -1,10 +1,8 @@
 import { resolve } from 'path'
-import { unlink, access, mkdir } from 'fs/promises'
+import { access, mkdir, unlink } from 'fs/promises'
 import Database from 'better-sqlite3'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-
-import { texts } from '@textshq/platform-sdk'
 import * as schema from './schema'
 import { sleep } from '../util'
 import { getLogger } from '../logger'
@@ -22,10 +20,10 @@ async function createDirectoryIfNotExists(dataDirPath: string) {
       try {
         await mkdir(dataDirPath, { recursive: true })
       } catch (err) {
-        logger.error('error occurred while creating the directory:', dataDirPath, error)
+        logger.error('error occurred while creating the db directory', { dataDirPath }, err)
       }
     } else {
-      logger.error('error occurred while accessing the directory:', dataDirPath, error)
+      logger.error('error occurred while accessing the db directory', { dataDirPath }, error)
     }
   }
 }
@@ -49,9 +47,10 @@ async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt =
     migrate(db, { migrationsFolder })
     await sleep(200) // @TODO: need a better way to wait for migrations to finish, `migrate` should be sync but it isn't
   } catch (e) {
-    console.error(e)
-    logger.error('error migrating database', e.toString())
-    texts.Sentry.captureException(e)
+    logger.error('error migrating database', {
+      sqlitePath,
+      retryAttempt,
+    }, e)
     if (retryAttempt === 1) {
       await removeDatabaseFile(sqlitePath)
     }
