@@ -362,23 +362,23 @@ export default class InstagramAPI {
           },
         })
         if (message?.messageId) continue
-        const newestMessageCache = this.getNewestMessage(m.threadKey)
+        // const newestMessageCache = this.getNewestMessage(m.threadKey)
         this.logger.info(`message ${m.messageId} does not exist in cache, calling fetchMessages`)
-        let limit = 0
-        while (limit < 10) {
-          const resp = await this.papi.socket.fetchMessages(m.threadKey, m.messageId, new Date(m.timestampMs))
-          if (!resp?.messages?.length) continue
-          // check if any of resp.messages is = to newestMessageCache.messageId
-          const newMessageIds = resp.messages.map(rm => rm.id)
-          if (newMessageIds.includes(newestMessageCache.messageId)) {
-            this.logger.info(`newestMessageCache ${newestMessageCache.messageId} found in fetchMessages`)
-            continue
-          }
-          limit++
-        }
-        if (limit === 10) {
-          // TODO delete all old messages in cache
-        }
+        // let limit = 0
+        // while (limit < 10) {
+        //   const resp = await this.papi.socket.fetchMessages(m.threadKey, m.messageId, new Date(m.timestampMs))
+        //   if (!resp?.messages?.length) continue
+        //   // check if any of resp.messages is = to newestMessageCache.messageId
+        //   const newMessageIds = resp.messages.map(rm => rm.id)
+        //   if (newMessageIds.includes(newestMessageCache.messageId)) {
+        //     this.logger.info(`newestMessageCache ${newestMessageCache.messageId} found in fetchMessages`)
+        //     continue
+        //   }
+        //   limit++
+        // }
+        // if (limit === 10) {
+        //   // TODO delete all old messages in cache
+        // }
       }
     } else {
       this.logger.info('no need to fix cache')
@@ -439,6 +439,19 @@ export default class InstagramAPI {
       rawd.insertNewMessageRange.forEach(r => {
         this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
         this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'thread',
+          objectIDs: { threadID: r.threadKey },
+          mutationType: 'update',
+          entries: [{
+            id: r.threadKey,
+            messages: {
+              items: [],
+              hasMore: r.hasMoreBeforeFlag,
+            },
+          }],
+        }])
       })
     }
 
@@ -452,17 +465,19 @@ export default class InstagramAPI {
           ...r,
         }
         this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).returning()
-        // this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
-
-        // resolve all promises in promise map for this thread
-        if (this.papi.socket.asyncRequestResolver.has(`messages-${threadKey!}`)) {
-          const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadKey!}`)
-          this.logger.info(`resolving messages-${threadKey!}`)
-          this.papi.socket.asyncRequestResolver.delete(`messages-${threadKey!}`)
-          resolve({
-            hasMoreBefore: r.hasMoreBeforeFlag,
-          })
-        }
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'thread',
+          objectIDs: { threadID: threadKey },
+          mutationType: 'update',
+          entries: [{
+            id: threadKey,
+            messages: {
+              items: [],
+              hasMore: r.hasMoreBeforeFlag,
+            },
+          }],
+        }])
       })
     }
     if (rawd.insertAttachmentCta) {
@@ -604,21 +619,21 @@ export default class InstagramAPI {
         }])
       }
 
-      if (this.papi.socket.asyncRequestResolver.has(`messages-${threadID}`)) {
-        const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
-        // this.logger.info(`resolving messages-${threadID}`)
-        this.papi.socket.asyncRequestResolver.delete(`messages-${threadID}`)
-        resolve({
-          messages,
-          hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBeforeFlag,
-        })
-      } else {
-        // throw if this arrived without requested
-        const err = new Error(`no promise for messages-${threadID}`)
-        texts.Sentry.captureException(err)
-        this.logger.error(err)
-        console.error(err)
-      }
+      // if (this.papi.socket.asyncRequestResolver.has(`messages-${threadID}`)) {
+      //   const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
+      //   // this.logger.info(`resolving messages-${threadID}`)
+      //   this.papi.socket.asyncRequestResolver.delete(`messages-${threadID}`)
+      //   resolve({
+      //     messages,
+      //     hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBeforeFlag,
+      //   })
+      // } else {
+      //   // throw if this arrived without requested
+      //   const err = new Error(`no promise for messages-${threadID}`)
+      //   texts.Sentry.captureException(err)
+      //   this.logger.error(err)
+      //   console.error(err)
+      // }
     } else if (rawd.updateThreadMuteSetting) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,

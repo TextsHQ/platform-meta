@@ -19,7 +19,7 @@ import type {
   User,
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
-import { and, eq, lt } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -152,100 +152,20 @@ export default class PlatformInstagram implements PlatformAPI {
     }
   }
 
-  fetchMessages = async ({
-    threadID,
-    ranges,
-  }: {
-    threadID: string
-    ranges: ParseResult['insertNewMessageRange']
-  }, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const lastMessage = this.api.getOldestMessage(threadID)
-
-    this.logger.info('getMessages threadID, pagination, hasMoreBefore, lastmessage', {
-      threadID,
-      pagination,
-      ranges,
-      lastMessage,
-    })
-    if (!pagination) {
-      this.logger.info('getMessages no pagination')
-
-      if (ranges.hasMoreBeforeFlag) {
-        this.logger.info('getMessages hasMoreBefore')
-
-        const { messages, hasMoreBefore: newHasMoreBefore } = await this.socket.fetchMessages(threadID, lastMessage.messageId, lastMessage.timestampMs) as any
-        this.logger.info('getMessages, returning messages', {
-          messages,
-          ranges,
-          newHasMoreBefore,
-        })
-        return {
-          items: messages,
-          hasMore: newHasMoreBefore,
-        }
-      }
-      const messages = this.api.queryMessages(threadID, 'ALL')
-      this.logger.info('getMessages returning queryMessages of all')
-
-      return {
-        items: messages,
-        hasMore: ranges.hasMoreBeforeFlag,
-      }
-    }
-    const [pmessageID, ptimestamp] = pagination.cursor?.split('-') ?? []
-    this.logger.info('getMessages splitting cursor')
-
-    if (pmessageID !== lastMessage.messageId) {
-      this.logger.info('id is not last message id')
-
-      // return all messages older than the requested message
-      const messages = this.api.queryMessages(threadID, and(
-        eq(schema.messages.threadKey, threadID),
-        lt(schema.messages.timestampMs, new Date(parseInt(ptimestamp, 10))),
-      ))
-      this.logger.info('returning queryMessages of older messages')
-
-      return {
-        items: messages,
-        hasMore: ranges.hasMoreBeforeFlag,
-      }
-    }
-    // the requested message is the oldest message
-    if (ranges.hasMoreBeforeFlag) {
-      this.logger.info('pmessageID is last message id and hasMoreBefore', {
-        pmessageID,
-        lastMessage,
-      })
-
-      const {
-        messages,
-        hasMoreBefore: _newHasMoreBefore,
-      } = await this.socket.fetchMessages(threadID, pmessageID, new Date(Number(ptimestamp))) as any
-      this.logger.info('getMessages, returning messages', {
-        messages,
-        ranges,
-      })
-      return {
-        items: messages,
-        hasMore: _newHasMoreBefore,
-      }
-    }
-    return {
-      items: this.api.queryMessages(threadID, 'ALL'),
-      hasMore: true,
-    }
-  }
-
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     const thread = this.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadID),
       columns: { ranges: true },
     })
     const ranges: ParseResult['insertNewMessageRange'] = thread.ranges ? JSON.parse(thread.ranges) : {}
-    this.pQueue.addPromise(this.fetchMessages({
+    this.logger.debug('getMessages [papi]', {
       threadID,
+      pagination,
       ranges,
-    }, pagination).then(() => {
+    })
+
+    this.pQueue.addPromise(this.socket.fetchMessages(threadID, ranges).then((result: any) => {
+      this.logger.debug('getMessages [papi] result', result)
     }))
     // const { direction = 'before', cursor } = pagination || {}
     // const directionIsBefore = direction === 'before'
@@ -254,7 +174,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     return {
       items: this.api.queryMessages(threadID, eq(schema.messages.threadKey, threadID), {
-        // orderBy: [orderDirection(messagesSchema.primarySortKey)],
+        orderBy: [orderDirection(messagesSchema.primarySortKey)],
         // limit: MESSAGE_PAGE_SIZE + (cursor ? 1 : 0),
       }),
       hasMore: ranges.hasMoreBeforeFlag,
