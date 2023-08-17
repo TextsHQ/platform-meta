@@ -1,5 +1,5 @@
-import { texts } from '@textshq/platform-sdk'
 import { getLogger } from './logger'
+import { InstagramSocketServerError } from './util'
 
 export class PromiseQueue {
   private promises: Promise<void>[] = []
@@ -19,20 +19,21 @@ export class PromiseQueue {
 
     while (this.promises.length > 0) {
       const activePromises = this.promises.splice(0, this.concurrency)
-      await Promise.allSettled(activePromises.map(p => PromiseQueue.handlePromise(p)))
+      await Promise.allSettled(activePromises.map(p => this.handlePromise(p)))
     }
 
     this.isProcessing = false
   }
 
-  static async handlePromise(promise: Promise<void>): Promise<void> {
+  async handlePromise(promise: Promise<void>): Promise<void> {
     try {
       await promise
     } catch (err) {
-      this.logger.error(err)
-      texts.error('IG PromiseQueue failed', err)
-      console.error(err)
-      texts.Sentry.captureException(err)
+      if (err instanceof Error) {
+        this.logger.error(err)
+      } else {
+        this.logger.error(new InstagramSocketServerError('PQUEUE_REJECTION', 'Promise queue got rejection', err), {}, 'PromiseQueue failed')
+      }
     }
   }
 

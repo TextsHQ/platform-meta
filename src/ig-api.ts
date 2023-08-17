@@ -16,14 +16,14 @@ import { hasSomeCachedData, type QueryMessagesArgs } from './store/helpers'
 
 import * as schema from './store/schema'
 import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
-import { ParsedPayload, parseRawPayload } from './parsers'
+import { ParsedPayload, parseRawPayload, ParseResult } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
-import { createPromise, getOriginalURL, parseUnicodeEscapeSequences } from './util'
+import { createPromise, getOriginalURL, InstagramSocketServerError, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapParticipants, mapThread } from './mappers'
 
 const fixUrl = (url: string) =>
@@ -280,16 +280,17 @@ export default class InstagramAPI {
     try {
       rawd = parseRawPayload(payload)
     } catch (err) {
-      texts.Sentry.captureException(err, {
-        extra: {
-          // payload, // do not send, contains sensitive data
-          isInitialRequest,
-          requestId,
-          requestType,
-        },
+      this.logger.error(err, {
+        // payload, // do not send, contains sensitive data
+        isInitialRequest,
+        requestId,
+        requestType,
+      }, 'handlePayload error', {
+        isInitialRequest,
+        requestId,
+        requestType,
+        payload,
       })
-      console.error(err)
-      this.logger.error('handlePayload error', { isInitialRequest, requestId, requestType, payload }, { err, errString: err.toString() })
       return
     }
 
@@ -297,8 +298,11 @@ export default class InstagramAPI {
 
     const knownRequest = requestId && requestType
     if (knownRequest && rawd.issueNewError) {
-      this.logger.error(`[${requestId}] error for ${requestType}`, rawd)
-      const errors = rawd.issueNewError?.map(({ errorId, errorTitle, errorMessage }) => `Error ${errorId}: ${errorTitle} - ${errorMessage}`)
+      const errors = rawd.issueNewError?.map(({
+        errorId,
+        errorTitle,
+        errorMessage,
+      }) => new InstagramSocketServerError(errorId, errorTitle, errorMessage))
       const [mainError, ...otherErrors] = errors || []
       if (mainError) {
         requestRejector(mainError)
@@ -306,16 +310,16 @@ export default class InstagramAPI {
         // texts.Sentry.captureException(new Error(mainError))
       }
       if (otherErrors && otherErrors.length > 0) {
-        otherErrors.forEach(text => {
+        otherErrors.forEach(err => {
           this.papi?.onEvent([
             {
               type: ServerEventType.TOAST,
               toast: {
-                text,
+                text: err.toString(),
               },
             },
           ])
-          texts.Sentry.captureException(new Error(text))
+          this.logger.error(err)
         })
       }
     }
@@ -433,22 +437,31 @@ export default class InstagramAPI {
 
     if (rawd.insertNewMessageRange) {
       rawd.insertNewMessageRange.forEach(r => {
-        this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${r.hasMoreBefore}`)
-        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+        this.logger.info(`updating hasMoreBefore for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
+        this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
       })
     }
 
     if (rawd.updateExistingMessageRange) {
-      rawd.updateExistingMessageRange.forEach(r => {
-        this.papi.db.update(schema.threads).set({ hasMoreBefore: r.hasMoreBefore }).where(eq(schema.threads.threadKey, r.threadKey)).returning()
+      rawd.updateExistingMessageRange.forEach(({
+        threadKey,
+        ...r
+      }) => {
+        const ranges = {
+          ...this.getMessageRanges(threadKey!),
+          ...r,
+        }
+        this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).returning()
         // this.messagesHasMoreBefore.set(r.threadKey, r.hasMoreBefore)
 
         // resolve all promises in promise map for this thread
-        if (this.papi.socket.asyncRequestResolver.has(`messages-${r.threadKey!}`)) {
-          const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${r.threadKey!}`)
-          this.logger.info(`resolving messages-${r.threadKey!}`)
-          this.papi.socket.asyncRequestResolver.delete(`messages-${r.threadKey!}`)
-          resolve({ messages: [], hasMoreBefore: r.hasMoreBefore })
+        if (this.papi.socket.asyncRequestResolver.has(`messages-${threadKey!}`)) {
+          const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadKey!}`)
+          this.logger.info(`resolving messages-${threadKey!}`)
+          this.papi.socket.asyncRequestResolver.delete(`messages-${threadKey!}`)
+          resolve({
+            hasMoreBefore: r.hasMoreBeforeFlag,
+          })
         }
       })
     }
@@ -595,7 +608,10 @@ export default class InstagramAPI {
         const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
         // this.logger.info(`resolving messages-${threadID}`)
         this.papi.socket.asyncRequestResolver.delete(`messages-${threadID}`)
-        resolve({ messages, hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBefore })
+        resolve({
+          messages,
+          hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBeforeFlag,
+        })
       } else {
         // throw if this arrived without requested
         const err = new Error(`no promise for messages-${threadID}`)
@@ -894,7 +910,7 @@ export default class InstagramAPI {
     })
 
     if (attachments.length === 0) {
-      this.logger.error('upsertAttachments: no attachments to add', _attachments)
+      this.logger.error(new Error('upsertAttachments: no attachments to add'), {}, _attachments)
       return
     }
 
@@ -1219,5 +1235,13 @@ export default class InstagramAPI {
     this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
     this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadKey)).run()
     this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+  }
+
+  getMessageRanges(threadKey: string): ParseResult['insertNewMessageRange'] {
+    const thread = this.papi.db.query.threads.findFirst({
+      where: eq(schema.threads.threadKey, threadKey),
+      columns: { ranges: true },
+    })
+    return thread.ranges ? JSON.parse(thread.ranges) : {}
   }
 }

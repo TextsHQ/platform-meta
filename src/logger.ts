@@ -1,14 +1,26 @@
 import { texts } from '@textshq/platform-sdk'
+import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
 
 type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+export type ErrorAlt = Error | WSErrorEvent
 
-const onError = (err: Error, feature?: string, extra: SentryExtra = {}) => {
+const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const message = feature ? `${feature} ${err.message}` : err.message
-  texts.error(message, err, extra, err.stack)
-  console.error(message, err, extra, err.stack)
-  texts.Sentry.captureException(err, { extra: { feature, ...extra } })
+  const stack = (err instanceof Error) ? err.stack : err.type
+  texts.error(message, err, extra, stack)
+  console.error(message, err, extra, stack)
+  const isWSError = 'target' in err && err.target instanceof WebSocket
+  texts.Sentry.captureException(err, {
+    extra: {
+      feature,
+      ...extra,
+      ...{
+        socketStatus: isWSError ? err.target.readyState : undefined,
+      },
+    },
+  })
 }
 
 export const getLogger = (feature = '') => {
@@ -23,10 +35,10 @@ export const getLogger = (feature = '') => {
     debug: logger('log', 'debug'),
     info: logger('log', 'info'),
     warn: logger('log', 'warn'),
-    error: (err: Error, extra: SentryExtra = {}, ...args: any[]) => {
-      onError(err, feature, extra)
-      texts.error(formatMessage('error', ...args, err.message))
+    error: (err: ErrorAlt | string, extra: SentryExtra = {}, ...args: any[]) => {
+      onError(typeof err === 'string' ? new Error(err) : err, feature, extra)
+      texts.error(formatMessage('error', ...args, typeof err === 'string' ? err : err.message))
     },
-    fatal: logger('error', 'fatal'),
+    // fatal: logger('error', 'fatal'),
   }
 }

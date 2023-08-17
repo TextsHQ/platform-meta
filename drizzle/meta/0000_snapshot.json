@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "4b0978d4-2d2d-4472-81f1-0a48af3b4922",
+  "id": "0096e5ec-6c0a-4970-83e8-2e16ff25a04f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -406,9 +406,9 @@
           "notNull": false,
           "autoincrement": false
         },
-        "hasMoreBefore": {
-          "name": "hasMoreBefore",
-          "type": "integer",
+        "ranges": {
+          "name": "ranges",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
