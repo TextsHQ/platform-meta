@@ -163,9 +163,8 @@ export default class PlatformInstagram implements PlatformAPI {
       ranges,
     })
 
-    this.pQueue.addPromise(this.socket.fetchMessages(threadID, ranges).then((result: any) => {
-      this.logger.debug('getMessages [papi] result', result)
-    }))
+    await this.socket.fetchMessages(threadID, ranges)
+
     // const { direction = 'before', cursor } = pagination || {}
     // const directionIsBefore = direction === 'before'
     // const orderDirection = directionIsBefore ? desc : asc

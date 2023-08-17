@@ -296,6 +296,8 @@ export default class InstagramAPI {
 
     this.logger.debug('handlePayload parsed payload', rawd)
 
+    const threadsToSync = new Set<string>()
+
     const knownRequest = requestId && requestType
     if (knownRequest && rawd.issueNewError) {
       const errors = rawd.issueNewError?.map(({
@@ -438,19 +440,7 @@ export default class InstagramAPI {
     rawd.insertNewMessageRange?.forEach(r => {
       this.logger.debug(`inserting ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
       this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: { threadID: r.threadKey },
-        mutationType: 'update',
-        entries: [{
-          id: r.threadKey,
-          messages: {
-            items: [],
-            hasMore: r.hasMoreBeforeFlag,
-          },
-        }],
-      }])
+      threadsToSync.add(r.threadKey)
     })
 
     rawd.updateExistingMessageRange?.forEach(({
@@ -463,20 +453,8 @@ export default class InstagramAPI {
         ...this.getMessageRanges(threadKey!),
         ...r,
       }
-      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).returning()
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: { threadID: threadKey },
-        mutationType: 'update',
-        entries: [{
-          id: threadKey,
-          messages: {
-            items: [],
-            hasMore: r.hasMoreBeforeFlag,
-          },
-        }],
-      }])
+      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).run()
+      threadsToSync.add(threadKey)
     })
 
     if (rawd.insertAttachmentCta) {
@@ -617,22 +595,6 @@ export default class InstagramAPI {
           entries: messages,
         }])
       }
-
-      // if (this.papi.socket.asyncRequestResolver.has(`messages-${threadID}`)) {
-      //   const { resolve } = this.papi.socket.asyncRequestResolver.get(`messages-${threadID}`)
-      //   // this.logger.info(`resolving messages-${threadID}`)
-      //   this.papi.socket.asyncRequestResolver.delete(`messages-${threadID}`)
-      //   resolve({
-      //     messages,
-      //     hasMoreBefore: rawd.insertNewMessageRange[0].hasMoreBeforeFlag,
-      //   })
-      // } else {
-      //   // throw if this arrived without requested
-      //   const err = new Error(`no promise for messages-${threadID}`)
-      //   texts.Sentry.captureException(err)
-      //   this.logger.error(err)
-      //   console.error(err)
-      // }
     } else if (rawd.updateThreadMuteSetting) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -733,6 +695,10 @@ export default class InstagramAPI {
     rawd.upsertSyncGroupThreadsRange?.forEach(t => {
       this.papi.kv.set(`groupThreadsRange-${t.syncGroup}`, JSON.stringify(t))
     })
+
+    for (const t of threadsToSync) {
+      this.syncThread(t)
+    }
 
     // wait for everything to be synced before resolving
     if (knownRequest && !rawd.issueNewError) {
@@ -1258,5 +1224,17 @@ export default class InstagramAPI {
       columns: { ranges: true },
     })
     return thread.ranges ? JSON.parse(thread.ranges) : {}
+  }
+
+  private syncThread(threadKey: string) {
+    const t = (this.queryThreads([threadKey], null) || [])[0]
+    if (!t) return
+    this.papi.onEvent?.([{
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'thread',
+      objectIDs: { threadID: t.id },
+      mutationType: 'update',
+      entries: [t],
+    }])
   }
 }
