@@ -1207,7 +1207,7 @@ export default class InstagramAPI {
       where: eq(schema.threads.threadKey, threadKey),
       columns: { ranges: true },
     })
-    return thread.ranges ? JSON.parse(thread.ranges) : {}
+    return thread?.ranges ? JSON.parse(thread.ranges) : {}
   }
 
   setMessageRanges(r: ParseResult['insertNewMessageRange'] | ParseResult['updateExistingMessageRange']) {
