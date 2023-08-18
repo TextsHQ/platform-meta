@@ -1230,10 +1230,11 @@ export default class InstagramAPI {
     }).where(eq(schema.threads.threadKey, r.threadKey)).run()
 
     const resolverKey = `messageRanges-${r.threadKey}` as const
-    if (this.socket.asyncRequestResolver.has(resolverKey)) {
-      const { resolve } = this.asyncRequestResolver.get(resolverKey)
+    const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
+
+    if (promiseEntries.length > 0) {
+      const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
       resolve(ranges)
-      this.asyncRequestResolver.delete(resolverKey)
     }
   }
 

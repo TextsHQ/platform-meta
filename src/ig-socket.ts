@@ -495,6 +495,8 @@ export default class InstagramWebSocket {
   // requests that we manually track
   asyncRequestResolver = new Map<`messageRanges-${string}` | `threads-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }>()
 
+  messageRangesResolver = new Map<`messageRanges-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }[]>()
+
   // Promise resolves to a parsed and mapped version of the response based on the type
   private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
     const request_id = this.genRequestId()
@@ -541,17 +543,6 @@ export default class InstagramWebSocket {
     })
 
     return promise
-  }
-
-  waitForMessageRangeResponse(threadKey: string) {
-    return new Promise(resolve => {
-      if (!this.messageRangeResolvers.has(threadKey)) {
-        this.messageRangeResolvers.set(threadKey, [])
-      }
-
-      const resolversForKey = this.messageRangeResolvers.get(threadKey)
-      resolversForKey.push(resolve)
-    })
   }
 
   async fetchMessages(threadID: string, _ranges?: ReturnType<typeof this.papi.api.getMessageRanges>) {
@@ -946,16 +937,35 @@ export default class InstagramWebSocket {
 
   waitForMessageRange(threadKey: string) {
     const resolverKey = `messageRanges-${threadKey}` as const
-    if (!this.asyncRequestResolver.has(resolverKey)) {
-      const p = createPromise()
 
-      this.asyncRequestResolver.set(resolverKey, {
-        promise: p.promise,
-        resolve: p.resolve,
-        reject: p.reject,
-      })
+    const p = createPromise()
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Timeout after 8 seconds'))
+        // Optionally remove the promise from the array if it times out
+        const existingPromises = this.messageRangesResolver.get(resolverKey) || []
+        const index = existingPromises.findIndex(entry => entry.promise === p.promise)
+        if (index !== -1) {
+          existingPromises.splice(index, 1)
+        }
+      }, 8000)
+    })
+
+    const racedPromise = Promise.race([p.promise, timeoutPromise])
+
+    const promiseEntry = {
+      promise: racedPromise,
+      resolve: p.resolve,
+      reject: p.reject,
     }
 
-    return this.asyncRequestResolver.get(resolverKey).promise
+    if (this.messageRangesResolver.has(resolverKey)) {
+      this.messageRangesResolver.get(resolverKey).push(promiseEntry)
+    } else {
+      this.messageRangesResolver.set(resolverKey, [promiseEntry])
+    }
+
+    return racedPromise
   }
 }
