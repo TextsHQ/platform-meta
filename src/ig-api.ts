@@ -636,7 +636,7 @@ export default class InstagramAPI {
         this.papi.onEvent?.([{
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
-          objectIDs: { threadID: r.threadKey!, messageID: newestMessage.messageId! },
+          objectIDs: { threadID: r.threadKey! },
           mutationType: 'update',
           entries: messages,
         }])
