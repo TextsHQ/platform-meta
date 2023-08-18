@@ -1,9 +1,10 @@
-import { AttachmentType, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
+import { AttachmentType, InboxName, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
 import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParseResult } from './parsers'
+import { ParentThreadKey } from './ig-types'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -158,7 +159,7 @@ export function mapThread(
     thread: string
     ranges: string
     lastActivityTimestampMs: Date
-    folderName: string
+    parentThreadKey: ParentThreadKey
     messages?: DBMessageSelectWithAttachments[]
     participants: DBParticipantSelect[]
   },
@@ -184,7 +185,7 @@ export function mapThread(
     id: t.threadKey as string,
     title: threadType === 'group' && thread?.threadName,
     isUnread,
-    folderType: t.folderName,
+    folderName: t.parentThreadKey === ParentThreadKey.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "95523089-7b28-493c-81d5-fe6f99a3e0c1",
+  "id": "22ab2ba0-1676-45f3-ae77-27dc50e27eb5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -392,9 +392,9 @@
           "notNull": false,
           "autoincrement": false
         },
-        "folderName": {
-          "name": "folderName",
-          "type": "text",
+        "parentThreadKey": {
+          "name": "parentThreadKey",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

@@ -15,6 +15,7 @@ import type {
   PlatformAPI,
   ServerEvent,
   Thread,
+  ThreadFolderName,
   ThreadID,
   User,
 } from '@textshq/platform-sdk'
@@ -32,6 +33,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
+import { ParentThreadKey, SyncGroup } from './ig-types'
 
 // const MESSAGE_PAGE_SIZE = 20
 
@@ -126,27 +128,36 @@ export default class PlatformInstagram implements PlatformAPI {
 
   searchUsers = (typed: string) => this.socket.searchUsers(typed)
 
-  getThreads = async (_folderName: string, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+  getThreads = async (_folderName: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
-    this.logger.info('getThreads', { folderName, pagination })
-    if (pagination) {
-      const { threads } = await this.socket.fetchThreads(folderName)
-      const lastChanges = this.api.getSyncGroupThreadsRange('1')
-      return {
-        items: threads,
-        hasMore: lastChanges.hasMoreBefore,
-        oldestCursor: `${lastChanges.minThreadKey}-${lastChanges.minLastActivityTimestampMs}`,
-      }
-    }
 
-    const threads = this.api.queryThreads('ALL', folderName)
-    this.logger.info('getThreads, returning threads from db', threads)
-    const lastChanges = this.api.getSyncGroupThreadsRange('1')
+    this.logger.info('getThreads', { folderName, _folderName, pagination })
+
+    const isRequests = folderName === InboxName.REQUESTS
+    await (isRequests ? this.socket.fetchRequestThreads : this.socket.fetchInboxThreads)()
+
+    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isRequests ? ParentThreadKey.REQUESTS : ParentThreadKey.GENERAL)
+    const { direction = 'before' } = pagination || {}
+    const directionIsBefore = direction === 'before'
+    const order = directionIsBefore ? desc : asc
+    // const filter = directionIsBefore ? lte : gte
+    //
+    // if (cursor) {
+    //   where = and(
+    //     where,
+    //     filter(schema.threads.lastActivityTimestampMs, primarySortKey),
+    //   )
+    // }
+
+    const items = this.api.queryThreads('ALL', {
+      orderBy: [order(schema.threads.lastActivityTimestampMs)],
+      limit: 20,
+    })
 
     return {
-      items: threads,
-      hasMore: lastChanges.hasMoreBefore,
-      oldestCursor: `${lastChanges.minThreadKey}-${lastChanges.minLastActivityTimestampMs}`,
+      items,
+      hasMore: true,
+      oldestCursor: `${JSON.stringify(group1)}`,
     }
   }
 
@@ -389,7 +400,7 @@ export default class PlatformInstagram implements PlatformAPI {
           threadKey: true,
           thread: true,
           lastActivityTimestampMs: true,
-          folderName: true,
+          parentThreadKey: true,
           raw: true,
         },
         with: {

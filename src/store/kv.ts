@@ -1,7 +1,8 @@
 import type Instagram from '../api'
 import { keyValues } from './schema'
+import { ParentThreadKey, SyncGroup } from '../ig-types'
 
-type Key = `cursor-${1 | 95}`
+type Key = `cursor-${SyncGroup}`
   | 'clientId'
   | 'fb_dtsg'
   | 'fbid'
@@ -9,7 +10,7 @@ type Key = `cursor-${1 | 95}`
   | 'lsd'
   | 'wwwClaim'
   | 'hasTabbedInbox'
-  | `groupThreadsRange-${string}`
+  | `groupThreadsRange-${SyncGroup}-${ParentThreadKey}`
   | '_lastReceivedCursor' // not used, for debugging
   | '_viewerConfig' // not used, for debugging
 
@@ -64,7 +65,8 @@ export default class KeyValueStore {
     const _value = this.papi.preparedQueries.getKeyValue.get({ key })
     const value = deserialize(key, _value?.value || '')
     this.cache.set(key, value)
-    return value
+    if (typeof value === 'string' && value.length === 0) return undefined
+    return value as ValueType<K>
   }
 
   getAll(): KeyValue {

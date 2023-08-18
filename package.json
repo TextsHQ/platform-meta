@@ -9,7 +9,7 @@
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "yarn lint --fix",
     "watch": "yarn tsc --watch",
-    "db:generate": "drizzle-kit generate:sqlite && node ./create-migrations-ts.js"
+    "db:generate": "rimraf ./drizzle && drizzle-kit generate:sqlite && node ./create-migrations-ts.js"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",

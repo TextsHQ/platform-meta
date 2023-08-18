@@ -1,12 +1,23 @@
-import { InboxName, type Message } from '@textshq/platform-sdk'
+import { type Message } from '@textshq/platform-sdk'
+
+export enum SyncGroup {
+  MAIN = 1,
+  UNKNOWN = 95,
+}
+
+export enum ParentThreadKey {
+  PRIMARY = 0,
+  GENERAL = -1,
+  REQUESTS = -3,
+}
 
 export type IGThread = {
   raw: string
   threadKey: string
   lastReadWatermarkTimestampMs: number
   threadType: string
-  folderName: InboxName.NORMAL | InboxName.REQUESTS // just normalize it
-  parentThreadKey: string
+  folderName: string
+  parentThreadKey: ParentThreadKey
   lastActivityTimestampMs: number
   snippet: string
   threadName: string
