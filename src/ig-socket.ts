@@ -942,14 +942,14 @@ export default class InstagramWebSocket {
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error('Timeout after 8 seconds'))
+        reject(new Error('WAIT_FOR_MESSAGE_RANGE_TIMEOUT'))
         // Optionally remove the promise from the array if it times out
         const existingPromises = this.messageRangesResolver.get(resolverKey) || []
         const index = existingPromises.findIndex(entry => entry.promise === p.promise)
         if (index !== -1) {
           existingPromises.splice(index, 1)
         }
-      }, 8000)
+      }, 3000)
     })
 
     const racedPromise = Promise.race([p.promise, timeoutPromise])

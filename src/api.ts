@@ -159,7 +159,15 @@ export default class PlatformInstagram implements PlatformAPI {
     })
 
     await this.socket.fetchMessages(threadID, ranges)
-    await this.socket.waitForMessageRange(threadID) // @TODO: add timeout
+
+    let hasMore = ranges.hasMoreBeforeFlag
+    try {
+      await this.socket.waitForMessageRange(threadID)
+      hasMore = this.api.getMessageRanges(threadID).hasMoreBeforeFlag // refetch ranges from db
+    } catch (e) {
+      this.logger.error(e)
+      hasMore = true
+    }
 
     let where = eq(schema.messages.threadKey, threadID)
     const { primarySortKey } = this.db.query.messages.findFirst({
@@ -187,7 +195,7 @@ export default class PlatformInstagram implements PlatformAPI {
     })
     return {
       items,
-      hasMore: this.api.getMessageRanges(threadID).hasMoreBeforeFlag, // refetch ranges
+      hasMore,
     }
   }
 
