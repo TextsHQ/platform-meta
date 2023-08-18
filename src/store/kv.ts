@@ -1,4 +1,3 @@
-import { inArray } from 'drizzle-orm'
 import type Instagram from '../api'
 import { keyValues } from './schema'
 
@@ -9,54 +8,74 @@ type Key = `cursor-${1 | 95}`
   | 'igUserId'
   | 'lsd'
   | 'wwwClaim'
-  | `groupThreadsRange-${string}` // 'groupThreadsRange-${syncGroup}'
-  // | 'hasMoreBefore'
-  // | 'minLastActivityTimestampMs'
-  // | 'minThreadKey'
+  | 'hasTabbedInbox'
+  | `groupThreadsRange-${string}`
   | '_lastReceivedCursor' // not used, for debugging
   | '_viewerConfig' // not used, for debugging
+
+type ValueType<K extends Key> =
+  K extends 'hasTabbedInbox' ? boolean : string
+
+type KeyValue = { [K in Key]: ValueType<K> }
+
+function initializeAccumulator<T>(): T {
+  return {} as T
+}
+
+function isKey(key: string): key is Key {
+  return (initializeAccumulator<KeyValue>() as Record<string, unknown>)[key] !== undefined
+}
+
+function assignToAcc<K extends Key>(acc: KeyValue, key: K, value: ValueType<K>): void {
+  acc[key] = value as KeyValue[K]
+}
+
+function serialize(value: ValueType<Key>) {
+  return typeof value === 'boolean' ? JSON.stringify(value) : value
+}
+
+function deserialize<K extends Key>(key: K, value: string) {
+  if (key === 'hasTabbedInbox') return JSON.parse(value) as ValueType<K>
+  return value as ValueType<K>
+}
 
 export default class KeyValueStore {
   constructor(private readonly papi: Instagram) {}
 
-  private cache = new Map<Key, string>()
+  private cache = new Map<Key, ValueType<Key>>()
 
-  set(key: Key, value: string) {
+  set<K extends Key>(key: K, value: ValueType<K>) {
+    const serializedValue = serialize(value)
     this.papi.db.insert(keyValues)
-      .values({ key, value })
-      .onConflictDoUpdate({ target: keyValues.key, set: { value } })
+      .values({ key, value: serializedValue })
+      .onConflictDoUpdate({ target: keyValues.key, set: { value: serializedValue } })
       .run()
     this.cache.set(key, value)
   }
 
-  setMany(values: Partial<Record<Key, string>>) {
-    // this.papi.db.insert(keyValues)
-    //   .values(Object.entries(values).map(([key, value]) => ({ key, value })))
-    //   .onConflictDoUpdate({ target: keyValues.key, set: { value: keyValues.value } })
-    //   .run()
+  setMany(values: Partial<KeyValue>) {
     for (const [key, value] of Object.entries(values)) {
-      this.set(key as Key, value)
+      this.set(key as Key, value as ValueType<Key>)
     }
   }
 
-  get(key: Key, useCache = true) {
-    if (useCache && this.cache.has(key)) return this.cache.get(key)
+  get<K extends Key>(key: K, useCache = true): ValueType<K> | undefined {
+    if (useCache && this.cache.has(key)) return this.cache.get(key) as ValueType<K>
     const _value = this.papi.preparedQueries.getKeyValue.get({ key })
-    const value = _value?.value
+    const value = deserialize(key, _value?.value || '')
     this.cache.set(key, value)
     return value
   }
 
-  getAll() {
+  getAll(): KeyValue {
     const values = this.papi.preparedQueries.getAllKeyValues.all()
-    return Object.fromEntries(values.map(({ key, value }) => [key, value])) as Record<Key, string>
-  }
-
-  getMany(keys: Key[]) {
-    const values = this.papi.db.select({ value: keyValues.value })
-      .from(keyValues)
-      .where(inArray(keyValues.key, keys))
-      .run()
-    return Object.fromEntries(values.map(({ key, value }) => [key, value])) as Record<Key, string>
+    return values.reduce<KeyValue>((acc, { key, value }) => {
+      if (key === 'hasTabbedInbox') {
+        assignToAcc(acc, key, JSON.parse(value) as ValueType<typeof key>)
+      } else if (isKey(key)) {
+        assignToAcc(acc, key, value as ValueType<typeof key>)
+      }
+      return acc
+    }, initializeAccumulator<KeyValue>())
   }
 }

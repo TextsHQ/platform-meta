@@ -102,6 +102,7 @@ export default class InstagramAPI {
       fbid,
       lsd,
       igUserId: config.id,
+      hasTabbedInbox: config.has_tabbed_inbox,
       _viewerConfig: JSON.stringify(config),
     })
 
@@ -702,9 +703,9 @@ export default class InstagramAPI {
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
     this.logger.debug('deleteThenInsertThread', _threads)
 
-    const ids: string[] = [] // avoid double loops
+    const ids = new Set<string>()
     const threads = _threads.map(t => {
-      ids.push(t.threadKey)
+      ids.add(t.threadKey)
       const { raw, threadKey, lastActivityTimestampMs, folderName, ...thread } = t
 
       // @TODO: parsers should handle this before we come here
@@ -722,19 +723,9 @@ export default class InstagramAPI {
         thread: JSON.stringify(thread),
       } as const
     })
-    // this.papi.db.delete(schema.threads).where(inArray(schema.threads.threadKey, ids)).run()
-    // this.papi.db.insert(schema.threads).values(threads).run()
 
-    this.papi.db.transaction(tx => {
-      tx.delete(schema.threads).where(inArray(schema.threads.threadKey, ids)).run()
-      tx.insert(schema.threads).values(threads).run()
-      // for (const t of threads) {
-      //   tx.insert(schema.threads).values(t).onConflictDoUpdate({
-      //     target: schema.threads.threadKey,
-      //     set: { ...t },
-      //   })
-      // }
-    })
+    this.papi.db.delete(schema.threads).where(inArray(schema.threads.threadKey, [...ids])).run()
+    this.papi.db.insert(schema.threads).values(threads).run()
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {

@@ -164,7 +164,13 @@ export default class InstagramWebSocket {
       stop: this.stop,
     })
     this.stop = true
-    this.ws?.close()
+    try {
+      this.ws?.close()
+    } catch (err) {
+      this.logger.error(err, {
+        stop: this.stop,
+      }, '[ws connection] failed to close on dispose')
+    }
     clearTimeout(this.connectTimeout)
   }
 
