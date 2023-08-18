@@ -18,6 +18,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
   const attachment = JSON.parse(a.attachment) as RawAttachment
   const hasPlayableUrl = !!attachment.playableUrl
   const playableUrlMimeType = hasPlayableUrl && attachment.playableUrlMimeType
+  const mimeType = attachment.previewUrlMimeType || playableUrlMimeType
   const type = mapMimeTypeToAttachmentType(playableUrlMimeType || attachment.previewUrlMimeType)
   return {
     // _original: JSON.stringify({
@@ -34,7 +35,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
     fileSize: attachment.playableDurationMs,
     fileName: attachment.filename,
     srcURL: attachment.playableUrl || attachment.previewUrl,
-    isGif: type === AttachmentType.VIDEO && attachment.shouldAutoplayVideo,
+    isGif: type === AttachmentType.VIDEO && (attachment.shouldAutoplayVideo || mimeType === 'image/gif'),
     extra: {
       text: attachment.descriptionText || attachment.titleText,
       igType: attachment.attachmentType,
