@@ -324,6 +324,7 @@ export default class InstagramAPI {
       }
     }
 
+    const ignoreStateSyncForMessages = rawd.replaceOptimsiticMessage?.map(m => m.offlineThreadingId).filter(Boolean)
     // verify ThreadExists. This check needs to happen before since if it doesn't exist, we need to call a different endpoint
     // and return
     if (rawd.verifyThreadExists) {
@@ -409,7 +410,7 @@ export default class InstagramAPI {
         ...(rawd.insertMessage || []),
       ]
       if (messages.length > 0) {
-        await this.upsertMessage(messages)
+        this.upsertMessage(messages)
       }
     }
 
@@ -614,16 +615,18 @@ export default class InstagramAPI {
     if (rawd.insertMessage) {
       // new message to send to the platform
       const rawm = rawd.insertMessage
-      const messages = this.queryMessages(rawm[0].threadKey!, [rawm[0].messageId])
-      this.logger.debug('insertMessage: queryMessages', messages)
-      if (messages?.length > 0) {
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: rawm[0].threadKey! },
-          mutationType: 'upsert',
-          entries: messages,
-        }])
+      if (!ignoreStateSyncForMessages.includes(rawm[0].offlineThreadingId)) {
+        const messages = this.queryMessages(rawm[0].threadKey!, [rawm[0].messageId])
+        this.logger.debug('insertMessage: queryMessages', messages)
+        if (messages?.length > 0) {
+          this.papi.onEvent?.([{
+            type: ServerEventType.STATE_SYNC,
+            objectName: 'message',
+            objectIDs: { threadID: rawm[0].threadKey! },
+            mutationType: 'upsert',
+            entries: messages,
+          }])
+        }
       }
     }
 
