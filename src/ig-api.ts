@@ -296,8 +296,6 @@ export default class InstagramAPI {
 
     this.logger.debug('handlePayload parsed payload', rawd)
 
-    const threadsToSync = new Set<string>()
-
     const knownRequest = requestId && requestType
     if (knownRequest && rawd.issueNewError) {
       const errors = rawd.issueNewError?.map(({
@@ -440,13 +438,11 @@ export default class InstagramAPI {
     rawd.insertNewMessageRange?.forEach(r => {
       this.logger.debug(`inserting ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
       this.setMessageRanges(r)
-      threadsToSync.add(r.threadKey)
     })
 
     rawd.updateExistingMessageRange?.forEach(r => {
       this.logger.debug(`updating ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
       this.setMessageRanges(r)
-      threadsToSync.add(r.threadKey)
     })
 
     if (rawd.insertAttachmentCta) {
@@ -687,10 +683,6 @@ export default class InstagramAPI {
     rawd.upsertSyncGroupThreadsRange?.forEach(t => {
       this.papi.kv.set(`groupThreadsRange-${t.syncGroup}`, JSON.stringify(t))
     })
-
-    for (const t of threadsToSync) {
-      this.syncThread(t)
-    }
 
     // wait for everything to be synced before resolving
     if (knownRequest && !rawd.issueNewError) {
@@ -1236,25 +1228,5 @@ export default class InstagramAPI {
       const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
       resolve(ranges)
     }
-  }
-
-  private syncThread(threadKey: string) {
-    const t = (this.queryThreads([threadKey], null) || [])[0]
-    const messages = this.queryMessages(threadKey, 'ALL')
-    const ranges = this.getMessageRanges(threadKey)
-    if (!t) return
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: { threadID: t.id },
-      mutationType: 'upsert',
-      entries: [{
-        ...t,
-        messages: {
-          items: messages,
-          hasMore: ranges.hasMoreBeforeFlag,
-        },
-      }],
-    }])
   }
 }
