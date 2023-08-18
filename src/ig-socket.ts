@@ -493,7 +493,7 @@ export default class InstagramWebSocket {
   private requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
 
   // requests that we manually track
-  asyncRequestResolver = new Map<`messages-${string}` | `threads-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }>()
+  asyncRequestResolver = new Map<`messageRanges-${string}` | `threads-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }>()
 
   // Promise resolves to a parsed and mapped version of the response based on the type
   private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
@@ -541,6 +541,17 @@ export default class InstagramWebSocket {
     })
 
     return promise
+  }
+
+  waitForMessageRangeResponse(threadKey: string) {
+    return new Promise(resolve => {
+      if (!this.messageRangeResolvers.has(threadKey)) {
+        this.messageRangeResolvers.set(threadKey, [])
+      }
+
+      const resolversForKey = this.messageRangeResolvers.get(threadKey)
+      resolversForKey.push(resolve)
+    })
   }
 
   async fetchMessages(threadID: string, _ranges?: ReturnType<typeof this.papi.api.getMessageRanges>) {
@@ -931,5 +942,20 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
+  }
+
+  waitForMessageRange(threadKey: string) {
+    const resolverKey = `messageRanges-${threadKey}` as const
+    if (!this.asyncRequestResolver.has(resolverKey)) {
+      const p = createPromise()
+
+      this.asyncRequestResolver.set(resolverKey, {
+        promise: p.promise,
+        resolve: p.resolve,
+        reject: p.reject,
+      })
+    }
+
+    return this.asyncRequestResolver.get(resolverKey).promise
   }
 }

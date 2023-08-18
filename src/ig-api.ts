@@ -439,22 +439,14 @@ export default class InstagramAPI {
 
     rawd.insertNewMessageRange?.forEach(r => {
       this.logger.debug(`inserting ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
-      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(r) }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+      this.setMessageRanges(r)
       threadsToSync.add(r.threadKey)
     })
 
-    rawd.updateExistingMessageRange?.forEach(({
-      threadKey,
-      ...r
-    }) => {
-      this.logger.debug(`updating ranges for thread ${threadKey} ${JSON.stringify(r, null, 2)}`)
-
-      const ranges = {
-        ...this.getMessageRanges(threadKey!),
-        ...r,
-      }
-      this.papi.db.update(schema.threads).set({ ranges: JSON.stringify(ranges) }).where(eq(schema.threads.threadKey, threadKey)).run()
-      threadsToSync.add(threadKey)
+    rawd.updateExistingMessageRange?.forEach(r => {
+      this.logger.debug(`updating ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
+      this.setMessageRanges(r)
+      threadsToSync.add(r.threadKey)
     })
 
     if (rawd.insertAttachmentCta) {
@@ -1224,6 +1216,25 @@ export default class InstagramAPI {
       columns: { ranges: true },
     })
     return thread.ranges ? JSON.parse(thread.ranges) : {}
+  }
+
+  setMessageRanges(r: ParseResult['insertNewMessageRange'] | ParseResult['updateExistingMessageRange']) {
+    const ranges = {
+      ...this.getMessageRanges(r.threadKey!),
+      ...r,
+      raw: undefined,
+    }
+
+    this.papi.db.update(schema.threads).set({
+      ranges: JSON.stringify(ranges),
+    }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+
+    const resolverKey = `messageRanges-${r.threadKey}` as const
+    if (this.socket.asyncRequestResolver.has(resolverKey)) {
+      const { resolve } = this.asyncRequestResolver.get(resolverKey)
+      resolve(ranges)
+      this.asyncRequestResolver.delete(resolverKey)
+    }
   }
 
   private syncThread(threadKey: string) {

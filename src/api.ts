@@ -32,7 +32,6 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { ParseResult } from './parsers'
 
 // const MESSAGE_PAGE_SIZE = 20
 
@@ -152,11 +151,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const thread = this.db.query.threads.findFirst({
-      where: eq(schema.threads.threadKey, threadID),
-      columns: { ranges: true },
-    })
-    const ranges: ParseResult['insertNewMessageRange'] = thread.ranges ? JSON.parse(thread.ranges) : {}
+    const ranges = this.api.getMessageRanges(threadID)
     this.logger.debug('getMessages [papi]', {
       threadID,
       pagination,
@@ -164,6 +159,7 @@ export default class PlatformInstagram implements PlatformAPI {
     })
 
     await this.socket.fetchMessages(threadID, ranges)
+    await this.socket.waitForMessageRange(threadID) // @TODO: add timeout
 
     let where = eq(schema.messages.threadKey, threadID)
     const { primarySortKey } = this.db.query.messages.findFirst({
@@ -191,7 +187,7 @@ export default class PlatformInstagram implements PlatformAPI {
     })
     return {
       items,
-      hasMore: ranges.hasMoreBeforeFlag,
+      hasMore: this.api.getMessageRanges(threadID).hasMoreBeforeFlag, // refetch ranges
     }
   }
 
