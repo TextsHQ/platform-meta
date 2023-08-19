@@ -588,6 +588,14 @@ const parseMap = {
     raw: JSON.stringify(a),
     threadKey: parseValue<string>(a[0]),
   }),
+  deleteThenInsertContactPresence: (a: RawItem) => ({
+    contactId: parseValue<string>(a[0]),
+    status: parseValue<string>(a[1]),
+    expirationTimestampMs: getAsMS(parseValue<string>(a[3])),
+    lastActiveTimestampMs: getAsMS(parseValue<string>(a[2])),
+    capabilities: parseValue<string>(a[4]),
+    publishId: parseValue<string>(a[5]),
+  }),
 } as const
 
 export type ParseResult = {

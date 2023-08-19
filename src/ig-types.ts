@@ -5,6 +5,11 @@ export enum SyncGroup {
   UNKNOWN = 95,
 }
 
+export enum ThreadFilter {
+  GENERAL = 4,
+  PRIMARY = 3,
+}
+
 export enum ParentThreadKey {
   PRIMARY = 0,
   GENERAL = -1,
