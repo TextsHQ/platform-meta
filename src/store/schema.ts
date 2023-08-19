@@ -31,18 +31,6 @@ export const messages = sqliteTable('messages', {
   senderId: text('senderId').notNull(),
 })
 
-type AttachmentInJoin = {
-  attachmentFbid: string
-  attachment: string
-}
-
-export type DBMessageSelect = InferModel<typeof messages, 'select'>
-export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'primarySortKey' | 'senderId'>
-export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
-  attachments: AttachmentInJoin[]
-  reactions: DBReaction[]
-}
-
 export const typingIndicators = sqliteTable('typing_indicators', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   raw: text('raw'),
