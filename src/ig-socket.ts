@@ -17,7 +17,7 @@ import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { ParsedPayload } from './parsers'
-import { ParentThreadKey, SyncGroup } from './ig-types'
+import { ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 
 type IGSocketTask = {
   label: string
@@ -574,6 +574,50 @@ export default class InstagramWebSocket {
     })
   }
 
+  fetchTabbedInboxThreads = () => {
+    if (!this.papi.kv.get('hasTabbedInbox')) return
+    return Promise.all([
+      this.publishTask('fetch older threads', [
+        {
+          label: '313',
+          payload: JSON.stringify({
+            cursor: this.papi.kv.get('cursor-1'),
+            filter: ThreadFilter.PRIMARY,
+            is_after: 0,
+            parent_thread_key: 0,
+            reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+            reference_thread_key: '9223372036854775807', // INT64_MAX
+            secondary_filter: 0,
+            filter_value: '',
+            sync_group: SyncGroup.MAIN,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+      ]),
+      this.publishTask('fetch older threads', [
+        {
+          label: '313',
+          payload: JSON.stringify({
+            cursor: this.papi.kv.get('cursor-1'),
+            filter: ThreadFilter.GENERAL,
+            is_after: 0,
+            parent_thread_key: 0,
+            reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+            reference_thread_key: '9223372036854775807', // INT64_MAX
+            secondary_filter: 0,
+            filter_value: '',
+            sync_group: SyncGroup.MAIN,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+      ]),
+    ])
+  }
+
   fetchInboxThreads = () => {
     const group1General = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
     const group1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
@@ -585,56 +629,110 @@ export default class InstagramWebSocket {
       group95General,
       group95Primary,
     })
-    return this.publishTask('fetch initial threads', [
-      {
-        label: '145',
-        payload: JSON.stringify({
-          is_after: 0,
-          parent_thread_key: -1,
-          reference_thread_key: 0,
-          reference_activity_timestamp: 9999999999999,
-          additional_pages_to_fetch: 0,
-          cursor: this.papi.kv.get('cursor-1'),
-          messaging_tag: null,
-          sync_group: 1,
-        }),
-        queue_name: 'trq',
-        task_id: this.genTaskId(),
-        failure_count: null,
-      },
-      {
-        label: '145',
-        payload: JSON.stringify({
-          is_after: 0,
-          parent_thread_key: -1,
-          reference_thread_key: 0,
-          reference_activity_timestamp: 9999999999999,
-          additional_pages_to_fetch: 0,
-          cursor: this.papi.kv.get('cursor-95') || null,
-          messaging_tag: null,
+
+    return Promise.all([
+      this.publishTask('fetch initial threads', [
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: -1,
+            reference_thread_key: 0,
+            reference_activity_timestamp: 9999999999999,
+            additional_pages_to_fetch: 0,
+            cursor: this.papi.kv.get('cursor-1'),
+            messaging_tag: null,
+            sync_group: 1,
+          }),
+          queue_name: 'trq',
           task_id: this.genTaskId(),
-        }),
-        queue_name: 'trq',
-        task_id: this.genTaskId(),
-        failure_count: null,
-      },
-      this.papi.kv.get('hasTabbedInbox') && {
-        label: '313',
-        payload: JSON.stringify({
-          cursor: this.papi.kv.get('cursor-1'),
-          filter: 3,
-          is_after: 0,
-          parent_thread_key: 0,
-          reference_activity_timestamp: '9223372036854775807', // INT64_MAX
-          reference_thread_key: '9223372036854775807', // INT64_MAX
-          secondary_filter: 0,
-          filter_value: null,
-          sync_group: 1,
-        }),
-        queue_name: 'trq',
-        task_id: this.genTaskId(),
-        failure_count: null,
-      },
+          failure_count: null,
+        },
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: -1,
+            reference_thread_key: 0,
+            reference_activity_timestamp: 9999999999999,
+            additional_pages_to_fetch: 0,
+            cursor: this.papi.kv.get('cursor-95'),
+            messaging_tag: null,
+            sync_group: 95,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+        this.papi.kv.get('hasTabbedInbox') && {
+          label: '313',
+          payload: JSON.stringify({
+            cursor: this.papi.kv.get('cursor-1'),
+            filter: ThreadFilter.PRIMARY,
+            is_after: 0,
+            parent_thread_key: 0,
+            reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+            reference_thread_key: '9223372036854775807', // INT64_MAX
+            secondary_filter: 0,
+            filter_value: null,
+            sync_group: 1,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+      ]),
+      this.papi.kv.get('hasTabbedInbox') && this.publishTask('fetch initial threads (general)', [
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: -1,
+            reference_thread_key: 0,
+            reference_activity_timestamp: 9999999999999,
+            additional_pages_to_fetch: 0,
+            cursor: this.papi.kv.get('cursor-1'),
+            messaging_tag: null,
+            sync_group: 1,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: -1,
+            reference_thread_key: 0,
+            reference_activity_timestamp: 9999999999999,
+            additional_pages_to_fetch: 0,
+            cursor: this.papi.kv.get('cursor-95'),
+            messaging_tag: null,
+            sync_group: 95,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+        this.papi.kv.get('hasTabbedInbox') && {
+          label: '313',
+          payload: JSON.stringify({
+            cursor: this.papi.kv.get('cursor-1'),
+            filter: 3,
+            is_after: 0,
+            parent_thread_key: 0,
+            reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+            reference_thread_key: '9223372036854775807', // INT64_MAX
+            secondary_filter: 0,
+            filter_value: null,
+            sync_group: 1,
+          }),
+          queue_name: 'trq',
+          task_id: this.genTaskId(),
+          failure_count: null,
+        },
+      ]),
     ])
   }
 
@@ -645,7 +743,7 @@ export default class InstagramWebSocket {
       group1,
       group95,
     })
-    return this.publishTask('fetch request threads', [
+    return this.publishTask('fetch initial threads', [
       {
         label: '145',
         payload: JSON.stringify({
