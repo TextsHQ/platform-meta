@@ -574,7 +574,7 @@ export default class InstagramWebSocket {
     })
   }
 
-  fetchInboxThreads() {
+  fetchInboxThreads = () => {
     const group1General = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
     const group1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
     const group95General = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL)
@@ -638,7 +638,7 @@ export default class InstagramWebSocket {
     ])
   }
 
-  fetchRequestThreads() {
+  fetchRequestThreads = () => {
     const group1 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.REQUESTS)
     const group95 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.REQUESTS)
     this.logger.info('fetchRequestThreads', {
