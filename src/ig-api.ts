@@ -66,8 +66,6 @@ export default class InstagramAPI {
     hasMoreBefore: boolean
   }
 
-  messagesHasMoreBefore: Map<string, boolean> = new Map()
-
   private readonly http = texts.createHttpClient()
 
   private async httpRequest(url: string, opts: FetchOptions) {
