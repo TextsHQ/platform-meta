@@ -186,7 +186,7 @@ export function mapThread(
     id: t.threadKey as string,
     title: threadType === 'group' && thread?.threadName,
     isUnread,
-    folderName: t.parentThreadKey === ParentThreadKey.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL,
+    folderName: t.parentThreadKey === ParentThreadKey.SPAM ? InboxName.REQUESTS : InboxName.NORMAL,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
