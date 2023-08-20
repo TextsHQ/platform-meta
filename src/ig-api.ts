@@ -696,11 +696,11 @@ export default class InstagramAPI {
   }
 
   setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
-    this.papi.kv.set(`groupThreadsRange-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
+    this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
   getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
-    const value = this.papi.kv.get(`groupThreadsRange-${syncGroup}-${parentThreadKey}`)
+    const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
     return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
   }
 

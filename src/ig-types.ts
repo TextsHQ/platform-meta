@@ -13,7 +13,7 @@ export enum ThreadFilter {
 export enum ParentThreadKey {
   PRIMARY = 0,
   GENERAL = -1,
-  REQUESTS = -3,
+  SPAM = -3,
 }
 
 export type IGThread = {

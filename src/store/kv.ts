@@ -10,7 +10,7 @@ type Key = `cursor-${SyncGroup}`
   | 'lsd'
   | 'wwwClaim'
   | 'hasTabbedInbox'
-  | `groupThreadsRange-${SyncGroup}-${ParentThreadKey}`
+  | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
   | '_lastReceivedCursor' // not used, for debugging
   | '_viewerConfig' // not used, for debugging
 
