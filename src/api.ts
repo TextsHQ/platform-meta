@@ -134,9 +134,9 @@ export default class PlatformInstagram implements PlatformAPI {
     this.logger.info('getThreads', { folderName, _folderName, pagination })
 
     const isRequests = folderName === InboxName.REQUESTS
-    await (isRequests ? this.socket.fetchRequestThreads : this.socket.fetchInboxThreads)()
+    await (isRequests ? this.socket.fetchSpamThreads : this.socket.fetchInitialThreads)()
 
-    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isRequests ? ParentThreadKey.REQUESTS : ParentThreadKey.GENERAL)
+    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isRequests ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
     const { direction = 'before' } = pagination || {}
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
@@ -151,13 +151,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
     const items = this.api.queryThreads('ALL', {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      limit: 20,
+      // limit: 20,
     })
 
     return {
       items,
-      hasMore: true,
-      oldestCursor: `${JSON.stringify(group1)}`,
+      hasMore: group1.hasMoreBefore,
+      oldestCursor: `${group1.minThreadKey}:${group1.minLastActivityTimestampMs}`,
     }
   }
 
