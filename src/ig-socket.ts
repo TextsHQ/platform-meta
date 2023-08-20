@@ -2,8 +2,7 @@ import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
-import type { MessageContent, MessageSendOptions, Thread } from '@textshq/platform-sdk'
-import { InboxName } from '@textshq/platform-sdk'
+import type { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import {
   createPromise,
   genClientContext,
@@ -18,6 +17,7 @@ import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { ParsedPayload } from './parsers'
+import { ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 
 type IGSocketTask = {
   label: string
@@ -525,7 +525,7 @@ export default class InstagramWebSocket {
 
   // used for get messages and get threads
   async publishTask<R extends {}>(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
-    const tasks = Array.isArray(_tasks) ? _tasks : [_tasks]
+    const tasks = Array.isArray(_tasks) ? _tasks.filter(Boolean) : [_tasks]
     const { epoch_id } = getTimeValues()
     const { promise, request_id } = this.createRequest<R>('_ignored', `publish task: ${tag}`)
 
@@ -574,37 +574,80 @@ export default class InstagramWebSocket {
     })
   }
 
-  fetchThreads(inbox: InboxName.NORMAL | InboxName.REQUESTS) {
-    const key = `threads-${inbox}` as const
-    if (this.papi.socket.asyncRequestResolver.has(key)) {
-      return this.papi.socket.asyncRequestResolver.get(key) as unknown as Promise<{
-        threads: Thread[]
-        hasMoreBefore: boolean
-      }>
+  fetchInitialThreads = () => this.publishTask('fetch initial threads', [
+    {
+      label: '145',
+      payload: JSON.stringify({
+        is_after: 0,
+        parent_thread_key: ParentThreadKey.GENERAL,
+        reference_thread_key: 0,
+        reference_activity_timestamp: 9999999999999,
+        additional_pages_to_fetch: 0,
+        cursor: this.papi.kv.get('cursor-1'),
+        messaging_tag: null,
+        sync_group: SyncGroup.MAIN,
+      }),
+      queue_name: 'trq',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    },
+    {
+      label: '145',
+      payload: JSON.stringify({
+        is_after: 0,
+        parent_thread_key: ParentThreadKey.GENERAL,
+        reference_thread_key: 0,
+        reference_activity_timestamp: 9999999999999,
+        additional_pages_to_fetch: 0,
+        cursor: this.papi.kv.get('cursor-95'),
+        messaging_tag: null,
+        sync_group: SyncGroup.UNKNOWN,
+      }),
+      queue_name: 'trq',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    },
+    this.papi.kv.get('hasTabbedInbox') && {
+      label: '313',
+      payload: JSON.stringify({
+        cursor: this.papi.kv.get('cursor-1'),
+        filter: ThreadFilter.PRIMARY,
+        is_after: 0,
+        parent_thread_key: ParentThreadKey.GENERAL,
+        reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+        reference_thread_key: '9223372036854775807', // INT64_MAX
+        secondary_filter: 0,
+        filter_value: '',
+        sync_group: SyncGroup.MAIN,
+      }),
+      queue_name: 'trq',
+      task_id: this.genTaskId(),
+      failure_count: null,
+    },
+  ])
+
+  fetchMoreThreads = () => {
+    if (this.papi.kv.get('hasTabbedInbox')) {
+      return Promise.all([
+        this.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
+        this.fetchMoreInboxThreads(ThreadFilter.GENERAL),
+      ])
     }
+    const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+    const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
 
-    const { resolve, promise, reject } = createPromise<{
-      threads: Thread[]
-      hasMoreBefore: boolean
-    }>()
-
-    this.papi.socket.asyncRequestResolver.set(key, { promise, resolve, reject })
-
-    const group1 = this.papi.api.getSyncGroupThreadsRange('1')
-    // const group95 = this.papi.api.getSyncGroupThreadsRange('95')
-    // const { reference_thread_key, reference_activity_timestamp } = this.getLastThreadReference() // also contains cursor and hasMoreBefore
-    this.publishTask('get -1 threads', [
+    return this.publishTask('fetch more threads', [
       {
         label: '145',
         payload: JSON.stringify({
           is_after: 0,
-          parent_thread_key: -1,
-          reference_thread_key: 0,
-          reference_activity_timestamp: 9999999999999,
+          parent_thread_key: ParentThreadKey.PRIMARY,
+          reference_thread_key: sg1Primary.minThreadKey,
+          reference_activity_timestamp: sg1Primary.minLastActivityTimestampMs,
           additional_pages_to_fetch: 0,
           cursor: this.papi.kv.get('cursor-1'),
           messaging_tag: null,
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
         }),
         queue_name: 'trq',
         task_id: this.genTaskId(),
@@ -614,56 +657,86 @@ export default class InstagramWebSocket {
         label: '145',
         payload: JSON.stringify({
           is_after: 0,
-          parent_thread_key: -1,
-          reference_thread_key: 0,
-          reference_activity_timestamp: 9999999999999,
+          parent_thread_key: ParentThreadKey.PRIMARY,
+          reference_thread_key: sg95Primary.minThreadKey,
+          reference_activity_timestamp: sg95Primary.minLastActivityTimestampMs,
           additional_pages_to_fetch: 0,
           cursor: null,
           messaging_tag: null,
-          sync_group: 95,
+          sync_group: SyncGroup.UNKNOWN,
         }),
         queue_name: 'trq',
         task_id: this.genTaskId(),
         failure_count: null,
       },
+    ])
+  }
+
+  fetchMoreInboxThreads = (filter: ThreadFilter) => {
+    const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+
+    return this.publishTask(`fetch more inbox threads (f:${filter})`, [
       {
         label: '313',
         payload: JSON.stringify({
           cursor: this.papi.kv.get('cursor-1'),
-          filter: 3,
+          filter,
           is_after: 0,
           parent_thread_key: 0,
-          reference_activity_timestamp: group1.minLastActivityTimestampMs,
-          reference_thread_key: group1.minThreadKey,
+          reference_activity_timestamp: sg1Primary.minLastActivityTimestampMs,
+          reference_thread_key: sg1Primary.minThreadKey,
           secondary_filter: 0,
           filter_value: '',
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
         }),
         queue_name: 'trq',
         task_id: this.genTaskId(),
         failure_count: null,
       },
     ])
-    this.publishTask('get threads (main)', [
+  }
+
+  fetchSpamThreads = () => {
+    const group1 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+    const group95 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.SPAM)
+    this.logger.info('fetchRequestThreads', {
+      group1,
+      group95,
+    })
+    return this.publishTask('fetch initial threads', [
       {
         label: '145',
         payload: JSON.stringify({
           is_after: 0,
-          parent_thread_key: 0,
-          reference_activity_timestamp: group1.minLastActivityTimestampMs,
-          reference_thread_key: group1.minThreadKey,
+          parent_thread_key: ParentThreadKey.SPAM,
+          reference_thread_key: '9223372036854775807', // INT64_MAX
+          reference_activity_timestamp: '9223372036854775807', // INT64_MAX
           additional_pages_to_fetch: 0,
           cursor: this.papi.kv.get('cursor-1'),
           messaging_tag: null,
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
+        }),
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      },
+      {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key: ParentThreadKey.SPAM,
+          reference_thread_key: '9223372036854775807', // INT64_MAX
+          reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+          additional_pages_to_fetch: 0,
+          cursor: this.papi.kv.get('cursor-95'),
+          messaging_tag: null,
+          sync_group: SyncGroup.UNKNOWN,
         }),
         queue_name: 'trq',
         task_id: this.genTaskId(),
         failure_count: null,
       },
     ])
-    this.logger.info('promising threads')
-    return promise
   }
 
   async requestContacts(contactIDs: string[]) {

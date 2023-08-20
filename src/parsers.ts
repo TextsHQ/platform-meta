@@ -1,7 +1,7 @@
 import type { DBParticipantInsert } from './store/schema'
 import type { IGAttachment, IGMessage, IGThread } from './ig-types'
-import { IGContact } from './ig-types'
-import { fixEmoji, getAsDate, getAsMS, getAsString, getInboxNameFromIGFolder, parseValue } from './util'
+import { IGContact, ParentThreadKey, SyncGroup } from './ig-types'
+import { fixEmoji, getAsDate, getAsMS, getAsString, parseValue } from './util'
 
 type RawItem = string[]
 
@@ -16,8 +16,8 @@ const parseMap = {
       lastReadWatermarkTimestampMs: getAsMS(a[1][1]),
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9][1],
-      folderName: getInboxNameFromIGFolder(parseValue<string>(a[10])),
-      parentThreadKey: parseValue<string>(a[35]),
+      folderName: parseValue<string>(a[10]),
+      parentThreadKey: parseValue<number>(a[35]),
       lastActivityTimestampMs: getAsMS(a[0][1]),
       snippet: a[2],
       threadName: a[3][1],
@@ -395,12 +395,27 @@ const parseMap = {
     authorityLevel: parseValue<string>(a[122]),
   }),
   upsertSyncGroupThreadsRange: (a: RawItem) => ({
-    syncGroup: parseValue<number>(a[0]),
-    parentThreadKey: parseValue<number>(a[1]),
+    syncGroup: parseValue<number>(a[0]) as SyncGroup,
+    parentThreadKey: parseValue<number>(a[1]) as ParentThreadKey,
     minLastActivityTimestampMs: parseValue<number>(a[2]),
     hasMoreBefore: a[3] as unknown as boolean,
     isLoadingBefore: a[4] as unknown as boolean,
     minThreadKey: parseValue<string>(a[5]),
+  }),
+  updateFilteredThreadsRanges: (a: RawItem) => ({
+    folderName: parseValue<string>(a[0]),
+    parentThreadKey: parseValue<string>(a[1]),
+    threadRangeFilter: parseValue<string>(a[2]),
+    minLastActivityTimestampMs: parseValue<string>(a[3]),
+    minThreadKey: parseValue<string>(a[4]),
+    secondaryThreadRangeFilter: parseValue<string>(a[7]),
+    threadRangeFilterValue: parseValue<string>(a[8]),
+  }),
+  setForwardScore: (a: RawItem) => ({
+    threadKey: parseValue<string>(a[0]),
+    messageId: parseValue<string>(a[1]),
+    timestampMs: parseValue<string>(a[2]),
+    forwardScore: parseValue<string>(a[3]),
   }),
   insertSearchResult: (a: RawItem) => ({
     // query: a[0],
@@ -572,6 +587,14 @@ const parseMap = {
   deleteThread: (a: RawItem) => ({
     raw: JSON.stringify(a),
     threadKey: parseValue<string>(a[0]),
+  }),
+  deleteThenInsertContactPresence: (a: RawItem) => ({
+    contactId: parseValue<string>(a[0]),
+    status: parseValue<string>(a[1]),
+    expirationTimestampMs: getAsMS(parseValue<string>(a[3])),
+    lastActiveTimestampMs: getAsMS(parseValue<string>(a[2])),
+    capabilities: parseValue<string>(a[4]),
+    publishId: parseValue<string>(a[5]),
   }),
 } as const
 

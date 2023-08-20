@@ -1,9 +1,119 @@
-import { eq, placeholder } from 'drizzle-orm'
+import { asc, desc, eq, placeholder } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
 import * as s from './schema'
+import { messages as messagesSchema, threads as threadsSchema } from './schema'
+import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
 
 // "sometimes Drizzle ORM you can go faster than better-sqlite3 driver"
 // https://orm.drizzle.team/docs/performance
+
+export function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
+  return db.query.threads.findMany({
+    columns: {
+      parentThreadKey: true,
+      lastActivityTimestampMs: true,
+      threadKey: true,
+      thread: true,
+      ranges: true,
+    },
+    orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
+    with: {
+      participants: {
+        columns: {
+          userId: true,
+          isAdmin: true,
+          readWatermarkTimestampMs: true,
+        },
+        with: {
+          contacts: {
+            columns: {
+              id: true,
+              name: true,
+              username: true,
+              profilePictureUrl: true,
+            },
+          },
+        },
+      },
+      messages: {
+        columns: {
+          raw: false,
+          threadKey: true,
+          messageId: true,
+          timestampMs: true,
+          senderId: true,
+          message: true,
+          primarySortKey: true,
+        },
+        with: {
+          attachments: {
+            columns: {
+              raw: false,
+              attachmentFbid: true,
+              attachment: true,
+            },
+          },
+          reactions: true,
+        },
+        orderBy: [desc(messagesSchema.primarySortKey)],
+        limit: 1,
+      },
+    },
+    ...args,
+  })
+}
+
+export type QueryThreadsResult = ReturnType<typeof queryThreads>
+
+export function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
+  return db.query.messages.findMany({
+    columns: {
+      // raw: true,
+      message: true,
+      threadKey: true,
+      messageId: true,
+      offlineThreadingId: true,
+      primarySortKey: true,
+      timestampMs: true,
+      senderId: true,
+    },
+    with: {
+      attachments: {
+        columns: {
+          raw: false,
+          attachmentFbid: true,
+          attachment: true,
+        },
+      },
+      reactions: true,
+      thread: {
+        with: {
+          participants: {
+            columns: {
+              userId: true,
+              isAdmin: true,
+              readWatermarkTimestampMs: true,
+            },
+            with: {
+              contacts: {
+                columns: {
+                  id: true,
+                  name: true,
+                  username: true,
+                  profilePictureUrl: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: [desc(messagesSchema.primarySortKey)],
+    ...args,
+  })
+}
+
+export type QueryMessagesResult = ReturnType<typeof queryMessages>
 
 export function preparedQueries(db: DrizzleDB) {
   return {

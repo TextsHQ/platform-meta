@@ -12,10 +12,10 @@ import {
 } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray, type InferModel } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
-import { hasSomeCachedData, type QueryMessagesArgs } from './store/helpers'
+import { hasSomeCachedData, type QueryMessagesArgs, QueryThreadsArgs } from './store/helpers'
 
 import * as schema from './store/schema'
-import { IGThreadInDB, messages as messagesSchema, threads as threadsSchema } from './store/schema'
+import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { ParsedPayload, parseRawPayload, ParseResult } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
@@ -23,8 +23,10 @@ import { APP_ID, DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, SHARED_HEADERS } 
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
+import { ParentThreadKey, SyncGroup } from './ig-types'
 import { createPromise, getOriginalURL, InstagramSocketServerError, parseUnicodeEscapeSequences } from './util'
-import { mapMessages, mapParticipants, mapThread } from './mappers'
+import { mapMessages, mapThread } from './mappers'
+import { queryMessages, queryThreads } from './store/queries'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -64,8 +66,6 @@ export default class InstagramAPI {
     reference_activity_timestamp: number
     hasMoreBefore: boolean
   }
-
-  messagesHasMoreBefore: Map<string, boolean> = new Map()
 
   private readonly http = texts.createHttpClient()
 
@@ -684,8 +684,8 @@ export default class InstagramAPI {
       })
     }
 
-    rawd.upsertSyncGroupThreadsRange?.forEach(t => {
-      this.papi.kv.set(`groupThreadsRange-${t.syncGroup}`, JSON.stringify(t))
+    rawd.upsertSyncGroupThreadsRange?.forEach(p => {
+      this.setSyncGroupThreadsRange(p)
     })
 
     // wait for everything to be synced before resolving
@@ -695,8 +695,12 @@ export default class InstagramAPI {
     }
   }
 
-  getSyncGroupThreadsRange(syncGroup?: '1' | '95') {
-    const value = this.papi.kv.get(`groupThreadsRange-${syncGroup}`)
+  setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
+    this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
+  }
+
+  getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
+    const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
     return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
   }
 
@@ -706,7 +710,7 @@ export default class InstagramAPI {
     const ids = new Set<string>()
     const threads = _threads.map(t => {
       ids.add(t.threadKey)
-      const { raw, threadKey, lastActivityTimestampMs, folderName, ...thread } = t
+      const { raw, threadKey, lastActivityTimestampMs, parentThreadKey, ...thread } = t
 
       // @TODO: parsers should handle this before we come here
       for (const key in thread) {
@@ -718,7 +722,7 @@ export default class InstagramAPI {
       return {
         raw,
         threadKey,
-        folderName,
+        parentThreadKey,
         lastActivityTimestampMs: new Date(lastActivityTimestampMs),
         thread: JSON.stringify(thread),
       } as const
@@ -1051,70 +1055,27 @@ export default class InstagramAPI {
     }
   }
 
-  queryThreads(threadIDs: string[] | 'ALL', inbox: InboxName.NORMAL | InboxName.REQUESTS | null = InboxName.NORMAL) {
-    const threads = this.papi.db.query.threads.findMany({
-      ...(threadIDs !== 'ALL' && { where: inArray(threadsSchema.threadKey, threadIDs) }),
-      columns: {
-        folderName: true,
-        lastActivityTimestampMs: true,
-        threadKey: true,
-        thread: true,
-        ranges: true,
-      },
-      orderBy: [asc(threadsSchema.lastActivityTimestampMs)],
-      with: {
-        participants: {
-          columns: {
-            userId: true,
-            isAdmin: true,
-            readWatermarkTimestampMs: true,
-          },
-          with: {
-            contacts: {
-              columns: {
-                id: true,
-                name: true,
-                username: true,
-                profilePictureUrl: true,
-              },
-            },
-          },
-        },
-        messages: {
-          columns: {
-            raw: false,
-            threadKey: true,
-            messageId: true,
-            timestampMs: true,
-            senderId: true,
-            message: true,
-            primarySortKey: true,
-          },
-          with: {
-            attachments: {
-              columns: {
-                raw: false,
-                attachmentFbid: true,
-                attachment: true,
-              },
-            },
-            reactions: true,
-          },
-          orderBy: [desc(messagesSchema.primarySortKey)],
-          limit: 1,
-        },
-      },
-    }).map(t => mapThread(t, this.papi.kv.get('fbid'))).filter(t => {
-      if (inbox === null) return true
-      return t.folderType === inbox
-    })
+  queryThreads(threadIdsOrWhere: string[] | 'ALL' | QueryThreadsArgs['where'], extraArgs: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit'>> = {}) {
+    let where: QueryThreadsArgs['where']
+    if (threadIdsOrWhere === 'ALL') {
+      // where = eq(threadsSchema.threadKey, threadKey)
+    } else if (Array.isArray(threadIdsOrWhere)) {
+      where = inArray(threadsSchema.threadKey, threadIdsOrWhere)
+    } else {
+      where = threadIdsOrWhere
+    }
+
+    const threads = queryThreads(this.papi.db, {
+      where,
+      ...extraArgs,
+    })?.map(t => mapThread(t, this.papi.kv.get('fbid')))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
     this.fetchContactsIfNotExist(participantIDs)
     return threads
   }
 
-  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs?: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>>): Message[] {
+  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>> = {}): Message[] {
     let where: QueryMessagesArgs['where']
     if (messageIdsOrWhere === 'ALL') {
       where = eq(messagesSchema.threadKey, threadKey)
@@ -1123,62 +1084,12 @@ export default class InstagramAPI {
     } else {
       where = messageIdsOrWhere
     }
-    const messages = this.papi.db.query.messages.findMany({
+    const messages = queryMessages(this.papi.db, {
       where,
-      columns: {
-        // raw: true,
-        message: true,
-        threadKey: true,
-        messageId: true,
-        offlineThreadingId: true,
-        primarySortKey: true,
-        timestampMs: true,
-        senderId: true,
-      },
-      with: {
-        attachments: {
-          columns: {
-            raw: false,
-            attachmentFbid: true,
-            attachment: true,
-          },
-        },
-        reactions: true,
-        thread: {
-          with: {
-            participants: {
-              columns: {
-                userId: true,
-                isAdmin: true,
-                readWatermarkTimestampMs: true,
-              },
-              with: {
-                contacts: {
-                  columns: {
-                    id: true,
-                    name: true,
-                    username: true,
-                    profilePictureUrl: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: [desc(messagesSchema.primarySortKey)],
       ...extraArgs,
     })
     if (!messages || messages.length === 0) return []
-    const { thread: t, participants } = messages[0].thread
-    const thread = JSON.parse(t) as IGThreadInDB
-    const fbid = this.papi.kv.get('fbid')
-    return mapMessages(messages, {
-      threadType: thread?.threadType === '1' ? 'single' : 'group',
-      users: mapParticipants(participants, fbid),
-      participants,
-      fbid,
-    })
+    return mapMessages(messages, this.papi.kv.get('fbid'))
   }
 
   async deleteThreadFromDB(threadKey: string) {

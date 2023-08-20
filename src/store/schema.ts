@@ -1,7 +1,6 @@
 import type { InferModel } from 'drizzle-orm'
 import { relations } from 'drizzle-orm'
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { InboxName } from '@textshq/platform-sdk'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
 export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
@@ -11,7 +10,8 @@ export const threads = sqliteTable('threads', {
   // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
   thread: text('thread'),
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
-  folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
+  // folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
+  parentThreadKey: integer('parentThreadKey'),
   raw: text('raw'),
   // hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
   ranges: text('ranges'),
@@ -30,18 +30,6 @@ export const messages = sqliteTable('messages', {
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   senderId: text('senderId').notNull(),
 })
-
-type AttachmentInJoin = {
-  attachmentFbid: string
-  attachment: string
-}
-
-export type DBMessageSelect = InferModel<typeof messages, 'select'>
-export type DBMessageSelectDefault = Pick<DBMessageSelect, 'threadKey' | 'messageId' | 'message' | 'timestampMs' | 'primarySortKey' | 'senderId'>
-export type DBMessageSelectWithAttachments = DBMessageSelectDefault & {
-  attachments: AttachmentInJoin[]
-  reactions: DBReaction[]
-}
 
 export const typingIndicators = sqliteTable('typing_indicators', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),

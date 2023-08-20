@@ -1,9 +1,11 @@
-import { AttachmentType, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
-import type { DBMessageSelectWithAttachments, DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
+import { AttachmentType, InboxName, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
+import type { DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParseResult } from './parsers'
+import { ParentThreadKey } from './ig-types'
+import { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -14,7 +16,7 @@ function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   }
 }
 
-export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][number]) {
+export function mapAttachment(a: QueryMessagesResult[number]['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
   const hasPlayableUrl = !!attachment.playableUrl
   const playableUrlMimeType = hasPlayableUrl && attachment.playableUrlMimeType
@@ -43,7 +45,7 @@ export function mapAttachment(a: DBMessageSelectWithAttachments['attachments'][n
   }
 }
 
-export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][number]) {
+export function mapReaction(r: QueryMessagesResult[number]['reactions'][number]) {
   return {
     id: r.actorId,
     reactionKey: fixEmoji(r.reaction),
@@ -53,15 +55,47 @@ export function mapReaction(r: DBMessageSelectWithAttachments['reactions'][numbe
 }
 
 export type MapMessageCommonOptions = {
-  users: Participant[] // naming seems wrong but maps to how ig client stores it
-  participants: DBParticipantSelect[]
+  // users: Participant[] // naming seems wrong but maps to how ig client stores it
+  // participants: DBParticipantSelect[]
   fbid: string
   threadType: Thread['type']
 }
 
-export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'single', participants, fbid, users }: MapMessageCommonOptions): Message {
+export function mapParticipants(_participants: DBParticipantSelect[], fbid: string) {
+  const participants: Participant[] = _participants.map(p => ({
+    id: p.contacts.id,
+    username: p.contacts.username,
+    fullName: p.contacts.name || p.contacts.username || DEFAULT_PARTICIPANT_NAME,
+    imgURL: p.contacts.profilePictureUrl,
+    isSelf: p.contacts.id === fbid,
+    displayText: p.contacts.name,
+    hasExited: false,
+    isAdmin: Boolean(p.isAdmin),
+  }))
+
+  if (participants?.length > 1) {
+    const otherParticipant = participants.findIndex(p => !p.isSelf)
+    if (otherParticipant !== 0) {
+      const item = participants[otherParticipant]
+      participants.splice(otherParticipant, 1)
+      participants.unshift(item)
+    }
+  }
+
+  return participants.filter(p => !!p?.id)
+}
+
+export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], fbid: string, _thread?: QueryThreadsResult[number]): Message {
+  // const thread = m.thread?.thread ? JSON.parse(m.thread.thread) as QueryMessagesResult[0]['thread'] : null
+  const t = ('thread' in m) ? m.thread : _thread
+
+  const participants = t?.participants || []
+  const users = mapParticipants(participants, fbid)
   const message = JSON.parse(m.message) as IGMessageInDB
   let seen: boolean | { [participantID: string]: Date } = false
+  const thread = t?.thread ? JSON.parse(t.thread) as IGThreadInDB : null
+  const threadType = thread?.threadType === '1' ? 'single' : 'group'
+
   if (threadType !== 'single') {
     seen = participants.reduce(
       (acc, p) => {
@@ -121,47 +155,15 @@ export function mapMessage(m: DBMessageSelectWithAttachments, { threadType = 'si
   }
 }
 
-export function mapMessages(messages: DBMessageSelectWithAttachments[], opts: MapMessageCommonOptions) {
+export function mapMessages(messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], fbid: string, t?: QueryThreadsResult[0]) {
   return messages.sort((m1, m2) => {
     if (m1.primarySortKey === m2.primarySortKey) return 0
     return m1.primarySortKey > m2.primarySortKey ? 1 : -1
-  }).map(m => mapMessage(m, opts))
-}
-
-export function mapParticipants(_participants: DBParticipantSelect[], fbid: string) {
-  const participants: Participant[] = _participants.map(p => ({
-    id: p.contacts.id,
-    username: p.contacts.username,
-    fullName: p.contacts.name || p.contacts.username || DEFAULT_PARTICIPANT_NAME,
-    imgURL: p.contacts.profilePictureUrl,
-    isSelf: p.contacts.id === fbid,
-    displayText: p.contacts.name,
-    hasExited: false,
-    isAdmin: Boolean(p.isAdmin),
-  }))
-
-  if (participants?.length > 1) {
-    const otherParticipant = participants.findIndex(p => !p.isSelf)
-    if (otherParticipant !== 0) {
-      const item = participants[otherParticipant]
-      participants.splice(otherParticipant, 1)
-      participants.unshift(item)
-    }
-  }
-
-  return participants.filter(p => !!p?.id)
+  }).map(m => mapMessage(m, fbid, t))
 }
 
 export function mapThread(
-  t: {
-    threadKey: string
-    thread: string
-    ranges: string
-    lastActivityTimestampMs: Date
-    folderName: string
-    messages?: DBMessageSelectWithAttachments[]
-    participants: DBParticipantSelect[]
-  },
+  t: QueryThreadsResult[0],
   fbid: string,
 ) {
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
@@ -184,7 +186,7 @@ export function mapThread(
     id: t.threadKey as string,
     title: threadType === 'group' && thread?.threadName,
     isUnread,
-    folderType: t.folderName,
+    folderName: t.parentThreadKey === ParentThreadKey.SPAM ? InboxName.REQUESTS : InboxName.NORMAL,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
@@ -199,12 +201,7 @@ export function mapThread(
       isSender: thread.snippetSenderContactId === fbid,
     },
     messages: {
-      items: mapMessages(t.messages, {
-        fbid,
-        participants: t.participants,
-        threadType,
-        users: participants,
-      }),
+      items: mapMessages(t.messages, fbid, t),
       hasMore: ranges.hasMoreBeforeFlag,
     },
   } as const
