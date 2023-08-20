@@ -634,7 +634,7 @@ export default class InstagramWebSocket {
       ])
     }
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-    const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY)
+    const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
 
     return this.publishTask('fetch more threads', [
       {
@@ -650,7 +650,7 @@ export default class InstagramWebSocket {
           sync_group: SyncGroup.MAIN,
         }),
         queue_name: 'trq',
-        task_id: 30,
+        task_id: this.genTaskId(),
         failure_count: null,
       },
       {

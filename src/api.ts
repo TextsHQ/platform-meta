@@ -162,8 +162,9 @@ export default class PlatformInstagram implements PlatformAPI {
 
     return {
       items,
-      hasMore: group1.hasMoreBefore,
-      oldestCursor: `${group1.minThreadKey}:${group1.minLastActivityTimestampMs}`,
+      hasMore: true,
+      // hasMore: group1.hasMoreBefore,
+      oldestCursor: `${group1?.minThreadKey}:${group1?.minLastActivityTimestampMs}`,
     }
   }
 
