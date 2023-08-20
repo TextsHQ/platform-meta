@@ -5,6 +5,8 @@ export type MethodReturnType<T, K extends keyof T> = T[K] extends (...args: any[
 
 export type PAPIReturn<K extends keyof PlatformAPI> = Promise<Awaited<MethodReturnType<PlatformAPI, K>>>
 
+export type RawItem = string[]
+
 export interface SerializedSession {
   jar: CookieJar.Serialized
   ua?: string

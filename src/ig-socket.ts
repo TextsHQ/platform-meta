@@ -334,6 +334,7 @@ export default class InstagramWebSocket {
     const requestId = payload.request_id ? Number(payload.request_id) : null
     const [requestType, requestResolver, requestRejector] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
     await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver, requestRejector)
+    await this.papi.api.handlePayloadV2(payload, requestId, requestType, requestResolver, requestRejector)
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {

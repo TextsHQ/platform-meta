@@ -3,11 +3,9 @@ import type { IGAttachment, IGMessage, IGThread } from './ig-types'
 import { IGContact, ParentThreadKey, SyncGroup } from './ig-types'
 import { fixEmoji, getAsDate, getAsMS, getAsString, parseValue } from './util'
 
-type RawItem = string[]
-
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
-const parseMap = {
+export const parseMap = {
   deleteThenInsertThread: (a: RawItem) => {
     const t: IGThread = {
       raw: JSON.stringify(a),
@@ -515,10 +513,6 @@ const parseMap = {
     takedownState: parseValue<string>(a[60]),
     isCollapsed: parseValue<boolean>(a[61]),
     subthreadKey: parseValue<string>(a[62]),
-  }),
-  updateThreadMuteSetting: (a: RawItem) => ({
-    threadKey: a[0][1],
-    muteExpireTimeMs: getAsMS(a[1][1]),
   }),
   syncUpdateThreadName: (a: RawItem) => ({
     threadName: a[0],
