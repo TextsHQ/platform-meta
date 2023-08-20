@@ -630,6 +630,7 @@ export default class InstagramWebSocket {
     if (this.papi.kv.get('hasTabbedInbox')) {
       return Promise.all([
         this.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
+        this.fetchMoreInboxThreads(ThreadFilter.GENERAL),
       ])
     }
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
@@ -674,7 +675,7 @@ export default class InstagramWebSocket {
   fetchMoreInboxThreads = (filter: ThreadFilter) => {
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
 
-    return this.publishTask('fetch more inbox threads', [
+    return this.publishTask(`fetch more inbox threads (f:${filter})`, [
       {
         label: '313',
         payload: JSON.stringify({

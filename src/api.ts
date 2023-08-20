@@ -133,10 +133,16 @@ export default class PlatformInstagram implements PlatformAPI {
 
     this.logger.info('getThreads', { folderName, _folderName, pagination })
 
-    const isRequests = folderName === InboxName.REQUESTS
-    await (isRequests ? this.socket.fetchSpamThreads : this.socket.fetchInitialThreads)()
+    const isSpam = folderName === InboxName.REQUESTS
+    if (isSpam) {
+      await this.socket.fetchSpamThreads()
+    } else if (pagination) {
+      await this.socket.fetchMoreThreads()
+    } else {
+      await this.socket.fetchInitialThreads()
+    }
 
-    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isRequests ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
+    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
     const { direction = 'before' } = pagination || {}
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
