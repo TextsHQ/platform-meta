@@ -34,6 +34,7 @@ import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParentThreadKey, SyncGroup } from './ig-types'
+import { QueryThreadsArgs } from './store/helpers'
 
 // const MESSAGE_PAGE_SIZE = 20
 
@@ -142,29 +143,29 @@ export default class PlatformInstagram implements PlatformAPI {
       await this.socket.fetchInitialThreads()
     }
 
-    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
-    const { direction = 'before' } = pagination || {}
+    const sg1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
+    const { direction = 'before', cursor } = pagination || {}
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
-    // const filter = directionIsBefore ? lte : gte
-    //
-    // if (cursor) {
-    //   where = and(
-    //     where,
-    //     filter(schema.threads.lastActivityTimestampMs, primarySortKey),
-    //   )
-    // }
+    const filter = directionIsBefore ? lte : gte
 
-    const items = this.api.queryThreads('ALL', {
+    let where: QueryThreadsArgs['where'] | 'ALL' = 'ALL'
+    if (cursor) {
+      const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
+      if (minLastActivityTimestampMs) {
+        where = filter(schema.threads.lastActivityTimestampMs, new Date(minLastActivityTimestampMs))
+      }
+    }
+
+    const items = this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      // limit: 20,
+      limit: 20,
     })
 
     return {
       items,
-      hasMore: true,
-      // hasMore: group1.hasMoreBefore,
-      oldestCursor: `${group1?.minThreadKey}:${group1?.minLastActivityTimestampMs}`,
+      hasMore: isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads(),
+      oldestCursor: `${sg1?.minThreadKey}:${sg1?.minLastActivityTimestampMs}`,
     }
   }
 

@@ -61,12 +61,6 @@ export default class InstagramAPI {
 
   ua: SerializedSession['ua'] = texts.constants.USER_AGENT
 
-  lastThreadReference: {
-    reference_thread_key: string
-    reference_activity_timestamp: number
-    hasMoreBefore: boolean
-  }
-
   private readonly http = texts.createHttpClient()
 
   private async httpRequest(url: string, opts: FetchOptions) {
@@ -388,15 +382,6 @@ export default class InstagramAPI {
     // add all parsed fields to the ig-api store
     if (rawd.deleteThenInsertThread) {
       const threads = rawd.deleteThenInsertThread
-      const lastThread = threads?.length > 0 ? threads[threads.length - 1] : null
-      if (lastThread && rawd.upsertSyncGroupThreadsRange?.length) {
-        this.lastThreadReference = {
-          reference_activity_timestamp: lastThread.lastActivityTimestampMs,
-          reference_thread_key: lastThread.threadKey,
-          hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore!,
-        }
-      }
-
       this.deleteThenInsertThread(threads)
     }
 
@@ -702,6 +687,24 @@ export default class InstagramAPI {
   getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
     return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
+  }
+
+  computeHasMoreThreads() {
+    const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+
+    let hasMore = primary.hasMoreBefore
+
+    if (this.papi.kv.get('hasTabbedInbox')) {
+      const general = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
+      hasMore = hasMore || general.hasMoreBefore
+    }
+
+    return hasMore
+  }
+
+  computeHasMoreSpamThreads() {
+    const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+    return values.hasMoreBefore
   }
 
   deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {

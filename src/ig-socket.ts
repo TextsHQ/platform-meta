@@ -920,13 +920,6 @@ export default class InstagramWebSocket {
     })
   }
 
-  private getLastThreadReference() {
-    return {
-      ...this.papi.api.lastThreadReference,
-      cursor: this.papi.kv.get('cursor-1'),
-    }
-  }
-
   // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
