@@ -32,9 +32,9 @@ export default class InstagramPayloadHandler {
 
   private async run() {
     this.calls.forEach(([method, args]) => {
-      const call = this.getCall(method) // @TODO: it must be a member of this class
+      const call = this.getCall(method)
       if (!call) return
-      const returns = call(args)
+      const returns = call(args) // @TODO: does not support async
       if (typeof returns === 'function') {
         this.afterCallbacks.push(returns)
       }
