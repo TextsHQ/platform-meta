@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": false
-    // "noImplicitAny": true,
+    "strict": false,
+    "noImplicitAny": true
   },
   "include": [
     "src"

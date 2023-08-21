@@ -3,12 +3,12 @@ import { eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { generateCallList, type SimpleArgType } from './ig-payload-parser'
+import { generateCallList, OperationKey, type SimpleArgType } from './ig-payload-parser'
 
 export default class InstagramPayloadHandler {
   private calls: ReturnType<typeof generateCallList>
 
-  private afterCallbacks: (() => Promise<void>)[] = []
+  private afterCallbacks: (() => Promise<void> | void)[] = []
 
   private logger = getLogger('InstagramPayloadHandler')
 
@@ -16,25 +16,38 @@ export default class InstagramPayloadHandler {
 
   constructor(papi: PlatformInstagram, data: Parameters<typeof generateCallList>[0]) {
     this.papi = papi
+    if (!data) {
+      this.logger.error('Invalid payload', {}, data)
+      throw new Error('Invalid payload')
+    }
     this.calls = generateCallList(data)
   }
 
-  async run() {
+  private getCall(method: OperationKey): ((args: SimpleArgType[]) => (() => void | Promise<void>) | void | Promise<void>) {
+    if (method in this && typeof this[method] === 'function') {
+      return this[method]
+    }
+    this.logger.error(`Method ${method} does not exist in InstagramPayloadHandler`)
+  }
+
+  private async run() {
     this.calls.forEach(([method, args]) => {
-      if (typeof this[method] !== 'function') {
-        this.logger.error(`Method ${method} does not exist in InstagramPayloadHandler`)
-        return
-      }
-      const returns = this[method](...args)
+      const call = this.getCall(method) // @TODO: it must be a member of this class
+      if (!call) return
+      const returns = call(args)
       if (typeof returns === 'function') {
         this.afterCallbacks.push(returns)
       }
     })
   }
 
-  sync = async () => {
+  private sync = async () => {
     for (const callback of this.afterCallbacks) {
-      await callback()
+      if (callback instanceof Promise) {
+        await callback
+      } else {
+        callback()
+      }
     }
   }
 
@@ -178,8 +191,20 @@ export default class InstagramPayloadHandler {
     }
   }
 
+  private upsertMessage(a: SimpleArgType[]) {
+    this.logger.debug('upsertMessage (ignored)', a)
+  }
+
+  private updateReadReceipt(a: SimpleArgType[]) {
+    this.logger.debug('updateReadReceipt (ignored)', a)
+  }
+
   private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
     this.logger.debug('executeFirstBlockForSyncTransaction (ignored)', a)
+  }
+
+  private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
+    this.logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
   }
 
   private truncateTablesForSyncGroup(a: SimpleArgType[]) {
@@ -188,5 +213,45 @@ export default class InstagramPayloadHandler {
 
   private mciTraceLog(a: SimpleArgType[]) {
     this.logger.debug('mciTraceLog (ignored)', a)
+  }
+
+  private setForwardScore(a: SimpleArgType[]) {
+    this.logger.debug('setForwardScore (ignored)', a)
+  }
+
+  private setMessageDisplayedContentTypes(a: SimpleArgType[]) {
+    this.logger.debug('setMessageDisplayedContentTypes (ignored)', a)
+  }
+
+  private insertNewMessageRange(a: SimpleArgType[]) {
+    this.logger.debug('insertNewMessageRange (ignored)', a)
+  }
+
+  private upsertSequenceId(a: SimpleArgType[]) {
+    this.logger.debug('upsertSequenceId (ignored)', a)
+  }
+
+  private taskExists(a: SimpleArgType[]) {
+    this.logger.debug('taskExists (ignored)', a)
+  }
+
+  private removeTask(a: SimpleArgType[]) {
+    this.logger.debug('removeTask (ignored)', a)
+  }
+
+  private deleteThenInsertContactPresence(a: SimpleArgType[]) {
+    this.logger.debug('deleteThenInsertContactPresence (ignored)', a)
+  }
+
+  private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
+    this.logger.debug('upsertSyncGroupThreadsRange (ignored)', a)
+  }
+
+  private upsertInboxThreadsRange(a: SimpleArgType[]) {
+    this.logger.debug('upsertInboxThreadsRange (ignored)', a)
+  }
+
+  private updateThreadsRangesV2(a: SimpleArgType[]) {
+    this.logger.debug('updateThreadsRangesV2 (ignored)', a)
   }
 }

@@ -721,10 +721,14 @@ export default class InstagramAPI {
 
       // @TODO: parsers should handle this before we come here
       for (const key in message) {
+        // @ts-expect-error
         if (typeof message[key] === 'boolean') {
+          // @ts-expect-error
           message[key] = message[key] ? 1 : 0
           // if the value of the key is [9] then set to null
+          // @ts-expect-error
         } else if (Array.isArray(message[key]) && message[key].length === 1 && message[key][0] === 9) {
+          // @ts-expect-error
           message[key] = null
         }
       }
@@ -769,7 +773,9 @@ export default class InstagramAPI {
 
       // @TODO: parsers should handle this before we come here
       for (const key in attachment) {
+        // @ts-expect-error
         if (typeof attachment[key] === 'boolean') {
+          // @ts-expect-error
           attachment[key] = attachment[key] ? 1 : 0
         }
       }
@@ -1033,7 +1039,7 @@ export default class InstagramAPI {
     const ranges = {
       ...this.getMessageRanges(r.threadKey!),
       ...r,
-      raw: undefined,
+      // raw: undefined,
     }
 
     this.papi.db.update(schema.threads).set({

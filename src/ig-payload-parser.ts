@@ -1,6 +1,6 @@
 type NumberString = `${number}`
 
-type OperationKey =
+export type OperationKey =
   | 'mciTraceLog'
   | 'executeFirstBlockForSyncTransaction'
   | 'upsertMessage'
@@ -55,6 +55,11 @@ export interface IGResponse {
 export type SimpleArgType = string | number | boolean | null | undefined
 
 export function generateCallList(payload: string) {
+  if (!payload) {
+    console.error(`Invalid payload: ${payload}`)
+    return []
+  }
+
   const calls: [OperationKey, SimpleArgType[]][] = []
 
   function transformArg(arg: unknown): SimpleArgType {

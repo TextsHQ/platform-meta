@@ -506,6 +506,7 @@ type ResultType = {
 
 function interestedOperation(operation: any[]) {
   if (operation[0] === 5 && operation[1] in parseMap) {
+    // @ts-expect-error
     return parseMap[operation[1]](operation.slice(2))
   }
 }
@@ -516,18 +517,24 @@ function recursiveParse(arr: any[]) {
     if (Array.isArray(item)) {
       const interested = interestedOperation(item)
       if (interested) {
+        // @ts-expect-error
         if (res[item[1]]) {
+          // @ts-expect-error
           res[item[1]].push(interested)
         }
+        // @ts-expect-error
         res[item[1]] = [interested]
       } else {
         const result = recursiveParse(item)
         if (Object.keys(result).length > 0) {
           //  for each key in result if the key is in res then concat the arrays
           for (const key in result) {
+            // @ts-expect-error
             if (res[key]) {
+              // @ts-expect-error
               res[key] = res[key].concat(result[key])
             } else {
+              // @ts-expect-error
               res[key] = result[key]
             }
           }

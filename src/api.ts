@@ -12,6 +12,7 @@ import type {
   NotificationsInfo,
   OnServerEventCallback,
   PaginationArg,
+  Participant,
   PlatformAPI,
   ServerEvent,
   Thread,
@@ -249,6 +250,12 @@ export default class PlatformInstagram implements PlatformAPI {
       const user = this.api.getContact(userID)
       this.pQueue.addPromise(this.socket.createThread(userID))
 
+      const participants: Participant[] = [{
+        id: userID,
+        fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
+        imgURL: user?.profilePictureUrl,
+        username: user?.username,
+      }]
       return {
         id: userID,
         title: user?.name,
@@ -256,21 +263,16 @@ export default class PlatformInstagram implements PlatformAPI {
         isUnread: false,
         isReadOnly: false,
         messages: {
-          items: [],
+          items: [] as Message[],
           hasMore: false,
         },
         participants: {
-          items: [{
-            id: userID,
-            fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
-            imgURL: user?.profilePictureUrl,
-            username: user?.username,
-          }],
+          items: participants,
           hasMore: false,
         },
         timestamp: new Date(),
         type: 'single' as const,
-      }
+      } as const
     }
 
     const resp = await this.socket.createGroupThread(userIDs)
@@ -306,12 +308,12 @@ export default class PlatformInstagram implements PlatformAPI {
 
     return {
       id: resp.threadId,
-      title: null,
-      imgURL: null,
+      // title: null,
+      // imgURL: null,
       isUnread: false,
       isReadOnly: false,
       messages: {
-        items: [],
+        items: [] as Message[],
         hasMore: false,
       },
       participants: {
@@ -320,7 +322,7 @@ export default class PlatformInstagram implements PlatformAPI {
       },
       timestamp: new Date(resp.now),
       type: 'group' as const,
-    }
+    } as const
   }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
