@@ -3,8 +3,7 @@ import { eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { getAsMS } from './util'
-import { generateCallList, SimpleArgType } from './ig-payload-parser'
+import { generateCallList, type SimpleArgType } from './ig-payload-parser'
 
 export default class InstagramPayloadHandler {
   private calls: ReturnType<typeof generateCallList>
@@ -18,43 +17,46 @@ export default class InstagramPayloadHandler {
   constructor(papi: PlatformInstagram, data: Parameters<typeof generateCallList>[0]) {
     this.papi = papi
     this.calls = generateCallList(data)
+  }
+
+  async run() {
     this.calls.forEach(([method, args]) => {
       if (typeof this[method] !== 'function') {
-        this.logger.warn(`Method ${method} does not exist in InstagramPayloadHandler`)
+        this.logger.error(`Method ${method} does not exist in InstagramPayloadHandler`)
         return
       }
       const returns = this[method](...args)
-      if (returns instanceof Promise) {
-        returns.catch(e => {
-          this.logger.error(e, { method }, `Error in method ${method}`)
-        })
-      } else if (typeof returns === 'function') {
+      if (typeof returns === 'function') {
         this.afterCallbacks.push(returns)
       }
     })
   }
 
-  public async sync() {
-    await Promise.all(this.afterCallbacks.map(cb => cb()))
+  sync = () => Promise.all(this.afterCallbacks.map(cb => cb()))
+
+  runAndSync = async () => {
+    await this.run()
+    await this.sync()
   }
 
   private deleteThenInsertThread(a: SimpleArgType[]) {
+    this.logger.debug('deleteThenInsertThread', a)
     const thread = {
       // isUnread: Number(a[0][1]) > Number(a[1][1]),
-      lastReadWatermarkTimestampMs: getAsMS(a[1]),
+      lastReadWatermarkTimestampMs: Number(a[1]),
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9],
       folderName: a[10],
       parentThreadKey: a[35],
-      lastActivityTimestampMs: getAsMS(a[0]),
+      lastActivityTimestampMs: Number(a[0]),
       snippet: a[2],
       threadPictureUrl: a[4],
       needsAdminApprovalForNewParticipant: a[5],
       threadPictureUrlFallback: a[11],
-      threadPictureUrlExpirationTimestampMs: getAsMS(a[12]),
-      removeWatermarkTimestampMs: getAsMS(a[13]),
-      muteExpireTimeMs: getAsMS(a[14]),
-      // muteCallsExpireTimeMs: getAsMS(a[15][1]),
+      threadPictureUrlExpirationTimestampMs: Number(a[12]),
+      removeWatermarkTimestampMs: Number(a[13]),
+      muteExpireTimeMs: Number(a[14]),
+      // muteCallsExpireTimeMs: Number(a[15][1]),
       groupNotificationSettings: a[16],
       isAdminSnippet: a[17],
       snippetSenderContactId: a[18],
@@ -63,7 +65,7 @@ export default class InstagramPayloadHandler {
       snippetAttribution: a[23],
       snippetAttributionStringHash: a[24],
       disappearingSettingTtl: a[25],
-      disappearingSettingUpdatedTs: getAsMS(a[26]),
+      disappearingSettingUpdatedTs: Number(a[26]),
       disappearingSettingUpdatedBy: a[27],
       cannotReplyReason: a[30],
       customEmoji: a[31],
@@ -72,8 +74,8 @@ export default class InstagramPayloadHandler {
       themeFbid: a[34],
       authorityLevel: 0,
       mailboxType: a[8],
-      muteMentionExpireTimeMs: getAsMS(a[15]),
-      muteCallsExpireTimeMs: getAsMS(a[16]),
+      muteMentionExpireTimeMs: Number(a[15]),
+      muteCallsExpireTimeMs: Number(a[16]),
       ongoingCallState: a[32][1],
       nullstateDescriptionText1: a[39],
       nullstateDescriptionType1: a[40],
@@ -102,21 +104,21 @@ export default class InstagramPayloadHandler {
       unreadDisappearingMessageCount: a[63],
       lastMessageCtaId: a[65][1],
       lastMessageCtaType: a[66][1],
-      lastMessageCtaTimestampMs: getAsMS(a[67]),
+      lastMessageCtaTimestampMs: Number(a[67]),
       consistentThreadFbid: a[68],
       threadDescription: a[70],
-      unsendLimitMs: getAsMS(a[71]),
+      unsendLimitMs: Number(a[71]),
       capabilities2: a[79],
       capabilities3: a[80],
       syncGroup: a[83],
       threadInvitesEnabled: a[84],
       threadInviteLink: a[85],
       isAllUnreadMessageMissedCallXma: a[86],
-      lastNonMissedCallXmaMessageTimestampMs: getAsMS(a[87]),
+      lastNonMissedCallXmaMessageTimestampMs: Number(a[87]),
       threadInvitesEnabledV2: a[89],
       hasPendingInvitation: a[92],
-      eventStartTimestampMs: getAsMS(a[93]),
-      eventEndTimestampMs: getAsMS(a[94]),
+      eventStartTimestampMs: Number(a[93]),
+      eventEndTimestampMs: Number(a[94]),
       takedownState: a[95],
       secondaryParentThreadKey: a[96],
       igFolder: a[97],
@@ -124,17 +126,9 @@ export default class InstagramPayloadHandler {
       threadTags: a[99],
       threadStatus: a[100],
       threadSubtype: a[101],
-      pauseThreadTimestamp: getAsMS(a[102]),
+      pauseThreadTimestamp: Number(a[102]),
       threadName: Array.isArray(a[3]) ? null : a[3],
     } as const
-
-    // @TODO: parsers should handle this before we come here
-    for (const key in thread) {
-      if (typeof thread[key] === 'boolean') {
-        thread[key] = thread[key] ? 1 : 0
-      }
-    }
-
     const threadKey = a[7] as string
 
     this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
@@ -147,6 +141,8 @@ export default class InstagramPayloadHandler {
     }).run()
 
     return async () => {
+      this.logger.debug('deleteThenInsertThread (sync)', a)
+
       const newThread = await this.papi.getThread(threadKey)
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -159,10 +155,12 @@ export default class InstagramPayloadHandler {
   }
 
   private updateThreadMuteSetting(a: SimpleArgType[]) {
+    this.logger.debug('updateThreadMuteSetting', a)
     const threadKey = a[0] as string
-    const muteExpireTimeMs = getAsMS(a[1])
+    const muteExpireTimeMs = Number(a[1])
 
     return () => {
+      this.logger.debug('updateThreadMuteSetting (sync)', a)
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',

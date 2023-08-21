@@ -6,6 +6,7 @@
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
     "build": "tsc",
+    "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "yarn lint --fix",
     "watch": "tsc --watch",

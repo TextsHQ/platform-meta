@@ -41,7 +41,7 @@ interface Payload {
   step: Step[]
 }
 
-export interface Response {
+export interface IGResponse {
   request_id: number | null
   payload: string
   sp: string[]
@@ -55,7 +55,7 @@ export interface Response {
 export type SimpleArgType = string | number | boolean | null | undefined
 
 export function generateCallList(payload: string) {
-  const calls: [string, SimpleArgType[]][] = []
+  const calls: [OperationKey, SimpleArgType[]][] = []
 
   function transformArg(arg: unknown): SimpleArgType {
     // Example: [19, "600"]
@@ -94,7 +94,7 @@ export function generateCallList(payload: string) {
       if (Array.isArray(item)) {
         // Base case: Detecting an operation step
         if (item[0] === 5 && typeof item[1] === 'string') {
-          const methodName = item[1] as string
+          const methodName = item[1] as OperationKey
           const args = item.slice(2).map(arg => transformArg(arg))
           calls.push([methodName, args])
         } else {

@@ -28,7 +28,7 @@ import { createPromise, getOriginalURL, InstagramSocketServerError, parseUnicode
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import InstagramPayloadHandler from './ig-payload-handler'
-import { Response } from './ig-payload-parser'
+import { IGResponse } from './ig-payload-parser'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -614,9 +614,9 @@ export default class InstagramAPI {
     }
   }
 
-  async handlePayloadV2(response: Response, _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
+  async handlePayloadV2(response: IGResponse, _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
     const handler = new InstagramPayloadHandler(this.papi, response.payload)
-    await handler.sync()
+    await handler.runAndSync()
   }
 
   setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
