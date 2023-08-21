@@ -305,4 +305,16 @@ export default class InstagramPayloadHandler {
   private verifyContactRowExists(a: SimpleArgType[]) {
     this.logger.debug('verifyContactRowExists (ignored)', a)
   }
+
+  private setHMPSStatus(a: SimpleArgType[]) {
+    this.logger.debug('setHMPSStatus (ignored)', a)
+  }
+
+  private upsertFolderSeenTimestamp(a: SimpleArgType[]) {
+    this.logger.debug('upsertFolderSeenTimestamp (ignored)', a)
+  }
+
+  private deleteExistingMessageRanges(a: SimpleArgType[]) {
+    this.logger.debug('deleteExistingMessageRanges (ignored)', a)
+  }
 }

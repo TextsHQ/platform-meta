@@ -19,6 +19,9 @@ export type OperationKey =
   | 'addParticipantIdToGroupThread'
   | 'verifyContactRowExists'
   | 'deleteThread'
+  | 'setHMPSStatus'
+  | 'upsertFolderSeenTimestamp'
+  | 'deleteExistingMessageRanges'
 
 type OperationStep = [
   5,
