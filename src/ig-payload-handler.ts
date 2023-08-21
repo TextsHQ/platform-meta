@@ -317,4 +317,20 @@ export default class InstagramPayloadHandler {
   private deleteExistingMessageRanges(a: SimpleArgType[]) {
     this.logger.debug('deleteExistingMessageRanges (ignored)', a)
   }
+
+  private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
+    this.logger.debug('deleteThenInsertIgThreadInfo (ignored)', a)
+  }
+
+  private writeThreadCapabilities(a: SimpleArgType[]) {
+    this.logger.debug('writeThreadCapabilities (ignored)', a)
+  }
+
+  private clearPinnedMessages(a: SimpleArgType[]) {
+    this.logger.debug('clearPinnedMessages (ignored)', a)
+  }
+
+  private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
+    this.logger.debug('deleteThenInsertMessageRequest (ignored)', a)
+  }
 }

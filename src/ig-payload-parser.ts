@@ -22,6 +22,10 @@ export type OperationKey =
   | 'setHMPSStatus'
   | 'upsertFolderSeenTimestamp'
   | 'deleteExistingMessageRanges'
+  | 'deleteThenInsertIgThreadInfo'
+  | 'writeThreadCapabilities'
+  | 'clearPinnedMessages'
+  | 'deleteThenInsertMessageRequest'
 
 type OperationStep = [
   5,
