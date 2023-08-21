@@ -38,7 +38,7 @@ export default class InstagramPayloadHandler {
     this.logger.error(`Method ${method} does not exist in InstagramPayloadHandler`)
   }
 
-  private async run() {
+  run = async () => {
     this.calls.forEach(([method, args]) => {
       const call = this.getCall(method)
       if (!call) return
@@ -49,7 +49,7 @@ export default class InstagramPayloadHandler {
     })
   }
 
-  private sync = async () => {
+  sync = async () => {
     for (const callback of this.afterCallbacks) {
       if (callback instanceof Promise) {
         await callback
@@ -66,7 +66,13 @@ export default class InstagramPayloadHandler {
           objectName: 'thread',
           objectIDs: {},
           mutationType: 'upsert',
-          entries,
+          entries: entries.map(entry => ({
+            ...entry,
+            messages: {
+              items: entry.messages.items,
+              hasMore: true,
+            },
+          })),
         }])
       }
       this.threadsToSync.clear()
@@ -246,10 +252,6 @@ export default class InstagramPayloadHandler {
     this.logger.debug('executeFirstBlockForSyncTransaction (ignored)', a)
   }
 
-  private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
-    this.logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
-  }
-
   private truncateTablesForSyncGroup(a: SimpleArgType[]) {
     this.logger.debug('truncateTablesForSyncGroup (ignored)', a)
   }
@@ -332,5 +334,113 @@ export default class InstagramPayloadHandler {
 
   private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
     this.logger.debug('deleteThenInsertMessageRequest (ignored)', a)
+  }
+
+  private updateLastSyncCompletedTimestampMsToNow(a: SimpleArgType[]) {
+    this.logger.debug('updateLastSyncCompletedTimestampMsToNow (ignored)', a)
+  }
+
+  private setMessageTextHasLinks(a: SimpleArgType[]) {
+    this.logger.debug('setMessageTextHasLinks (ignored)', a)
+  }
+
+  private updateAttachmentCtaAtIndexIgnoringAuthority(a: SimpleArgType[]) {
+    this.logger.debug('updateAttachmentCtaAtIndexIgnoringAuthority (ignored)', a)
+  }
+
+  private updateAttachmentItemCtaAtIndex(a: SimpleArgType[]) {
+    this.logger.debug('updateAttachmentItemCtaAtIndex (ignored)', a)
+  }
+
+  private deleteMessage(a: SimpleArgType[]) {
+    this.logger.debug('deleteMessage (ignored)', a)
+  }
+
+  private deleteReaction(a: SimpleArgType[]) {
+    this.logger.debug('deleteReaction (ignored)', a)
+  }
+
+  private deleteThenInsertContact(a: SimpleArgType[]) {
+    this.logger.debug('deleteThenInsertContact (ignored)', a)
+  }
+
+  private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
+    this.logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
+  }
+
+  private insertAttachmentCta(a: SimpleArgType[]) {
+    this.logger.debug('insertAttachmentCta (ignored)', a)
+  }
+
+  private insertAttachmentItem(a: SimpleArgType[]) {
+    this.logger.debug('insertAttachmentItem (ignored)', a)
+  }
+
+  private insertBlobAttachment(a: SimpleArgType[]) {
+    this.logger.debug('insertBlobAttachment (ignored)', a)
+  }
+
+  private insertMessage(a: SimpleArgType[]) {
+    this.logger.debug('insertMessage (ignored)', a)
+  }
+
+  private insertSearchResult(a: SimpleArgType[]) {
+    this.logger.debug('insertSearchResult (ignored)', a)
+  }
+
+  private insertXmaAttachment(a: SimpleArgType[]) {
+    this.logger.debug('insertXmaAttachment (ignored)', a)
+  }
+
+  private issueNewError(a: SimpleArgType[]) {
+    this.logger.debug('issueNewError (ignored)', a)
+  }
+
+  private removeOptimisticGroupThread(a: SimpleArgType[]) {
+    this.logger.debug('removeOptimisticGroupThread (ignored)', a)
+  }
+
+  private removeParticipantFromThread(a: SimpleArgType[]) {
+    this.logger.debug('removeParticipantFromThread (ignored)', a)
+  }
+
+  private replaceOptimisticThread(a: SimpleArgType[]) {
+    this.logger.debug('replaceOptimisticThread (ignored)', a)
+  }
+
+  private replaceOptimsiticMessage(a: SimpleArgType[]) {
+    this.logger.debug('replaceOptimsiticMessage (ignored)', a)
+  }
+
+  private syncUpdateThreadName(a: SimpleArgType[]) {
+    this.logger.debug('syncUpdateThreadName (ignored)', a)
+  }
+
+  private updateDeliveryReceipt(a: SimpleArgType[]) {
+    this.logger.debug('updateDeliveryReceipt (ignored)', a)
+  }
+
+  private updateFilteredThreadsRanges(a: SimpleArgType[]) {
+    this.logger.debug('updateFilteredThreadsRanges (ignored)', a)
+  }
+
+  private updateThreadParticipantAdminStatus(a: SimpleArgType[]) {
+    this.logger.debug('updateThreadParticipantAdminStatus (ignored)', a)
+  }
+
+  private upsertReaction(a: SimpleArgType[]) {
+    this.logger.debug('upsertReaction (ignored)', a)
+  }
+
+  private verifyThreadExists(a: SimpleArgType[]) {
+    this.logger.debug('verifyThreadExists (ignored)', a)
+  }
+
+  private getFirstAvailableAttachmentCTAID(a: SimpleArgType[]) {
+    this.logger.debug('getFirstAvailableAttachmentCTAID (ignored)', a)
+  }
+
+  private hasMatchingAttachmentCTA(a: SimpleArgType[]) {
+    this.logger.debug('hasMatchingAttachmentCTA (ignored)', a)
   }
 }

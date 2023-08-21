@@ -266,8 +266,8 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
     await this.handlePayloadV2(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
+    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
@@ -610,7 +610,9 @@ export default class InstagramAPI {
 
   async handlePayloadV2(response: IGResponse['payload'], _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
     const handler = new InstagramPayloadHandler(this.papi, response)
-    await handler.runAndSync()
+    await handler.run()
+
+    return handler.sync()
   }
 
   setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
