@@ -8,7 +8,7 @@ import { generateCallList, type SimpleArgType } from './ig-payload-parser'
 export default class InstagramPayloadHandler {
   private calls: ReturnType<typeof generateCallList>
 
-  private afterCallbacks: (() => void)[] = []
+  private afterCallbacks: (() => Promise<void>)[] = []
 
   private logger = getLogger('InstagramPayloadHandler')
 
@@ -32,7 +32,11 @@ export default class InstagramPayloadHandler {
     })
   }
 
-  sync = () => Promise.all(this.afterCallbacks.map(cb => cb()))
+  sync = async () => {
+    for (const callback of this.afterCallbacks) {
+      await callback()
+    }
+  }
 
   runAndSync = async () => {
     await this.run()
@@ -76,7 +80,7 @@ export default class InstagramPayloadHandler {
       mailboxType: a[8],
       muteMentionExpireTimeMs: Number(a[15]),
       muteCallsExpireTimeMs: Number(a[16]),
-      ongoingCallState: a[32][1],
+      ongoingCallState: a[32],
       nullstateDescriptionText1: a[39],
       nullstateDescriptionType1: a[40],
       nullstateDescriptionText2: a[41],
@@ -102,8 +106,8 @@ export default class InstagramPayloadHandler {
       isDisappearingMode: a[61],
       disappearingModeInitiator: a[62],
       unreadDisappearingMessageCount: a[63],
-      lastMessageCtaId: a[65][1],
-      lastMessageCtaType: a[66][1],
+      lastMessageCtaId: a[65],
+      lastMessageCtaType: a[66],
       lastMessageCtaTimestampMs: Number(a[67]),
       consistentThreadFbid: a[68],
       threadDescription: a[70],
