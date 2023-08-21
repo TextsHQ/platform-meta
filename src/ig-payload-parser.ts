@@ -72,6 +72,10 @@ export function generateCallList(payload: string) {
       return undefined
     }
 
+    if (Array.isArray(arg)) {
+      return JSON.stringify(arg)
+    }
+
     switch (typeof arg) {
       case 'boolean':
         return arg ? 1 : 0
@@ -80,7 +84,8 @@ export function generateCallList(payload: string) {
       case 'number':
         return arg
       default:
-        throw new Error('Invalid argument type')
+        console.error('Invalid argument', arg)
+        throw new Error(`Invalid argument type:  ${typeof arg}`)
     }
   }
 
