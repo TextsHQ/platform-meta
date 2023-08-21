@@ -177,4 +177,16 @@ export default class InstagramPayloadHandler {
       }])
     }
   }
+
+  private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
+    this.logger.debug('executeFirstBlockForSyncTransaction (ignored)', a)
+  }
+
+  private truncateTablesForSyncGroup(a: SimpleArgType[]) {
+    this.logger.debug('truncateTablesForSyncGroup (ignored)', a)
+  }
+
+  private mciTraceLog(a: SimpleArgType[]) {
+    this.logger.debug('mciTraceLog (ignored)', a)
+  }
 }
