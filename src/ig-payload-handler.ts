@@ -3,10 +3,16 @@ import { eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { generateCallList, OperationKey, type SimpleArgType } from './ig-payload-parser'
+import {
+  type CallList,
+  generateCallList,
+  type IGSocketPayload,
+  type OperationKey,
+  type SimpleArgType,
+} from './ig-payload-parser'
 
 export default class InstagramPayloadHandler {
-  private calls: ReturnType<typeof generateCallList>
+  private calls: CallList
 
   private afterCallbacks: (() => Promise<void> | void)[] = []
 
@@ -14,7 +20,7 @@ export default class InstagramPayloadHandler {
 
   private papi: PlatformInstagram
 
-  constructor(papi: PlatformInstagram, data: Parameters<typeof generateCallList>[0]) {
+  constructor(papi: PlatformInstagram, data: IGSocketPayload) {
     this.papi = papi
     if (!data) {
       this.logger.error('Invalid payload', {}, data)

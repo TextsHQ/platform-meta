@@ -126,3 +126,6 @@ export function generateCallList(payload: string) {
 
   return calls
 }
+
+export type CallList = ReturnType<typeof generateCallList>
+export type IGSocketPayload = Parameters<typeof generateCallList>[0]
