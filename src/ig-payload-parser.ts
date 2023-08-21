@@ -16,6 +16,9 @@ export type OperationKey =
   | 'upsertSyncGroupThreadsRange'
   | 'upsertInboxThreadsRange'
   | 'updateThreadsRangesV2'
+  | 'addParticipantIdToGroupThread'
+  | 'verifyContactRowExists'
+  | 'deleteThread'
 
 type OperationStep = [
   5,

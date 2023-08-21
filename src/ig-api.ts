@@ -267,7 +267,7 @@ export default class InstagramAPI {
       requestType: 1,
     })
     await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
-    await this.handlePayloadV2(response.data.data.lightspeed_web_request_for_igd, null, null, null, null, true)
+    await this.handlePayloadV2(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
@@ -365,12 +365,6 @@ export default class InstagramAPI {
     }
 
     if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
-
-    if (rawd.deleteThread?.length > 0) {
-      rawd.deleteThread.forEach(({ threadKey }) => {
-        this.deleteThreadFromDB(threadKey!)
-      })
-    }
 
     // updateDeliveryReceipt
 
@@ -614,8 +608,8 @@ export default class InstagramAPI {
     }
   }
 
-  async handlePayloadV2(response: IGResponse, _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
-    const handler = new InstagramPayloadHandler(this.papi, response.payload)
+  async handlePayloadV2(response: IGResponse['payload'], _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
+    const handler = new InstagramPayloadHandler(this.papi, response)
     await handler.runAndSync()
   }
 
@@ -1010,21 +1004,6 @@ export default class InstagramAPI {
     })
     if (!messages || messages.length === 0) return []
     return mapMessages(messages, this.papi.kv.get('fbid'))
-  }
-
-  async deleteThreadFromDB(threadKey: string) {
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: { threadID: threadKey! },
-      mutationType: 'delete',
-      entries: [threadKey],
-    }])
-
-    this.papi.db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
   }
 
   getMessageRanges(threadKey: string): ParseResult['insertNewMessageRange'] {

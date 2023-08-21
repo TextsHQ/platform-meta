@@ -480,10 +480,6 @@ export const parseMap = {
   updateDeliveryReceipt: (a: RawItem) => ({
     raw: JSON.stringify(a), // [19,\"1691805678773\"],[19,\"9859151144155618\"],[19,\"17844105197232431\"],[19,\"1691805679040\"]]]
   }),
-  deleteThread: (a: RawItem) => ({
-    raw: JSON.stringify(a),
-    threadKey: parseValue<string>(a[0]),
-  }),
   deleteThenInsertContactPresence: (a: RawItem) => ({
     contactId: parseValue<string>(a[0]),
     status: parseValue<string>(a[1]),

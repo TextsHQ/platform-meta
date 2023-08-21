@@ -20,6 +20,8 @@ export default class InstagramPayloadHandler {
 
   private papi: PlatformInstagram
 
+  private threadsToSync = new Set<string>()
+
   constructor(papi: PlatformInstagram, data: IGSocketPayload) {
     this.papi = papi
     if (!data) {
@@ -31,7 +33,7 @@ export default class InstagramPayloadHandler {
 
   private getCall(method: OperationKey): ((args: SimpleArgType[]) => (() => void | Promise<void>) | void | Promise<void>) {
     if (method in this && typeof this[method] === 'function') {
-      return this[method]
+      return this[method].bind(this)
     }
     this.logger.error(`Method ${method} does not exist in InstagramPayloadHandler`)
   }
@@ -54,6 +56,20 @@ export default class InstagramPayloadHandler {
       } else {
         callback()
       }
+    }
+
+    if (this.threadsToSync.size > 0) {
+      const entries = this.papi.api.queryThreads([...this.threadsToSync])
+      if (entries.length > 0) {
+        this.papi.onEvent?.([{
+          type: ServerEventType.STATE_SYNC,
+          objectName: 'thread',
+          objectIDs: {},
+          mutationType: 'upsert',
+          entries,
+        }])
+      }
+      this.threadsToSync.clear()
     }
   }
 
@@ -163,16 +179,37 @@ export default class InstagramPayloadHandler {
       thread: JSON.stringify(thread),
     }).run()
 
-    return async () => {
-      this.logger.debug('deleteThenInsertThread (sync)', a)
+    this.threadsToSync.add(threadKey)
 
-      const newThread = await this.papi.getThread(threadKey)
+    return async () => {
+      // this.logger.debug('deleteThenInsertThread (sync)', a)
+      //
+      // const newThread = await this.papi.getThread(threadKey)
+      // this.papi.onEvent?.([{
+      //   type: ServerEventType.STATE_SYNC,
+      //   objectName: 'thread',
+      //   objectIDs: {},
+      //   mutationType: 'upsert',
+      //   entries: [newThread],
+      // }])
+    }
+  }
+
+  private deleteThread(a: SimpleArgType[]) {
+    const threadID = a[0] as string
+
+    this.papi.db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadID)).run()
+    this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadID)).run()
+    this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadID)).run()
+    this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadID)).run()
+
+    return () => {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
         objectName: 'thread',
-        objectIDs: {},
-        mutationType: 'upsert',
-        entries: [newThread],
+        objectIDs: { threadID },
+        mutationType: 'delete',
+        entries: [threadID],
       }])
     }
   }
@@ -259,5 +296,13 @@ export default class InstagramPayloadHandler {
 
   private updateThreadsRangesV2(a: SimpleArgType[]) {
     this.logger.debug('updateThreadsRangesV2 (ignored)', a)
+  }
+
+  private addParticipantIdToGroupThread(a: SimpleArgType[]) {
+    this.logger.debug('addParticipantIdToGroupThread (ignored)', a)
+  }
+
+  private verifyContactRowExists(a: SimpleArgType[]) {
+    this.logger.debug('verifyContactRowExists (ignored)', a)
   }
 }
