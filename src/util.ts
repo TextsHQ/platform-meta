@@ -1,6 +1,7 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
 import { InboxName } from '@textshq/platform-sdk'
+import { SimpleArgType } from './ig-payload-parser'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -62,7 +63,7 @@ export function getAsDate(ms: string) {
   return ms ? new Date(Number(ms)) : undefined
 }
 
-export function getAsMS(ms: string) {
+export function getAsMS(ms: SimpleArgType) {
   return ms ? Number(ms) : undefined
 }
 
@@ -78,7 +79,7 @@ export function getAsNumber(value: string | (string | number)[]) {
   return null
 }
 
-export function parseValue<T extends string | number | boolean | null>(value: string | [number, string]) {
+export function parseValue<T extends SimpleArgType>(value: string | [number, string]) {
   if (
     typeof value === 'string'
       || typeof value === 'number'

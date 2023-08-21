@@ -1,80 +1,13 @@
 import { ServerEventType } from '@textshq/platform-sdk'
 import { eq } from 'drizzle-orm'
-import { RawItem } from './types'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { getAsMS } from './util'
-
-type Command = [string, unknown[]]
-
-export type IGSocketResponse = {
-  sp: string[]
-  payload: string
-}
-
-function generateCallList(data: IGSocketResponse): Command[] {
-  const calls: Command[] = []
-  const supportedCommands = data.sp
-
-  // Helper function to handle argument transformation
-  function transformArg(arg: any): any {
-    // Example: [19, "600"]
-    if (Array.isArray(arg) && arg[0] === 19) {
-      const numValue = Number(arg[1])
-      if (Number.isSafeInteger(numValue)) {
-        return numValue
-      }
-      return arg[1].toString()
-    }
-    // Example: [9]
-    if (Array.isArray(arg) && arg[0] === 9) {
-      return undefined
-    }
-    return arg
-  }
-
-  function processStep(step: any[]): void {
-    if (!step) {
-      console.error('Invalid step', step)
-      throw new Error('Invalid step!')
-    }
-    for (const item of step) {
-      if (Array.isArray(item) && item.length > 0) {
-        // Check for method call, e.g., [5, "mciTraceLog", ...]
-        if (item[0] === 5 && typeof item[1] === 'string') {
-          const methodName = item[1]
-          if (!supportedCommands.includes(methodName)) {
-            console.error(`Unsupported command: ${methodName}`)
-            continue
-          }
-
-          // Map args using the helper function
-          const args = item.slice(2).map(arg => transformArg(arg))
-          calls.push([methodName, args])
-        } else {
-          // Recursive call for nested structure
-          processStep(item)
-        }
-      }
-    }
-  }
-
-  // Extract the actual payload from the provided data
-  const internalPayload = JSON.parse(data.payload as unknown as string) as { step: any[] }
-  if (!internalPayload.step) {
-    console.error('Invalid payload', internalPayload)
-    throw new Error('Invalid payload!')
-  }
-  processStep(internalPayload.step)
-
-  return calls
-}
+import { generateCallList, SimpleArgType } from './ig-payload-parser'
 
 export default class InstagramPayloadHandler {
-  private sp: IGSocketResponse['sp']
-
-  private calls: Command[]
+  private calls: ReturnType<typeof generateCallList>
 
   private afterCallbacks: (() => void)[] = []
 
@@ -82,7 +15,7 @@ export default class InstagramPayloadHandler {
 
   private papi: PlatformInstagram
 
-  constructor(papi: PlatformInstagram, data: IGSocketResponse) {
+  constructor(papi: PlatformInstagram, data: Parameters<typeof generateCallList>[0]) {
     this.papi = papi
     this.calls = generateCallList(data)
     this.calls.forEach(([method, args]) => {
@@ -105,7 +38,7 @@ export default class InstagramPayloadHandler {
     await Promise.all(this.afterCallbacks.map(cb => cb()))
   }
 
-  private deleteThenInsertThread(a: RawItem) {
+  private deleteThenInsertThread(a: SimpleArgType[]) {
     const thread = {
       // isUnread: Number(a[0][1]) > Number(a[1][1]),
       lastReadWatermarkTimestampMs: getAsMS(a[1]),
@@ -202,7 +135,7 @@ export default class InstagramPayloadHandler {
       }
     }
 
-    const threadKey = a[7]
+    const threadKey = a[7] as string
 
     this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
     this.papi.db.insert(schema.threads).values({
@@ -225,8 +158,8 @@ export default class InstagramPayloadHandler {
     }
   }
 
-  private updateThreadMuteSetting(a: RawItem) {
-    const threadKey = a[0]
+  private updateThreadMuteSetting(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
     const muteExpireTimeMs = getAsMS(a[1])
 
     return () => {

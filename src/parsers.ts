@@ -1,113 +1,15 @@
 import type { DBParticipantInsert } from './store/schema'
-import type { IGAttachment, IGMessage, IGThread } from './ig-types'
-import { IGContact, ParentThreadKey, SyncGroup } from './ig-types'
+import type { IGAttachment, IGContact, IGMessage } from './ig-types'
+import { ParentThreadKey, SyncGroup } from './ig-types'
 import { fixEmoji, getAsDate, getAsMS, getAsString, parseValue } from './util'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
+type RawItem = string[]
 
 export const parseMap = {
-  deleteThenInsertThread: (a: RawItem) => {
-    const t: IGThread = {
-      raw: JSON.stringify(a),
-      // isUnread: Number(a[0][1]) > Number(a[1][1]),
-      threadKey: a[7][1],
-      lastReadWatermarkTimestampMs: getAsMS(a[1][1]),
-      // threadType: a[9][1] === '1' ? 'single' : 'group',
-      threadType: a[9][1],
-      folderName: parseValue<string>(a[10]),
-      parentThreadKey: parseValue<number>(a[35]),
-      lastActivityTimestampMs: getAsMS(a[0][1]),
-      snippet: a[2],
-      threadName: a[3][1],
-      threadPictureUrl: getAsString(a[4]),
-      needsAdminApprovalForNewParticipant: Boolean(a[5][1]),
-      threadPictureUrlFallback: a[11],
-      threadPictureUrlExpirationTimestampMs: getAsMS(a[12][1]),
-      removeWatermarkTimestampMs: getAsMS(a[13][1]),
-      muteExpireTimeMs: getAsMS(a[14][1]),
-      // muteCallsExpireTimeMs: getAsMS(a[15][1]),
-      groupNotificationSettings: a[16][1],
-      isAdminSnippet: Boolean(a[17][1]),
-      snippetSenderContactId: a[18][1],
-      snippetStringHash: a[21][1],
-      snippetStringArgument1: a[22][1],
-      snippetAttribution: a[23][1],
-      snippetAttributionStringHash: a[24][1],
-      disappearingSettingTtl: Number(a[25][1]),
-      disappearingSettingUpdatedTs: getAsMS(a[26][1]),
-      disappearingSettingUpdatedBy: a[27][1],
-      cannotReplyReason: a[30][1],
-      customEmoji: a[31][1],
-      customEmojiImageUrl: a[32][1],
-      outgoingBubbleColor: a[33][1],
-      themeFbid: a[34][1],
-      authorityLevel: 0,
-      mailboxType: a[8][1],
-      muteMentionExpireTimeMs: getAsMS(a[15][1]),
-      muteCallsExpireTimeMs: getAsMS(a[16][1]),
-      ongoingCallState: a[32][1],
-      nullstateDescriptionText1: a[39][1],
-      nullstateDescriptionType1: a[40][1],
-      nullstateDescriptionText2: a[41][1],
-      nullstateDescriptionType2: a[42][1],
-      nullstateDescriptionText3: a[43],
-      nullstateDescriptionType3: a[44],
-      draftMessage: a[45],
-      snippetHasEmoji: Boolean(a[46][1]),
-      hasPersistentMenu: Boolean(a[47][1]),
-      disableComposerInput: Boolean(a[48][1]),
-      cannotUnsendReason: a[49][1],
-      viewedPluginKey: a[50][1],
-      viewedPluginContext: a[51][1],
-      clientThreadKey: a[52][1],
-      capabilities: a[53],
-      shouldRoundThreadPicture: Boolean(a[54][1]),
-      proactiveWarningDismissTime: Number(a[55][1]),
-      isCustomThreadPicture: Boolean(a[56][1]),
-      otidOfFirstMessage: a[57][1],
-      normalizedSearchTerms: a[58],
-      additionalThreadContext: a[59][1],
-      disappearingThreadKey: a[60][1],
-      isDisappearingMode: Boolean(a[61][1]),
-      disappearingModeInitiator: a[62][1],
-      unreadDisappearingMessageCount: Number(a[63][1]),
-      lastMessageCtaId: a[65][1],
-      lastMessageCtaType: a[66][1],
-      lastMessageCtaTimestampMs: getAsMS(a[67][1]),
-      consistentThreadFbid: a[68][1],
-      threadDescription: a[70][1],
-      unsendLimitMs: getAsMS(a[71][1]),
-      capabilities2: a[79][1],
-      capabilities3: a[80][1],
-      syncGroup: a[83],
-      threadInvitesEnabled: Boolean(a[84]),
-      threadInviteLink: a[85],
-      isAllUnreadMessageMissedCallXma: Boolean(a[86]),
-      lastNonMissedCallXmaMessageTimestampMs: getAsMS(a[87]),
-      threadInvitesEnabledV2: Boolean(a[89]),
-      hasPendingInvitation: Boolean(a[92]),
-      eventStartTimestampMs: getAsMS(a[93]),
-      eventEndTimestampMs: getAsMS(a[94]),
-      takedownState: a[95],
-      secondaryParentThreadKey: a[96],
-      igFolder: a[97],
-      inviterId: a[98],
-      threadTags: a[99],
-      threadStatus: a[100],
-      threadSubtype: a[101],
-      pauseThreadTimestamp: getAsMS(a[102]),
-    }
-
-    if (Array.isArray(a[3])) {
-      t.threadName = null
-    } else {
-      // eslint-disable-next-line prefer-destructuring
-      t.threadName = a[3]
-    }
-
-    return t
-    // loop through the keys and if the value is
-  },
+  deleteThenInsertThread: (a: RawItem) => ({
+    threadKey: parseValue<string>(a[7]),
+  }),
   upsertMessage: (a: RawItem): IGMessage => ({
     raw: JSON.stringify(a),
     links: null,
