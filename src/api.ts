@@ -12,6 +12,7 @@ import type {
   NotificationsInfo,
   OnServerEventCallback,
   PaginationArg,
+  Participant,
   PlatformAPI,
   ServerEvent,
   Thread,
@@ -34,6 +35,7 @@ import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParentThreadKey, SyncGroup } from './ig-types'
+import { QueryThreadsArgs } from './store/helpers'
 
 // const MESSAGE_PAGE_SIZE = 20
 
@@ -142,29 +144,29 @@ export default class PlatformInstagram implements PlatformAPI {
       await this.socket.fetchInitialThreads()
     }
 
-    const group1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
-    const { direction = 'before' } = pagination || {}
+    const sg1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
+    const { direction = 'before', cursor } = pagination || {}
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
-    // const filter = directionIsBefore ? lte : gte
-    //
-    // if (cursor) {
-    //   where = and(
-    //     where,
-    //     filter(schema.threads.lastActivityTimestampMs, primarySortKey),
-    //   )
-    // }
+    const filter = directionIsBefore ? lte : gte
 
-    const items = this.api.queryThreads('ALL', {
+    let where: QueryThreadsArgs['where'] | 'ALL' = 'ALL'
+    if (cursor) {
+      const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
+      if (minLastActivityTimestampMs) {
+        where = filter(schema.threads.lastActivityTimestampMs, new Date(minLastActivityTimestampMs))
+      }
+    }
+
+    const items = this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      // limit: 20,
+      limit: 20,
     })
 
     return {
       items,
-      hasMore: true,
-      // hasMore: group1.hasMoreBefore,
-      oldestCursor: `${group1?.minThreadKey}:${group1?.minLastActivityTimestampMs}`,
+      hasMore: isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads(),
+      oldestCursor: `${sg1?.minThreadKey}:${sg1?.minLastActivityTimestampMs}`,
     }
   }
 
@@ -248,6 +250,12 @@ export default class PlatformInstagram implements PlatformAPI {
       const user = this.api.getContact(userID)
       this.pQueue.addPromise(this.socket.createThread(userID))
 
+      const participants: Participant[] = [{
+        id: userID,
+        fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
+        imgURL: user?.profilePictureUrl,
+        username: user?.username,
+      }]
       return {
         id: userID,
         title: user?.name,
@@ -255,21 +263,16 @@ export default class PlatformInstagram implements PlatformAPI {
         isUnread: false,
         isReadOnly: false,
         messages: {
-          items: [],
+          items: [] as Message[],
           hasMore: false,
         },
         participants: {
-          items: [{
-            id: userID,
-            fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
-            imgURL: user?.profilePictureUrl,
-            username: user?.username,
-          }],
+          items: participants,
           hasMore: false,
         },
         timestamp: new Date(),
         type: 'single' as const,
-      }
+      } as const
     }
 
     const resp = await this.socket.createGroupThread(userIDs)
@@ -305,12 +308,12 @@ export default class PlatformInstagram implements PlatformAPI {
 
     return {
       id: resp.threadId,
-      title: null,
-      imgURL: null,
+      // title: null,
+      // imgURL: null,
       isUnread: false,
       isReadOnly: false,
       messages: {
-        items: [],
+        items: [] as Message[],
         hasMore: false,
       },
       participants: {
@@ -319,7 +322,7 @@ export default class PlatformInstagram implements PlatformAPI {
       },
       timestamp: new Date(resp.now),
       type: 'group' as const,
-    }
+    } as const
   }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {

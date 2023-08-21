@@ -12,7 +12,7 @@ import {
 } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray, type InferModel } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
-import { hasSomeCachedData, type QueryMessagesArgs, QueryThreadsArgs } from './store/helpers'
+import { type QueryMessagesArgs, QueryThreadsArgs } from './store/helpers'
 
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
@@ -27,6 +27,8 @@ import { ParentThreadKey, SyncGroup } from './ig-types'
 import { createPromise, getOriginalURL, InstagramSocketServerError, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
+import InstagramPayloadHandler from './ig-payload-handler'
+import { IGResponse } from './ig-payload-parser'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -60,12 +62,6 @@ export default class InstagramAPI {
   jar: CookieJar
 
   ua: SerializedSession['ua'] = texts.constants.USER_AGENT
-
-  lastThreadReference: {
-    reference_thread_key: string
-    reference_activity_timestamp: number
-    hasMoreBefore: boolean
-  }
 
   private readonly http = texts.createHttpClient()
 
@@ -271,6 +267,7 @@ export default class InstagramAPI {
       requestType: 1,
     })
     await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
+    await this.handlePayloadV2(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
@@ -339,67 +336,7 @@ export default class InstagramAPI {
       }
     }
 
-    // below handles case of fixing gaps in the cache when client is offline
-    if (rawd.upsertMessage && rawd.deleteThenInsertThread && hasSomeCachedData(this.papi.db)) {
-      // for each message, check if it exists in the cache
-      // if it doesn't, call fetch more messages from the socket using the threadKey and messageID
-      // if it does, do nothing
-      for (const m of rawd.upsertMessage) {
-        // make sure thread already exists
-        const thread = this.papi.db.query.threads.findFirst({
-          where: eq(schema.threads.threadKey, m.threadKey),
-          columns: {
-            threadKey: true,
-          },
-        })
-        if (!thread) continue
-        // check if last message already in cache
-        const message = this.papi.db.query.messages.findFirst({
-          where: and(
-            eq(schema.messages.threadKey, m.threadKey),
-            eq(schema.messages.messageId, m.messageId),
-          ),
-          columns: {
-            messageId: true,
-          },
-        })
-        if (message?.messageId) continue
-        // const newestMessageCache = this.getNewestMessage(m.threadKey)
-        this.logger.info(`message ${m.messageId} does not exist in cache, calling fetchMessages`)
-        // let limit = 0
-        // while (limit < 10) {
-        //   const resp = await this.papi.socket.fetchMessages(m.threadKey, m.messageId, new Date(m.timestampMs))
-        //   if (!resp?.messages?.length) continue
-        //   // check if any of resp.messages is = to newestMessageCache.messageId
-        //   const newMessageIds = resp.messages.map(rm => rm.id)
-        //   if (newMessageIds.includes(newestMessageCache.messageId)) {
-        //     this.logger.info(`newestMessageCache ${newestMessageCache.messageId} found in fetchMessages`)
-        //     continue
-        //   }
-        //   limit++
-        // }
-        // if (limit === 10) {
-        //   // TODO delete all old messages in cache
-        // }
-      }
-    } else {
-      this.logger.info('no need to fix cache')
-    }
     // add all parsed fields to the ig-api store
-    if (rawd.deleteThenInsertThread) {
-      const threads = rawd.deleteThenInsertThread
-      const lastThread = threads?.length > 0 ? threads[threads.length - 1] : null
-      if (lastThread && rawd.upsertSyncGroupThreadsRange?.length) {
-        this.lastThreadReference = {
-          reference_activity_timestamp: lastThread.lastActivityTimestampMs,
-          reference_thread_key: lastThread.threadKey,
-          hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore!,
-        }
-      }
-
-      this.deleteThenInsertThread(threads)
-    }
-
     if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
 
     if (rawd.addParticipantIdToGroupThread) await this.addParticipantIdToGroupThread(rawd.addParticipantIdToGroupThread)
@@ -428,12 +365,6 @@ export default class InstagramAPI {
     }
 
     if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
-
-    if (rawd.deleteThread?.length > 0) {
-      rawd.deleteThread.forEach(({ threadKey }) => {
-        this.deleteThreadFromDB(threadKey!)
-      })
-    }
 
     // updateDeliveryReceipt
 
@@ -542,19 +473,12 @@ export default class InstagramAPI {
     // todo:
     // once all payloads are handled, we can emit server events and get data from the store
 
-    if (rawd.deleteThenInsertThread) {
+    if (rawd.deleteThenInsertThread) { // @deprecated
       // there are new threads to send to the platform
       this.logger.info('new threads to send to the platform')
       const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
       const threads = this.queryThreads(newThreadIds, null)
 
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: {},
-        mutationType: 'upsert',
-        entries: threads,
-      }])
       const keys = [`threads-${InboxName.NORMAL}`, `threads-${InboxName.REQUESTS}`] as const
       for (const key of keys) {
         if (this.papi.socket.asyncRequestResolver.has(key)) {
@@ -585,17 +509,6 @@ export default class InstagramAPI {
           entries: messages,
         }])
       }
-    } else if (rawd.updateThreadMuteSetting) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: {},
-        mutationType: 'update',
-        entries: [{
-          id: rawd.updateThreadMuteSetting[0].threadKey!,
-          mutedUntil: rawd.updateThreadMuteSetting[0].muteExpireTimeMs === -1 ? 'forever' : new Date(rawd.updateThreadMuteSetting[0].muteExpireTimeMs),
-        }],
-      }])
     } else if (rawd.upsertReaction) {
       this.papi.onEvent?.([{
         type: ServerEventType.STATE_SYNC,
@@ -695,6 +608,11 @@ export default class InstagramAPI {
     }
   }
 
+  async handlePayloadV2(response: IGResponse['payload'], _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
+    const handler = new InstagramPayloadHandler(this.papi, response)
+    await handler.runAndSync()
+  }
+
   setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
@@ -704,32 +622,22 @@ export default class InstagramAPI {
     return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
   }
 
-  deleteThenInsertThread(_threads: ParsedPayload['deleteThenInsertThread']) {
-    this.logger.debug('deleteThenInsertThread', _threads)
+  computeHasMoreThreads() {
+    const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
 
-    const ids = new Set<string>()
-    const threads = _threads.map(t => {
-      ids.add(t.threadKey)
-      const { raw, threadKey, lastActivityTimestampMs, parentThreadKey, ...thread } = t
+    let hasMore = primary.hasMoreBefore
 
-      // @TODO: parsers should handle this before we come here
-      for (const key in thread) {
-        if (typeof thread[key] === 'boolean') {
-          thread[key] = thread[key] ? 1 : 0
-        }
-      }
+    if (this.papi.kv.get('hasTabbedInbox')) {
+      const general = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
+      hasMore = hasMore || general.hasMoreBefore
+    }
 
-      return {
-        raw,
-        threadKey,
-        parentThreadKey,
-        lastActivityTimestampMs: new Date(lastActivityTimestampMs),
-        thread: JSON.stringify(thread),
-      } as const
-    })
+    return hasMore
+  }
 
-    this.papi.db.delete(schema.threads).where(inArray(schema.threads.threadKey, [...ids])).run()
-    this.papi.db.insert(schema.threads).values(threads).run()
+  computeHasMoreSpamThreads() {
+    const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+    return values.hasMoreBefore
   }
 
   verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
@@ -807,10 +715,14 @@ export default class InstagramAPI {
 
       // @TODO: parsers should handle this before we come here
       for (const key in message) {
+        // @ts-expect-error
         if (typeof message[key] === 'boolean') {
+          // @ts-expect-error
           message[key] = message[key] ? 1 : 0
           // if the value of the key is [9] then set to null
+          // @ts-expect-error
         } else if (Array.isArray(message[key]) && message[key].length === 1 && message[key][0] === 9) {
+          // @ts-expect-error
           message[key] = null
         }
       }
@@ -855,7 +767,9 @@ export default class InstagramAPI {
 
       // @TODO: parsers should handle this before we come here
       for (const key in attachment) {
+        // @ts-expect-error
         if (typeof attachment[key] === 'boolean') {
+          // @ts-expect-error
           attachment[key] = attachment[key] ? 1 : 0
         }
       }
@@ -1092,21 +1006,6 @@ export default class InstagramAPI {
     return mapMessages(messages, this.papi.kv.get('fbid'))
   }
 
-  async deleteThreadFromDB(threadKey: string) {
-    this.papi.onEvent?.([{
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'thread',
-      objectIDs: { threadID: threadKey! },
-      mutationType: 'delete',
-      entries: [threadKey],
-    }])
-
-    this.papi.db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadKey)).run()
-    this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
-  }
-
   getMessageRanges(threadKey: string): ParseResult['insertNewMessageRange'] {
     const thread = this.papi.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadKey),
@@ -1119,7 +1018,7 @@ export default class InstagramAPI {
     const ranges = {
       ...this.getMessageRanges(r.threadKey!),
       ...r,
-      raw: undefined,
+      // raw: undefined,
     }
 
     this.papi.db.update(schema.threads).set({

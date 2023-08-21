@@ -192,7 +192,7 @@ export default class InstagramWebSocket {
     return this.send(p)
   }
 
-  readonly send = (p: Packet) => {
+  readonly send = (p: Packet): Promise<void> | void => {
     if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
     this.logger.debug('sending', p)
     this.ws.send(mqtt.generate(p))
@@ -306,7 +306,7 @@ export default class InstagramWebSocket {
 
       await this.maybeSubscribeToDatabaseOne()
       // this.getThreads()
-    } else if (data[0] !== 0x42) {
+    } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
       this.logger.info('unhandled message (1)', data)
@@ -334,6 +334,7 @@ export default class InstagramWebSocket {
     const requestId = payload.request_id ? Number(payload.request_id) : null
     const [requestType, requestResolver, requestRejector] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
     await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver, requestRejector)
+    await this.papi.api.handlePayloadV2(payload.payload, requestId, requestType, requestResolver, requestRejector)
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
@@ -918,13 +919,6 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
-  }
-
-  private getLastThreadReference() {
-    return {
-      ...this.papi.api.lastThreadReference,
-      cursor: this.papi.kv.get('cursor-1'),
-    }
   }
 
   // not sure exactly what this does, but it's required.

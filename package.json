@@ -6,6 +6,7 @@
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
     "build": "tsc",
+    "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "yarn lint --fix",
     "watch": "tsc --watch",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
+    "@types/better-sqlite3": "^7.6.4",
     "@types/eslint": "^8.21.3",
     "@types/lodash": "4.14.196",
     "@types/node": "^18.15.8",
