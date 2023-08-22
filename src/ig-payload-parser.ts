@@ -2,6 +2,7 @@ type NumberString = `${number}`
 
 export type OperationKey =
   | 'addParticipantIdToGroupThread'
+  | 'bumpThread'
   | 'checkAuthoritativeMessageExists'
   | 'clearPinnedMessages'
   | 'computeDelayForTask'
@@ -26,6 +27,7 @@ export type OperationKey =
   | 'insertMessage'
   | 'insertNewMessageRange'
   | 'insertSearchResult'
+  | 'insertSearchSection'
   | 'insertXmaAttachment'
   | 'issueError'
   | 'issueNewError'
@@ -55,6 +57,7 @@ export type OperationKey =
   | 'updateParentFolderReadWatermark'
   | 'updateParticipantLastMessageSendTimestamp'
   | 'updateReadReceipt'
+  | 'updateSearchQueryStatus'
   | 'updateThreadParticipantAdminStatus'
   | 'updateThreadSnippet'
   | 'updateThreadsRangesV2'

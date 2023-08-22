@@ -1369,4 +1369,16 @@ export default class InstagramPayloadHandler {
     const i = { lastMessageCtaType: a[1], lastMessageCtaTimestampMs: a[2] }
     this.logger.debug('writeCTAIdToThreadsTable (ignored)', a, i)
   }
+
+  private bumpThread(a: SimpleArgType[]) {
+    this.logger.debug('bumpThread (ignored)', a)
+  }
+
+  private insertSearchSection(a: SimpleArgType[]) {
+    this.logger.debug('insertSearchSection (ignored)', a)
+  }
+
+  private updateSearchQueryStatus(a: SimpleArgType[]) {
+    this.logger.debug('updateSearchQueryStatus (ignored)', a)
+  }
 }
