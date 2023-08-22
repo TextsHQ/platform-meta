@@ -47,7 +47,7 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger = getLogger('ig-socket')
+  private logger = getLogger('socket')
 
   private mqttSid: number
 

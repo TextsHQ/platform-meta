@@ -107,10 +107,11 @@ export default class InstagramPayloadHandler {
       }
     }
 
+    let toSync: ServerEvent[] = []
     if (this.threadsToSync.size > 0) {
       const entries = this.papi.api.queryThreads([...this.threadsToSync])
       if (entries.length > 0) {
-        this.events.push({
+        toSync.push({
           type: ServerEventType.STATE_SYNC,
           objectName: 'thread',
           objectIDs: {},
@@ -135,7 +136,7 @@ export default class InstagramPayloadHandler {
       const mappedMessages = mapMessages(messages, this.papi.kv.get('fbid'))
       const groupedMessages = groupBy(mappedMessages, 'threadID')
       forEach(groupedMessages, (entries, threadID) => {
-        this.events.push({
+        toSync.push({
           type: ServerEventType.STATE_SYNC,
           objectName: 'message',
           objectIDs: { threadID },
@@ -147,7 +148,8 @@ export default class InstagramPayloadHandler {
     }
 
     if (this.events.length > 0) {
-      this.papi.onEvent([...this.events])
+      this.papi.onEvent([...toSync, ...this.events])
+      toSync = []
       this.events = []
     }
   }
