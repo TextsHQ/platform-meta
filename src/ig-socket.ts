@@ -1010,7 +1010,7 @@ export default class InstagramWebSocket {
         if (index !== -1) {
           existingPromises.splice(index, 1)
         }
-      }, 3000)
+      }, 5000)
     })
 
     const racedPromise = Promise.race([p.promise, timeoutPromise])
