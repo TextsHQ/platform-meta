@@ -109,6 +109,26 @@ export interface IGResponse {
 
 export type SimpleArgType = string | number | boolean | null | undefined
 
+const maxSafeIntStr = Number.MAX_SAFE_INTEGER.toString()
+const minSafeIntStr = Number.MIN_SAFE_INTEGER.toString()
+
+export function safeNumberOrString(input: unknown): number | string {
+  if (typeof input !== 'string' && typeof input !== 'number') return String(input)
+
+  const stringValue = input.toString()
+  const isPositive = stringValue[0] !== '-'
+  const len = stringValue.length
+
+  if (
+    (isPositive && (len < maxSafeIntStr.length || (len === maxSafeIntStr.length && stringValue <= maxSafeIntStr)))
+    || (!isPositive && (len < minSafeIntStr.length || (len === minSafeIntStr.length && stringValue >= minSafeIntStr)))
+  ) {
+    return Number(stringValue)
+  }
+
+  return stringValue
+}
+
 export function generateCallList(payload: string) {
   if (!payload) {
     console.error(`Invalid payload: ${payload}`)
@@ -120,11 +140,12 @@ export function generateCallList(payload: string) {
   function transformArg(arg: unknown): SimpleArgType {
     // Example: [19, "600"]
     if (Array.isArray(arg) && arg[0] === 19) {
-      const numValue = Number(arg[1])
-      if (Number.isSafeInteger(numValue)) {
-        return numValue
-      }
+      // const numValue = Number(arg[1])
+      // if (Number.isSafeInteger(numValue)) {
+      //   return numValue
+      // }
       return arg[1].toString()
+      // return safeNumberOrString(arg[1])
     }
 
     // Example: [9]

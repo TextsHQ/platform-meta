@@ -162,20 +162,20 @@ export default class InstagramPayloadHandler {
   private deleteThenInsertThread(a: SimpleArgType[]) {
     const thread = {
       // isUnread: Number(a[0][1]) > Number(a[1][1]),
-      lastReadWatermarkTimestampMs: Number(a[1]),
+      lastReadWatermarkTimestampMs: getAsMS(a[1]),
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9],
       folderName: a[10],
       parentThreadKey: a[35],
-      lastActivityTimestampMs: Number(a[0]),
+      lastActivityTimestampMs: getAsMS(a[0]),
       snippet: a[2],
       threadPictureUrl: a[4],
       needsAdminApprovalForNewParticipant: a[5],
       threadPictureUrlFallback: a[11],
-      threadPictureUrlExpirationTimestampMs: Number(a[12]),
-      removeWatermarkTimestampMs: Number(a[13]),
-      muteExpireTimeMs: Number(a[14]),
-      // muteCallsExpireTimeMs: Number(a[15][1]),
+      threadPictureUrlExpirationTimestampMs: getAsMS(a[12]),
+      removeWatermarkTimestampMs: getAsMS(a[13]),
+      muteExpireTimeMs: getAsMS(a[14]),
+      // muteCallsExpireTimeMs: getAsMS(a[15][1]),
       groupNotificationSettings: a[16],
       isAdminSnippet: a[17],
       snippetSenderContactId: a[18],
@@ -184,7 +184,7 @@ export default class InstagramPayloadHandler {
       snippetAttribution: a[23],
       snippetAttributionStringHash: a[24],
       disappearingSettingTtl: a[25],
-      disappearingSettingUpdatedTs: Number(a[26]),
+      disappearingSettingUpdatedTs: getAsMS(a[26]),
       disappearingSettingUpdatedBy: a[27],
       cannotReplyReason: a[30],
       customEmoji: a[31],
@@ -193,8 +193,8 @@ export default class InstagramPayloadHandler {
       themeFbid: a[34],
       authorityLevel: 0,
       mailboxType: a[8],
-      muteMentionExpireTimeMs: Number(a[15]),
-      muteCallsExpireTimeMs: Number(a[16]),
+      muteMentionExpireTimeMs: getAsMS(a[15]),
+      muteCallsExpireTimeMs: getAsMS(a[16]),
       ongoingCallState: a[32],
       nullstateDescriptionText1: a[39],
       nullstateDescriptionType1: a[40],
@@ -223,21 +223,21 @@ export default class InstagramPayloadHandler {
       unreadDisappearingMessageCount: a[63],
       lastMessageCtaId: a[65],
       lastMessageCtaType: a[66],
-      lastMessageCtaTimestampMs: Number(a[67]),
+      lastMessageCtaTimestampMs: getAsMS(a[67]),
       consistentThreadFbid: a[68],
       threadDescription: a[70],
-      unsendLimitMs: Number(a[71]),
+      unsendLimitMs: getAsMS(a[71]),
       capabilities2: a[79],
       capabilities3: a[80],
       syncGroup: a[83],
       threadInvitesEnabled: a[84],
       threadInviteLink: a[85],
       isAllUnreadMessageMissedCallXma: a[86],
-      lastNonMissedCallXmaMessageTimestampMs: Number(a[87]),
+      lastNonMissedCallXmaMessageTimestampMs: getAsMS(a[87]),
       threadInvitesEnabledV2: a[89],
       hasPendingInvitation: a[92],
-      eventStartTimestampMs: Number(a[93]),
-      eventEndTimestampMs: Number(a[94]),
+      eventStartTimestampMs: getAsMS(a[93]),
+      eventEndTimestampMs: getAsMS(a[94]),
       takedownState: a[95],
       secondaryParentThreadKey: a[96],
       igFolder: a[97],
@@ -245,7 +245,7 @@ export default class InstagramPayloadHandler {
       threadTags: a[99],
       threadStatus: a[100],
       threadSubtype: a[101],
-      pauseThreadTimestamp: Number(a[102]),
+      pauseThreadTimestamp: getAsMS(a[102]),
       threadName: Array.isArray(a[3]) ? null : a[3],
     } as const
     const threadKey = a[7] as string
@@ -300,7 +300,7 @@ export default class InstagramPayloadHandler {
   private updateThreadMuteSetting(a: SimpleArgType[]) {
     this.logger.debug('updateThreadMuteSetting', a)
     const threadKey = a[0] as string
-    const muteExpireTimeMs = Number(a[1])
+    const muteExpireTimeMs = getAsMS(a[1])
 
     return () => {
       this.events.push({
