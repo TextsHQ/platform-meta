@@ -15,7 +15,7 @@ import {
 import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL, InstagramSocketServerError } from './util'
 import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
-import { mapMessages } from './mappers'
+import { mapMessages, mapParticipants } from './mappers'
 import { queryMessages } from './store/queries'
 import { PromiseQueue } from './p-queue'
 
@@ -700,26 +700,42 @@ export default class InstagramPayloadHandler {
     }).run()
 
     return () => {
-      const p = this.papi.db.query.participants.findMany({
+      const participants = this.papi.db.query.participants.findMany({
         where: eq(schema.participants.userId, c.id),
         columns: {
           threadKey: true,
+          userId: true,
+          isAdmin: true,
+          readWatermarkTimestampMs: true,
         },
-      }).map(({ threadKey }) => threadKey)
-      if (p.length === 0) return
-
-      [...new Set(p)].forEach(threadID => {
+        with: {
+          contacts: {
+            columns: {
+              id: true,
+              name: true,
+              username: true,
+              profilePictureUrl: true,
+            },
+          },
+          thread: {
+            columns: {
+              thread: true,
+            },
+          },
+        },
+      })
+      if (participants.length === 0) return
+      const fbid = this.papi.kv.get('fbid')
+      participants.forEach(p => {
+        const isSelf = fbid === c.id
+        const isSingle = p.threadKey === c.id
+        if (isSelf && isSingle) return
         this.events.push({
           type: ServerEventType.STATE_SYNC,
-          objectIDs: { threadID },
+          objectIDs: { threadID: p.threadKey },
           objectName: 'participant',
           mutationType: 'upsert',
-          entries: [{
-            id: threadID,
-            fullName: c?.name || c?.username || DEFAULT_PARTICIPANT_NAME,
-            username: c.username,
-            imgURL: c.profilePictureUrl,
-          }],
+          entries: mapParticipants([p], fbid),
         })
       })
     }
