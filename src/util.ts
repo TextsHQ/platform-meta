@@ -1,6 +1,5 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
-import { InboxName } from '@textshq/platform-sdk'
 import { SimpleArgType } from './ig-payload-parser'
 
 export const genClientContext = () => {
@@ -67,30 +66,6 @@ export function getAsMS(ms: SimpleArgType) {
   return ms ? Number(ms) : undefined
 }
 
-export function getAsString(value: string | (string | number)[]) {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value) && value[0] === 9) return null // @TODO: 9 appears to be the type for null
-  return null
-}
-
-export function getAsNumber(value: string | (string | number)[]) {
-  if (typeof value === 'number') return value
-  if (Array.isArray(value) && value[0] === 19) return value[1] as number // @TODO: 19 appears to be the type for int
-  return null
-}
-
-export function parseValue<T extends SimpleArgType>(value: string | [number, string]) {
-  if (
-    typeof value === 'string'
-      || typeof value === 'number'
-      || typeof value === 'boolean'
-      || !Array.isArray(value)
-  ) return value as T
-  if (value[0] === 9) return null as T
-  if (value[0] === 19) return String(value[1]) as T // can be bigint
-  return value[1] as T
-}
-
 export function fixEmoji(emoji: string) {
   if (!emoji) return ''
   if (emoji === '❤') return '❤️'
@@ -122,8 +97,6 @@ export function getOriginalURL(linkURL: string) {
   if (u.length > 1) return linkURL
   return u[0]
 }
-
-export const getInboxNameFromIGFolder = (folder: string) => (folder === 'inbox' ? InboxName.NORMAL : InboxName.REQUESTS)
 
 export function parseUnicodeEscapeSequences(str: string) {
   return decodeURIComponent(JSON.parse('"' + str.replace(/\\u([\d\w]{4})/gi, (match, grp) => '\\u' + grp) + '"'))

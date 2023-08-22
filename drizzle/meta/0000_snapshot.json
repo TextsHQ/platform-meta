@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "d575b2de-f862-46c4-904c-082825bed309",
+  "id": "be41d888-7c42-4f3e-b546-ad70e00e94b7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -58,21 +58,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "attachments_messageId_messages_messageId_fk": {
-          "name": "attachments_messageId_messages_messageId_fk",
-          "tableFrom": "attachments",
-          "tableTo": "messages",
-          "columnsFrom": [
-            "messageId"
-          ],
-          "columnsTo": [
-            "messageId"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {
         "attachments_threadKey_messageId_attachmentFbid_pk": {
           "columns": [
@@ -284,21 +270,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "participants_userId_contacts_id_fk": {
-          "name": "participants_userId_contacts_id_fk",
-          "tableFrom": "participants",
-          "tableTo": "contacts",
-          "columnsFrom": [
-            "userId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {
         "participants_threadKey_userId_pk": {
           "columns": [

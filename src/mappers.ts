@@ -3,8 +3,7 @@ import type { DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { ParseResult } from './parsers'
-import { ParentThreadKey } from './ig-types'
+import { IGMessageRanges, ParentThreadKey } from './ig-types'
 import { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
@@ -165,9 +164,9 @@ export function mapMessages(messages: QueryMessagesResult | QueryThreadsResult[0
 export function mapThread(
   t: QueryThreadsResult[0],
   fbid: string,
+  ranges: IGMessageRanges,
 ) {
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
-  const ranges: ParseResult['insertNewMessageRange'] = t.ranges ? JSON.parse(t.ranges) : {}
   const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
   const participants = mapParticipants(t.participants, fbid)
 

@@ -11,7 +11,7 @@ type Key = `cursor-${SyncGroup}`
   | 'wwwClaim'
   | 'hasTabbedInbox'
   | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
-  | '_lastReceivedCursor' // not used, for debugging
+  | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
   | '_viewerConfig' // not used, for debugging
 
 type ValueType<K extends Key> =

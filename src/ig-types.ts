@@ -328,11 +328,10 @@ export type IGParsedViewerConfig = {
 }
 
 export type IGReadReceipt = {
-  raw: string
   threadKey: string
-  readWatermarkTimestampMs: number
-  readActionTimestampMs: number
   contactId: string
+  readWatermarkTimestampMs?: Date
+  readActionTimestampMs?: Date
 }
 
 export type IGContact = {
@@ -352,4 +351,23 @@ export type IGContact = {
   capabilities2: string
   contactViewerRelationship: string
   gender: string
+}
+
+export type IGMessageRanges = {
+  threadKey: string
+  minTimestamp: string
+  maxTimestamp: string
+  minMessageId?: string
+  maxMessageId?: string
+  hasMoreBeforeFlag: boolean
+  hasMoreAfterFlag: boolean
+}
+
+export type IGThreadRanges = {
+  syncGroup: SyncGroup
+  parentThreadKey: ParentThreadKey
+  minLastActivityTimestampMs: string
+  hasMoreBefore: boolean
+  isLoadingBefore: boolean
+  minThreadKey: string
 }

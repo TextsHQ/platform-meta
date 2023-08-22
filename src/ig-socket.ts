@@ -16,8 +16,8 @@ import {
 import { getLogger } from './logger'
 import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
-import { ParsedPayload } from './parsers'
-import { ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
+import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
+import { InstagramPayloadHandlerResponse } from './ig-payload-handler'
 
 type IGSocketTask = {
   label: string
@@ -28,8 +28,8 @@ type IGSocketTask = {
 }
 
 export type RequestResolverType = '_ignored' | `sendMessage-${string}` | 'sendTypingIndicator'
-export type RequestResolverResolver = (response?: any) => void
-export type RequestResolverRejector = (response?: any) => void
+export type RequestResolverResolver = (response?: InstagramPayloadHandlerResponse) => void
+export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | InstagramSocketServerError) => void
 
 const lsAppSettings = {
   qos: 1,
@@ -333,7 +333,6 @@ export default class InstagramWebSocket {
 
     const requestId = payload.request_id ? Number(payload.request_id) : null
     const [requestType, requestResolver, requestRejector] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
-    await this.papi.api.handlePayloadV2(payload.payload, requestId, requestType, requestResolver, requestRejector)
     await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver, requestRejector)
   }
 
@@ -375,12 +374,7 @@ export default class InstagramWebSocket {
 
     const hasAttachment = attachmentFbids.length > 0
 
-    const result = await this.publishTask<{
-      replaceOptimsiticMessage: {
-        offlineThreadingId: string
-        messageId: string
-      }[]
-    }>('send message', [
+    const result = await this.publishTask('send message', [
       {
         label: '46',
         payload: JSON.stringify({
@@ -416,7 +410,7 @@ export default class InstagramWebSocket {
     return {
       timestamp: new Date(now),
       offlineThreadingId: String(otid),
-      messageId: result?.replaceOptimsiticMessage?.[0]?.messageId,
+      messageId: result?.replaceOptimsiticMessage.messageId,
     }
   }
 
@@ -460,12 +454,7 @@ export default class InstagramWebSocket {
   async createGroupThread(participants: string[]) {
     const { otid, now } = getTimeValues()
     const thread_id = genClientContext()
-    const response = await this.publishTask<{
-      replaceOptimisticThread: {
-        offlineThreadingId: string
-        threadId: string
-      }
-    }>('create group thread', {
+    const response = await this.publishTask('create group thread', {
       label: '130',
       payload: JSON.stringify({
         participants,
@@ -499,24 +488,27 @@ export default class InstagramWebSocket {
   // requests that respond to a request_id
   private requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
 
-  // requests that we manually track
-  asyncRequestResolver = new Map<`messageRanges-${string}` | `threads-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }>()
-
-  messageRangesResolver = new Map<`messageRanges-${string}`, { promise: Promise<unknown>, resolve: RequestResolverResolver, reject: RequestResolverRejector }[]>()
+  messageRangesResolver = new Map<`messageRanges-${string}`, {
+    promise: Promise<unknown>
+    resolve:((r: IGMessageRanges) => void)
+    reject: RequestResolverRejector
+  }[]>()
 
   // Promise resolves to a parsed and mapped version of the response based on the type
-  private createRequest<Response extends object>(type: RequestResolverType, debugLabel?: string) {
+  private createRequest(type: RequestResolverType, debugLabel?: string) {
     const request_id = this.genRequestId()
-    const { promise, resolve, reject } = createPromise<Response>()
+    const { promise, resolve, reject } = createPromise<InstagramPayloadHandlerResponse>()
     const logPrefix = `[REQUEST #${request_id}][${type}]` + (debugLabel ? `[${debugLabel}]` : '')
     this.logger.info(logPrefix, 'sent')
-    const resolver = (response: Response) => {
+    const resolver = (response: InstagramPayloadHandlerResponse) => {
       this.logger.info(logPrefix, 'got response', response)
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    const rejector = (response: Response) => {
-      this.logger.error(new InstagramSocketServerError('REQUEST_RESOLVER_REJECTED', 'Request resolver rejected', `Payload: ${response}`), {}, response)
+    const rejector = (response: InstagramPayloadHandlerResponse | InstagramSocketServerError) => {
+      if (!(response instanceof InstagramSocketServerError)) {
+        this.logger.error(new InstagramSocketServerError('REQUEST_RESOLVER_REJECTED', 'Request resolver rejected', `Payload: ${response}`), {}, response)
+      }
       reject(response)
       this.requestResolvers.delete(request_id)
     }
@@ -525,10 +517,10 @@ export default class InstagramWebSocket {
   }
 
   // used for get messages and get threads
-  async publishTask<R extends {}>(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
+  async publishTask(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks.filter(Boolean) : [_tasks]
     const { epoch_id } = getTimeValues()
-    const { promise, request_id } = this.createRequest<R>('_ignored', `publish task: ${tag}`)
+    const { promise, request_id } = this.createRequest('_ignored', `publish task: ${tag}`)
 
     await this.send({
       cmd: 'publish',
@@ -882,18 +874,14 @@ export default class InstagramWebSocket {
     })
 
     const [primary, secondary] = await Promise.all([
-      this.publishTask<{
-        insertSearchResult: ParsedPayload['insertSearchResult']
-      }>('search users primary', {
+      this.publishTask('search users primary', {
         label: '30',
         payload,
         queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
         task_id: this.genTaskId(),
         failure_count: null,
       }),
-      this.publishTask<{
-        insertSearchResult: ParsedPayload['insertSearchResult']
-      }>('search users secondary', {
+      this.publishTask('search users secondary', {
         label: '31',
         payload,
         queue_name: JSON.stringify(['search_secondary']),

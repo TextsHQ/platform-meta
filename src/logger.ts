@@ -23,11 +23,14 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   })
 }
 
+// pretty print objects for logging
+export const pp = (obj: any) => JSON.stringify(obj, null, 2)
+
 export const getLogger = (feature = '') => {
-  const prefix = `[instagram ${feature ? `(${feature})` : ''}]`
+  const prefix = `[ig${feature ? `:${feature}` : ''}]`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
-    [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg))].join(' ')
+    [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg))].join(' ')
 
   const logger = (method: LoggerMethod, type: LoggerType) => (...args: any[]) => texts[method](formatMessage(type, ...args))
 

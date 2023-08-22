@@ -3,28 +3,26 @@ import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import {
   type FetchOptions,
-  InboxName,
   type Message,
   type MessageSendOptions,
   ServerEventType,
   texts,
   type User,
 } from '@textshq/platform-sdk'
-import { and, asc, desc, eq, inArray, type InferModel } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs } from './store/helpers'
 
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
-import { ParsedPayload, parseRawPayload, ParseResult } from './parsers'
 import { getLogger } from './logger'
 import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
-import { APP_ID, DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
+import { APP_ID, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGMessage, IGParsedViewerConfig, IGReadReceipt } from './ig-types'
-import { ParentThreadKey, SyncGroup } from './ig-types'
-import { createPromise, getOriginalURL, InstagramSocketServerError, parseUnicodeEscapeSequences } from './util'
+import type { IGAttachment, IGMessage, IGMessageRanges, IGParsedViewerConfig } from './ig-types'
+import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
+import { createPromise, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import InstagramPayloadHandler from './ig-payload-handler'
@@ -266,41 +264,19 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await this.handlePayloadV2(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
-    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, null, null, null, null, true)
+    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
 
-  async handlePayload(payload: any, requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector, isInitialRequest?: boolean) {
-    let rawd: ParsedPayload
-    this.logger.debug('handlePayload init', { isInitialRequest, requestId, requestType, payload })
-    try {
-      rawd = parseRawPayload(payload)
-    } catch (err) {
-      this.logger.error(err, {
-        // payload, // do not send, contains sensitive data
-        isInitialRequest,
-        requestId,
-        requestType,
-      }, 'handlePayload error', {
-        isInitialRequest,
-        requestId,
-        requestType,
-        payload,
-      })
-      return
-    }
-
-    this.logger.debug('handlePayload parsed payload', rawd)
+  async handlePayload(response: IGResponse['payload'], requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector) {
+    const handler = new InstagramPayloadHandler(this.papi, response)
 
     const knownRequest = requestId && requestType
-    if (knownRequest && rawd.issueNewError) {
-      const errors = rawd.issueNewError?.map(({
-        errorId,
-        errorTitle,
-        errorMessage,
-      }) => new InstagramSocketServerError(errorId, errorTitle, errorMessage))
+
+    const errors = handler.getErrors()
+    const hasErrors = errors.length > 0
+    if (knownRequest && hasErrors) {
       const [mainError, ...otherErrors] = errors || []
       if (mainError) {
         requestRejector(mainError)
@@ -322,306 +298,23 @@ export default class InstagramAPI {
       }
     }
 
-    const ignoreStateSyncForMessages = rawd.replaceOptimsiticMessage?.map(m => m.offlineThreadingId).filter(Boolean)
-    // verify ThreadExists. This check needs to happen before since if it doesn't exist, we need to call a different endpoint
-    // and return
-    if (rawd.verifyThreadExists) {
-      const thread = this.papi.db.query.threads.findFirst({
-        where: eq(schema.threads.threadKey, rawd.verifyThreadExists[0].threadKey!),
-      })
-      if (!thread) {
-        this.logger.info('thread does not exist, skipping payload and calling getThread')
-        this.papi.socket.getThread(rawd.verifyThreadExists[0].threadKey!)
-        return
-      }
-    }
-
-    // add all parsed fields to the ig-api store
-    if (rawd.verifyContactRowExists) this.verifyContactRowExists(rawd.verifyContactRowExists)
-
-    if (rawd.addParticipantIdToGroupThread) await this.addParticipantIdToGroupThread(rawd.addParticipantIdToGroupThread)
-    if (rawd.removeParticipantFromThread) this.removeParticipantFromThread(rawd.removeParticipantFromThread)
-
-    if (rawd.upsertMessage?.length > 0 || rawd.insertMessage?.length > 0) {
-      const messages = [
-        ...(rawd.upsertMessage || []),
-        ...(rawd.insertMessage || []),
-      ]
-      if (messages.length > 0) {
-        this.upsertMessage(messages)
-      }
-    }
-
-    if (rawd.upsertReaction) await this.addReactions(rawd.upsertReaction)
-
-    if (rawd.insertBlobAttachment?.length > 0 || rawd.insertXmaAttachment?.length > 0) {
-      const attachments = [
-        ...(rawd.insertBlobAttachment || []),
-        ...(rawd.insertXmaAttachment || []),
-      ]
-      if (attachments.length > 0) {
-        await this.upsertAttachments(attachments)
-      }
-    }
-
-    if (rawd.updateReadReceipt) this.updateReadReceipt(rawd.updateReadReceipt)
-
-    // updateDeliveryReceipt
-
-    rawd.insertNewMessageRange?.forEach(r => {
-      this.logger.debug(`inserting ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
-      this.setMessageRanges(r)
-    })
-
-    rawd.updateExistingMessageRange?.forEach(r => {
-      this.logger.debug(`updating ranges for thread ${r.threadKey} ${JSON.stringify(r, null, 2)}`)
-      this.setMessageRanges(r)
-    })
-
-    if (rawd.insertAttachmentCta) {
-      // query the attachment in the database
-      // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.attachments).where(eq(schema.attachments.attachmentFbid, rawd.insertAttachmentCta[0].attachmentFbid!))
-      // this.logger.info('insertAttachmentCta attachments', attachments[0])
-      for (const r of rawd.insertAttachmentCta) {
-        this.logger.info('insertAttachmentCta raw ', r)
-        // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.messages).where(eq(schema.messages.messageId, r.messageId!)).run()
-        // FIXME: ^ above doesnt work, also the below code is an atrocity
-        // ideally we would just update the field in the database without querying, parsing, updating, and reinserting the message
-        const messages = this.papi.db.query.messages.findFirst({
-          where: eq(schema.messages.messageId, r.messageId!),
-        })
-        if (r.actionUrl && r.actionUrl !== 'null') {
-          // const a = this.papi.db.query.attachments.findFirst({
-          //   where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
-          // })
-          // const attachment = JSON.parse(a.attachment) as IGAttachment
-          const mparse = JSON.parse(messages.message) as IGMessage
-
-          const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl)
-
-          this.logger.info('insertAttachmentCta mediaLink', mediaLink)
-          const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/'
-          if (mediaLink.startsWith(INSTAGRAM_PROFILE_BASE_URL)) {
-            mparse.extra = {}
-            mparse.links = [{
-              url: mediaLink,
-              title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
-            }]
-          } else if (mediaLink.startsWith(INSTAGRAM_BASE_URL)) {
-            mparse.extra = {
-              mediaLink,
-            }
-          } else {
-            mparse.links = [{
-              url: mediaLink,
-              title: mparse.replySnippet,
-            }]
-          }
-
-          const newMessage = JSON.stringify(mparse)
-          this.logger.info('insertAttachmentCta newMessage', newMessage)
-
-          this.papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
-
-          // if (r.actionUrl.startsWith('/')) {
-          //   mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
-          // } else {
-          //   mparse.links = [{ url: r.actionUrl }]
-          // }
-        }
-      }
-    }
-    if (rawd.deleteReaction) {
-      rawd.deleteReaction.forEach(r => {
-        this.papi.db.delete(schema.reactions).where(and(
-          eq(schema.reactions.threadKey, r.threadKey),
-          eq(schema.reactions.messageId, r.messageId),
-          eq(schema.reactions.actorId, r.actorId),
-        )).run()
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message_reaction',
-          objectIDs: { threadID: r.threadKey!, messageID: r.messageId! },
-          mutationType: 'delete',
-          entries: [r.actorId!],
-        }])
-      })
-    }
-
-    if (rawd.deleteMessage) {
-      rawd.deleteMessage.forEach(r => {
-        this.papi.db.delete(schema.messages).where(and(
-          eq(schema.messages.threadKey, r.threadKey),
-          eq(schema.messages.messageId, r.messageId),
-        )).run()
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: r.threadKey!, messageID: r.messageId! },
-          mutationType: 'delete',
-          entries: [r.messageId!],
-        }])
-      })
-    }
-
-    if (rawd.cursor) {
-      this.papi.kv.set('cursor-1', rawd.cursor)
-      this.papi.kv.set('_lastReceivedCursor', rawd.cursor)
-      // this.cursor = rawd.cursor
-    }
-
-    // todo:
-    // once all payloads are handled, we can emit server events and get data from the store
-
-    if (rawd.deleteThenInsertThread) { // @deprecated
-      // there are new threads to send to the platform
-      this.logger.info('new threads to send to the platform')
-      const newThreadIds = rawd.deleteThenInsertThread.map(t => t.threadKey)
-      const threads = this.queryThreads(newThreadIds, null)
-
-      const keys = [`threads-${InboxName.NORMAL}`, `threads-${InboxName.REQUESTS}`] as const
-      for (const key of keys) {
-        if (this.papi.socket.asyncRequestResolver.has(key)) {
-          const { resolve } = this.papi.socket.asyncRequestResolver.get(key)
-          this.logger.debug('resolve', key)
-          this.papi.socket.asyncRequestResolver.delete(key)
-          resolve({ threads, hasMoreBefore: rawd.upsertSyncGroupThreadsRange?.[0].hasMoreBefore })
-        }
-      }
-    } else if (rawd.insertNewMessageRange) {
-      // new messages to send to the platform since the user scrolled up in the thread
-      const newMessageIds = (rawd.upsertMessage || []).map(m => m.messageId)
-      const messages = newMessageIds.length > 0 ? this.queryMessages(rawd.insertNewMessageRange[0].threadKey!, newMessageIds) : []
-
-      const threadID = rawd.insertNewMessageRange[0].threadKey
-      this.logger.debug('rawd.insertNewMessageRange', {
-        threadID,
-        messages,
-        insertNewMessageRange: rawd.insertNewMessageRange,
-      })
-
-      if (messages?.length > 0) {
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: threadID! },
-          mutationType: 'upsert',
-          entries: messages,
-        }])
-      }
-    } else if (rawd.upsertReaction) {
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message_reaction',
-        objectIDs: {
-          threadID: rawd.upsertReaction[0].threadKey!,
-          messageID: rawd.upsertReaction[0].messageId!,
-        },
-        mutationType: 'upsert',
-        entries: [{
-          id: rawd.upsertReaction[0].actorId!,
-          reactionKey: rawd.upsertReaction[0].reaction!,
-          participantID: rawd.upsertReaction[0].actorId!,
-          emoji: true,
-        }],
-      }])
-    }
-    if (rawd.insertMessage) {
-      // new message to send to the platform
-      const rawm = rawd.insertMessage
-      if (!ignoreStateSyncForMessages.includes(rawm[0].offlineThreadingId)) {
-        const messages = this.queryMessages(rawm[0].threadKey!, [rawm[0].messageId])
-        this.logger.debug('insertMessage: queryMessages', messages)
-        if (messages?.length > 0) {
-          this.papi.onEvent?.([{
-            type: ServerEventType.STATE_SYNC,
-            objectName: 'message',
-            objectIDs: { threadID: rawm[0].threadKey! },
-            mutationType: 'upsert',
-            entries: messages,
-          }])
-        }
-      }
-    }
-
-    if (rawd.updateReadReceipt) {
-      for (const r of rawd.updateReadReceipt) {
-        if (!r.readActionTimestampMs) continue
-        const newestMessage = this.getNewestMessage(r.threadKey!)
-        this.logger.debug('updateReadReceipt: newestMessage', newestMessage)
-        const messages = this.queryMessages(r.threadKey, [newestMessage.messageId])
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID: r.threadKey! },
-          mutationType: 'update',
-          entries: messages,
-        }])
-      }
-    }
-
-    if (
-      rawd.verifyContactRowExists?.length === 1
-        && rawd.insertNewMessageRange?.length === 1
-    ) {
-      const { threadKey } = rawd.insertNewMessageRange[0]
-      const [contact] = rawd.verifyContactRowExists
-      if (String(threadKey) === String(contact.id)) {
-        this.papi.onEvent?.([{
-          type: ServerEventType.STATE_SYNC,
-          objectIDs: { threadID: threadKey! },
-          objectName: 'participant',
-          mutationType: 'upsert',
-          entries: [{
-            id: threadKey!,
-            fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
-            username: contact.username,
-            imgURL: contact.profilePictureUrl,
-          }],
-        }])
-      }
-    }
-
-    if (rawd.removeOptimisticGroupThread?.length > 0) {
-      rawd.removeOptimisticGroupThread.forEach(t => {
-        if (!t.offlineThreadingId) return
-        this.papi?.onEvent([
-          {
-            type: ServerEventType.STATE_SYNC,
-            mutationType: 'delete',
-            objectName: 'thread',
-            objectIDs: {},
-            entries: [t.offlineThreadingId],
-          },
-        ])
-      })
-    }
-
-    rawd.upsertSyncGroupThreadsRange?.forEach(p => {
-      this.setSyncGroupThreadsRange(p)
-    })
+    await handler.runAndSync()
 
     // wait for everything to be synced before resolving
-    if (knownRequest && !rawd.issueNewError) {
-      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, rawd, payload)
-      requestResolver(rawd)
+    if (knownRequest && !hasErrors) {
+      const r = handler.getResponse()
+      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, r)
+      requestResolver(r)
     }
   }
 
-  async handlePayloadV2(response: IGResponse['payload'], _requestId?: number, _requestType?: RequestResolverType, _requestResolver?: RequestResolverResolver, _requestRejector?: RequestResolverRejector, _isInitialRequest?: boolean) {
-    const handler = new InstagramPayloadHandler(this.papi, response)
-    await handler.run()
-
-    return handler.sync()
-  }
-
-  setSyncGroupThreadsRange(p: ParsedPayload['upsertSyncGroupThreadsRange'][0]) {
+  setSyncGroupThreadsRange(p: IGThreadRanges) {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
   getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
-    return value ? JSON.parse(value) as ParsedPayload['upsertSyncGroupThreadsRange'][0] : null
+    return value ? JSON.parse(value) as IGThreadRanges : null
   }
 
   computeHasMoreThreads() {
@@ -640,181 +333,6 @@ export default class InstagramAPI {
   computeHasMoreSpamThreads() {
     const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
     return values.hasMoreBefore
-  }
-
-  verifyContactRowExists(contactRows: ParsedPayload['verifyContactRowExists']) {
-    const mappedContacts = contactRows.map(c => {
-      const { id, raw, name, profilePictureUrl, username, ...contact } = c
-      return {
-        raw,
-        contact: JSON.stringify(contact),
-        id,
-        name,
-        profilePictureUrl,
-        username,
-      }
-    })
-
-    this.papi.db.transaction(tx => {
-      for (const c of mappedContacts) {
-        tx.insert(schema.contacts).values(c).onConflictDoUpdate({
-          target: schema.contacts.id,
-          set: { ...c },
-        }).run()
-      }
-    })
-  }
-
-  async addParticipantIdToGroupThread(participants: ParsedPayload['addParticipantIdToGroupThread']) {
-    participants.forEach(p => {
-      const contact = this.getContact(p.userId)
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectIDs: { threadID: p.threadKey },
-        objectName: 'participant',
-        mutationType: 'upsert',
-        entries: [{
-          id: p.userId,
-          isAdmin: p.isAdmin,
-          username: contact?.username,
-          fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
-          imgURL: contact?.profilePictureUrl,
-        }],
-      }])
-      this.papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
-        target: [schema.participants.threadKey, schema.participants.userId],
-        set: { ...p },
-      }).run()
-    })
-  }
-
-  removeParticipantFromThread(participants: ParsedPayload['removeParticipantFromThread']) {
-    participants.forEach(p => {
-      const contact = this.getContact(p.userId)
-      this.papi.onEvent?.([{
-        type: ServerEventType.STATE_SYNC,
-        objectIDs: { threadID: p.threadKey },
-        objectName: 'participant',
-        mutationType: 'upsert',
-        entries: [{
-          id: p.userId,
-          username: contact?.username,
-          fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
-          imgURL: contact?.profilePictureUrl,
-          hasExited: true,
-          isAdmin: false,
-        }],
-      }])
-      this.papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, p.threadKey)).run()
-    })
-  }
-
-  upsertMessage(_messages: ParsedPayload['insertMessage'] | ParsedPayload['upsertMessage']) {
-    this.logger.debug('upsertMessage', _messages)
-
-    const messages = _messages.filter(m => m?.threadKey !== null).map(m => {
-      const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
-
-      // @TODO: parsers should handle this before we come here
-      for (const key in message) {
-        // @ts-expect-error
-        if (typeof message[key] === 'boolean') {
-          // @ts-expect-error
-          message[key] = message[key] ? 1 : 0
-          // if the value of the key is [9] then set to null
-          // @ts-expect-error
-        } else if (Array.isArray(message[key]) && message[key].length === 1 && message[key][0] === 9) {
-          // @ts-expect-error
-          message[key] = null
-        }
-      }
-
-      return {
-        raw,
-        threadKey,
-        messageId,
-        offlineThreadingId,
-        primarySortKey,
-        timestampMs: new Date(timestampMs),
-        senderId,
-        message: JSON.stringify(message),
-      } as const
-    })
-
-    for (const m of messages) {
-      this.papi.db.insert(schema.messages).values(m).onConflictDoUpdate({
-        target: schema.messages.messageId,
-        set: { ...m },
-      }).run()
-    }
-  }
-
-  addReactions(reactions: InferModel<typeof schema['reactions'], 'insert'>[]) {
-    this.logger.debug('addReactions', reactions)
-    for (const r of reactions) {
-      this.papi.db
-        .insert(schema.reactions)
-        .values(r)
-        .onConflictDoUpdate({
-          target: [schema.reactions.threadKey, schema.reactions.messageId, schema.reactions.actorId],
-          set: { ...r },
-        })
-        .run()
-    }
-  }
-
-  upsertAttachments(_attachments: ParsedPayload['insertBlobAttachment'] | ParsedPayload['insertXmaAttachment']) {
-    const attachments = _attachments.filter(a => !Array.isArray(a.playableUrl)).map(a => {
-      const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
-
-      // @TODO: parsers should handle this before we come here
-      for (const key in attachment) {
-        // @ts-expect-error
-        if (typeof attachment[key] === 'boolean') {
-          // @ts-expect-error
-          attachment[key] = attachment[key] ? 1 : 0
-        }
-      }
-
-      return {
-        raw,
-        threadKey,
-        messageId,
-        attachmentFbid,
-        timestampMs: new Date(timestampMs),
-        offlineAttachmentId,
-        attachment: JSON.stringify(attachment),
-      } as const
-    })
-
-    if (attachments.length === 0) {
-      this.logger.error(new Error('upsertAttachments: no attachments to add'), {}, _attachments)
-      return
-    }
-
-    for (const a of attachments) {
-      this.papi.db.insert(schema.attachments).values(a).onConflictDoUpdate({
-        target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
-        set: { ...a },
-      }).run()
-    }
-  }
-
-  updateReadReceipt(readReceipts: IGReadReceipt[]) {
-    this.logger.info('addReadReceipts', readReceipts)
-    const updatedReadReceipts = readReceipts.map(r => ({
-      ...r,
-      readWatermarkTimestampMs: new Date(r.readWatermarkTimestampMs),
-      readActionTimestampMs: new Date(r.readActionTimestampMs),
-    }))
-    updatedReadReceipts.forEach(r => {
-      this.logger.info('updating read receipt', r)
-      return this.papi.db.update(schema.participants).set({ readActionTimestampMs: r.readActionTimestampMs, readWatermarkTimestampMs: r.readWatermarkTimestampMs })
-        .where(and(
-          eq(schema.participants.threadKey, r.threadKey),
-          eq(schema.participants.userId, r.contactId),
-        )).run()
-    })
   }
 
   getContact(contactId: string) {
@@ -984,7 +502,7 @@ export default class InstagramAPI {
     const threads = queryThreads(this.papi.db, {
       where,
       ...extraArgs,
-    })?.map(t => mapThread(t, this.papi.kv.get('fbid')))
+    })?.map(t => mapThread(t, this.papi.kv.get('fbid'), this.getMessageRanges(t.threadKey, t.ranges)))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
     this.fetchContactsIfNotExist(participantIDs)
@@ -1008,15 +526,16 @@ export default class InstagramAPI {
     return mapMessages(messages, this.papi.kv.get('fbid'))
   }
 
-  getMessageRanges(threadKey: string): ParseResult['insertNewMessageRange'] {
-    const thread = this.papi.db.query.threads.findFirst({
+  getMessageRanges(threadKey: string, _ranges?: string) {
+    const thread = _ranges ? { ranges: _ranges } : this.papi.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadKey),
       columns: { ranges: true },
     })
-    return thread?.ranges ? JSON.parse(thread.ranges) : {}
+    if (!thread?.ranges) return
+    return JSON.parse(thread.ranges) as IGMessageRanges
   }
 
-  setMessageRanges(r: ParseResult['insertNewMessageRange'] | ParseResult['updateExistingMessageRange']) {
+  setMessageRanges(r: IGMessageRanges) {
     const ranges = {
       ...this.getMessageRanges(r.threadKey!),
       ...r,
@@ -1034,5 +553,47 @@ export default class InstagramAPI {
       const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
       resolve(ranges)
     }
+  }
+
+  upsertAttachment(a: IGAttachment) {
+    const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
+
+    const aMapped = {
+      raw,
+      threadKey,
+      messageId,
+      attachmentFbid,
+      timestampMs: new Date(timestampMs),
+      offlineAttachmentId,
+      attachment: JSON.stringify(attachment),
+    }
+
+    this.papi.db.insert(schema.attachments).values(aMapped).onConflictDoUpdate({
+      target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
+      set: { ...aMapped },
+    }).run()
+
+    return aMapped
+  }
+
+  upsertMessage(m: IGMessage) {
+    const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
+    const _m = {
+      raw,
+      threadKey,
+      messageId,
+      offlineThreadingId,
+      primarySortKey,
+      timestampMs: new Date(timestampMs),
+      senderId,
+      message: JSON.stringify(message),
+    }
+
+    this.papi.db.insert(schema.messages).values(_m).onConflictDoUpdate({
+      target: schema.messages.messageId,
+      set: { ..._m },
+    }).run()
+
+    return m
   }
 }
