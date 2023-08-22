@@ -93,7 +93,11 @@ export default class InstagramPayloadHandler {
           this.afterCallbacks.push(returns)
         }
       } catch (e) {
-        this.logger.error(e, { method })
+        if (e instanceof InstagramSocketServerError) {
+          this.errors.push(e)
+        } else {
+          this.logger.error('failed to call method', { method }, e)
+        }
       }
     })
   }
