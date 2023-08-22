@@ -14,6 +14,16 @@ type Key = `cursor-${SyncGroup}`
   | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
   | '_viewerConfig' // not used, for debugging
 
+const CACHE_KEYS = [
+  'clientId',
+  'fb_dtsg',
+  'fbid',
+  'igUserId',
+  'lsd',
+  'wwwClaim',
+  'hasTabbedInbox',
+] as const
+
 type ValueType<K extends Key> =
   K extends 'hasTabbedInbox' ? boolean : string
 
@@ -40,6 +50,10 @@ function deserialize<K extends Key>(key: K, value: string) {
   return value as ValueType<K>
 }
 
+export function includesKey<T extends string>(array: readonly T[], item: string): item is T {
+  return array.includes(item as T)
+}
+
 export default class KeyValueStore {
   constructor(private readonly papi: Instagram) {}
 
@@ -51,7 +65,7 @@ export default class KeyValueStore {
       .values({ key, value: serializedValue })
       .onConflictDoUpdate({ target: keyValues.key, set: { value: serializedValue } })
       .run()
-    this.cache.set(key, value)
+    if (includesKey(CACHE_KEYS, key)) this.cache.set(key, value)
   }
 
   setMany(values: Partial<KeyValue>) {
@@ -60,11 +74,12 @@ export default class KeyValueStore {
     }
   }
 
-  get<K extends Key>(key: K, useCache = true): ValueType<K> | undefined {
+  get<K extends Key>(key: K) {
+    const useCache = includesKey(CACHE_KEYS, key)
     if (useCache && this.cache.has(key)) return this.cache.get(key) as ValueType<K>
     const _value = this.papi.preparedQueries.getKeyValue.get({ key })
     const value = deserialize(key, _value?.value || '')
-    this.cache.set(key, value)
+    if (useCache) this.cache.set(key, value)
     if (typeof value === 'string' && value.length === 0) return undefined
     return value as ValueType<K>
   }
