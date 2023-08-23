@@ -46,8 +46,6 @@ export default class InstagramPayloadHandler {
 
   private logger = getLogger('payload')
 
-  private papi: PlatformInstagram
-
   private threadsToSync = new Set<string>()
 
   private messagesToIgnore = new Set<string>()
@@ -62,8 +60,7 @@ export default class InstagramPayloadHandler {
 
   private events: ServerEvent[] = []
 
-  constructor(papi: PlatformInstagram, data: IGSocketPayload) {
-    this.papi = papi
+  constructor(private readonly papi: PlatformInstagram, data: IGSocketPayload) {
     if (!data) {
       this.logger.error('Invalid payload', {}, data)
       throw new Error('Invalid payload')
