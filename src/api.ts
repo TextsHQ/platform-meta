@@ -346,7 +346,9 @@ export default class PlatformInstagram implements PlatformAPI {
     await Promise.all(promises)
   }
 
-  deleteThread = (threadID: string) => this.socket.deleteThread(threadID)
+  deleteThread = async (threadID: string) => {
+    await this.socket.deleteThread(threadID)
+  }
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
     if (!text) {

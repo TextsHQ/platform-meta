@@ -1368,7 +1368,9 @@ export default class InstagramPayloadHandler {
     })
     if (!thread) {
       this.logger.info('thread does not exist, skipping payload and calling getThread')
-      this.pQueue.addPromise(this.papi.socket.getThread(threadId))
+      this.pQueue.addPromise(this.papi.socket.getThread(threadId).then(d => {
+        this.logger.debug('getThread finished', d)
+      }))
     }
   }
 
