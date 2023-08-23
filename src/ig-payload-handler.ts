@@ -782,7 +782,9 @@ export default class InstagramPayloadHandler {
   }
 
   private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
-    this.logger.debug('deleteThenInsertIgThreadInfo (ignored)', a)
+    const threadKey = a[0] as string
+    const igThreadId = a[1] as string
+    this.logger.debug('deleteThenInsertIgThreadInfo (ignored)', { threadKey, igThreadId })
   }
 
   private writeThreadCapabilities(a: SimpleArgType[]) {
@@ -1432,6 +1434,7 @@ export default class InstagramPayloadHandler {
   }
 
   private updateSearchQueryStatus(a: SimpleArgType[]) {
-    this.logger.debug('updateSearchQueryStatus (ignored)', a)
+    const s = { statusPrimary: a[2] as string, endTimeMs: a[3] as string, resultCount: a[4] as string }
+    this.logger.debug('updateSearchQueryStatus (ignored)', s, a)
   }
 }
