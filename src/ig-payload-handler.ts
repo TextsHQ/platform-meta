@@ -52,6 +52,8 @@ export default class InstagramPayloadHandler {
 
   private messagesToIgnore = new Set<string>()
 
+  private updatedThreads = new Set<string>()
+
   private responses: InstagramPayloadHandlerResponse = {
     insertSearchResult: [],
   }
@@ -127,6 +129,15 @@ export default class InstagramPayloadHandler {
       }
       this.threadsToSync.clear()
     }
+
+    this.updatedThreads.forEach(threadKey => {
+      const resolverKey = `messageRanges-${threadKey}` as const
+      const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
+      const ranges = this.papi.api.getMessageRanges(threadKey)
+      promiseEntries.forEach(({ resolve }) => {
+        resolve(ranges)
+      })
+    })
 
     if (this.events.length > 0) {
       this.papi.onEvent([...toSync, ...this.events])
@@ -606,6 +617,7 @@ export default class InstagramPayloadHandler {
     }
     this.logger.debug('insertNewMessageRange', a, msgRange)
     this.papi.api.setMessageRanges(msgRange)
+    this.updatedThreads.add(msgRange.threadKey)
   }
 
   private updateExistingMessageRange(a: SimpleArgType[]) {
@@ -622,6 +634,7 @@ export default class InstagramPayloadHandler {
 
     this.logger.debug('updateExistingMessageRange', a, msgRange)
     this.papi.api.setMessageRanges(msgRange)
+    this.updatedThreads.add(msgRange.threadKey)
   }
 
   private upsertSequenceId(a: SimpleArgType[]) {

@@ -832,7 +832,7 @@ export default class InstagramWebSocket {
   }
 
   async getThread(threadKey: string) {
-    this.publishTask('get new thread', {
+    return this.publishTask('get new thread', {
       label: '209',
       payload: JSON.stringify({
         thread_fbid: threadKey,
@@ -849,7 +849,7 @@ export default class InstagramWebSocket {
   }
 
   async deleteThread(thread_key: string) {
-    await this.publishTask('delete thread', {
+    return this.publishTask('delete thread', {
       label: '146',
       payload: JSON.stringify({
         thread_key,

@@ -546,14 +546,6 @@ export default class InstagramAPI {
     this.papi.db.update(schema.threads).set({
       ranges: JSON.stringify(ranges),
     }).where(eq(schema.threads.threadKey, r.threadKey)).run()
-
-    const resolverKey = `messageRanges-${r.threadKey}` as const
-    const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
-
-    if (promiseEntries.length > 0) {
-      // const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
-      // resolve(ranges)
-    }
   }
 
   upsertAttachment(a: IGAttachment) {
