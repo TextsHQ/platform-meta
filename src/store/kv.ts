@@ -76,7 +76,13 @@ export default class KeyValueStore {
 
   get<K extends Key>(key: K) {
     const useCache = includesKey(CACHE_KEYS, key)
-    if (useCache && this.cache.has(key)) return this.cache.get(key) as ValueType<K>
+    if (useCache && this.cache.has(key)) {
+      const cachedValue = this.cache.get(key) as ValueType<K>
+      if (
+        (typeof cachedValue === 'string' && cachedValue.length > 0)
+        || typeof cachedValue === 'boolean'
+      ) return cachedValue
+    }
     const _value = this.papi.preparedQueries.getKeyValue.get({ key })
     const value = deserialize(key, _value?.value || '')
     if (useCache) this.cache.set(key, value)
