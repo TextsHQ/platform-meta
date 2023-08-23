@@ -18,6 +18,7 @@ import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } fr
 import { mapMessages, mapParticipants } from './mappers'
 import { queryMessages } from './store/queries'
 import { PromiseQueue } from './p-queue'
+import { QueryMessageWhereSpecial } from './store/helpers'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -161,6 +162,63 @@ export default class InstagramPayloadHandler {
   runAndSync = async () => {
     await this.run()
     await this.sync()
+  }
+
+  private _syncAttachment(threadKey: string, messageId: string) {
+    const [message] = this.papi.api.queryMessages(threadKey, [messageId])
+    if (!message) return
+    this.events.push({
+      type: ServerEventType.STATE_SYNC,
+      objectIDs: { threadID: message.threadID },
+      mutationType: 'update',
+      objectName: 'message',
+      entries: [{
+        id: message.id,
+        attachments: message.attachments,
+        textHeading: message.textHeading,
+      }],
+    })
+  }
+
+  private _syncContact(contactId: string) {
+    const participants = this.papi.db.query.participants.findMany({
+      where: eq(schema.participants.userId, contactId),
+      columns: {
+        threadKey: true,
+        userId: true,
+        isAdmin: true,
+        readWatermarkTimestampMs: true,
+      },
+      with: {
+        contacts: {
+          columns: {
+            id: true,
+            name: true,
+            username: true,
+            profilePictureUrl: true,
+          },
+        },
+        thread: {
+          columns: {
+            thread: true,
+          },
+        },
+      },
+    })
+    if (participants.length === 0) return
+    const fbid = this.papi.kv.get('fbid')
+    participants.forEach(p => {
+      const isSelf = fbid === contactId
+      const isSingle = p.threadKey === contactId
+      if (isSelf && isSingle) return
+      this.events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectIDs: { threadID: p.threadKey },
+        objectName: 'participant',
+        mutationType: 'upsert',
+        entries: mapParticipants([p], fbid),
+      })
+    })
   }
 
   private deleteThenInsertThread(a: SimpleArgType[]) {
@@ -484,8 +542,16 @@ export default class InstagramPayloadHandler {
     if (!r.readActionTimestampMs) return
 
     return () => {
-      const newestMessage = this.papi.api.getNewestMessage(r.threadKey)
-      this.messagesToSync.add(newestMessage.messageId)
+      const [newestMessage] = this.papi.api.queryMessages(r.threadKey, QueryMessageWhereSpecial.NEWEST)
+      if (!newestMessage) return
+
+      this.events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message_seen',
+        mutationType: 'upsert',
+        objectIDs: { threadID: newestMessage.threadID, messageID: newestMessage.id },
+        entries: [newestMessage.seen],
+      })
     }
   }
 
@@ -704,44 +770,7 @@ export default class InstagramPayloadHandler {
     }).run()
 
     return () => {
-      const participants = this.papi.db.query.participants.findMany({
-        where: eq(schema.participants.userId, c.id),
-        columns: {
-          threadKey: true,
-          userId: true,
-          isAdmin: true,
-          readWatermarkTimestampMs: true,
-        },
-        with: {
-          contacts: {
-            columns: {
-              id: true,
-              name: true,
-              username: true,
-              profilePictureUrl: true,
-            },
-          },
-          thread: {
-            columns: {
-              thread: true,
-            },
-          },
-        },
-      })
-      if (participants.length === 0) return
-      const fbid = this.papi.kv.get('fbid')
-      participants.forEach(p => {
-        const isSelf = fbid === c.id
-        const isSingle = p.threadKey === c.id
-        if (isSelf && isSingle) return
-        this.events.push({
-          type: ServerEventType.STATE_SYNC,
-          objectIDs: { threadID: p.threadKey },
-          objectName: 'participant',
-          mutationType: 'upsert',
-          entries: mapParticipants([p], fbid),
-        })
-      })
+      // this._syncContact(contactId)
     }
   }
 
@@ -1026,7 +1055,10 @@ export default class InstagramPayloadHandler {
     }
     this.logger.debug('insertBlobAttachment', a, ba)
     const { messageId } = this.papi.api.upsertAttachment(ba)
-    this.messagesToSync.add(messageId)
+
+    return () => {
+      this._syncAttachment(ba.threadKey, messageId)
+    }
   }
 
   private insertXmaAttachment(a: SimpleArgType[]) {
@@ -1146,7 +1178,9 @@ export default class InstagramPayloadHandler {
     }
     this.logger.debug('insertXmaAttachment', a, ba)
     const { messageId } = this.papi.api.upsertAttachment(ba)
-    this.messagesToSync.add(messageId)
+    return () => {
+      this._syncAttachment(ba.threadKey, messageId)
+    }
   }
 
   private insertSearchResult(a: SimpleArgType[]) {

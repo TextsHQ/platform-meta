@@ -11,7 +11,7 @@ import {
 } from '@textshq/platform-sdk'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
-import { type QueryMessagesArgs, QueryThreadsArgs } from './store/helpers'
+import { type QueryMessagesArgs, QueryMessageWhereSpecial, QueryThreadsArgs } from './store/helpers'
 
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
@@ -264,15 +264,15 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload)
+    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, 'initial')
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
 
-  async handlePayload(response: IGResponse['payload'], requestId?: number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector) {
+  async handlePayload(response: IGResponse['payload'], requestId: 'initial' | number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector) {
     const handler = new InstagramPayloadHandler(this.papi, response)
 
-    const knownRequest = requestId && requestType
+    const knownRequest = requestId && requestId !== 'initial' && requestType
 
     const errors = handler.getErrors()
     const hasErrors = errors.length > 0
@@ -298,7 +298,7 @@ export default class InstagramAPI {
       }
     }
 
-    await handler.runAndSync()
+    await handler.run()
 
     // wait for everything to be synced before resolving
     if (knownRequest && !hasErrors) {
@@ -306,6 +306,8 @@ export default class InstagramAPI {
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, r)
       requestResolver(r)
     }
+
+    if (requestId !== 'initial') await handler.sync()
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {
@@ -396,20 +398,6 @@ export default class InstagramAPI {
       .limit(1)
       .where(eq(schema.messages.threadKey, threadKey))
       .orderBy(asc(schema.messages.timestampMs))
-      .get()
-  }
-
-  getNewestMessage(threadKey: string) {
-    return this.papi.db
-      .select({
-        threadKey: schema.messages.threadKey,
-        messageId: schema.messages.messageId,
-        timestampMs: schema.messages.timestampMs,
-      })
-      .from(schema.messages)
-      .limit(1)
-      .where(eq(schema.messages.threadKey, threadKey))
-      .orderBy(desc(schema.messages.timestampMs))
       .get()
   }
 
@@ -509,19 +497,32 @@ export default class InstagramAPI {
     return threads
   }
 
-  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | 'ALL' | QueryMessagesArgs['where'], extraArgs: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>> = {}): Message[] {
+  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | QueryMessageWhereSpecial | QueryMessagesArgs['where'], extraArgs: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>> = {}): Message[] {
     let where: QueryMessagesArgs['where']
-    if (messageIdsOrWhere === 'ALL') {
+    if (
+      messageIdsOrWhere === QueryMessageWhereSpecial.ALL
+      || messageIdsOrWhere === QueryMessageWhereSpecial.NEWEST
+      || messageIdsOrWhere === QueryMessageWhereSpecial.OLDEST
+    ) {
       where = eq(messagesSchema.threadKey, threadKey)
     } else if (Array.isArray(messageIdsOrWhere)) {
       where = inArray(messagesSchema.messageId, messageIdsOrWhere)
     } else {
       where = messageIdsOrWhere
     }
-    const messages = queryMessages(this.papi.db, {
+
+    const args = {
       where,
       ...extraArgs,
-    })
+    }
+
+    if (messageIdsOrWhere === QueryMessageWhereSpecial.NEWEST) {
+      args.orderBy = desc(schema.messages.timestampMs)
+    } else if (messageIdsOrWhere === QueryMessageWhereSpecial.OLDEST) {
+      args.orderBy = asc(schema.messages.timestampMs)
+    }
+
+    const messages = queryMessages(this.papi.db, args)
     if (!messages || messages.length === 0) return []
     return mapMessages(messages, this.papi.kv.get('fbid'))
   }

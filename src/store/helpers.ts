@@ -44,6 +44,13 @@ import { messages as messagesSchema, threads as threadsSchema } from './schema'
 // }
 
 export type QueryMessagesArgs = Parameters<DrizzleDB['query']['messages']['findMany']>[0]
+
+export enum QueryMessageWhereSpecial {
+  ALL,
+  NEWEST,
+  OLDEST,
+}
+
 export type QueryThreadsArgs = Parameters<DrizzleDB['query']['threads']['findMany']>[0]
 
 const hasData = (db: DrizzleDB, table: AnySQLiteTable) => db.select({ count: sql<number>`count(*)` }).from(table).get().count > 0
