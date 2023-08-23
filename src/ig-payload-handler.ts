@@ -1,9 +1,7 @@
 import { ServerEvent, ServerEventType } from '@textshq/platform-sdk'
-import { and, eq, inArray } from 'drizzle-orm'
-import { forEach, groupBy } from 'lodash'
+import { and, eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
-import { messages as messagesSchema } from './store/schema'
 import { getLogger } from './logger'
 import {
   type CallList,
@@ -15,8 +13,7 @@ import {
 import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL, InstagramSocketServerError } from './util'
 import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
-import { mapMessages, mapParticipants } from './mappers'
-import { queryMessages } from './store/queries'
+import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
 import { QueryMessageWhereSpecial } from './store/helpers'
 
@@ -52,8 +49,6 @@ export default class InstagramPayloadHandler {
   private papi: PlatformInstagram
 
   private threadsToSync = new Set<string>()
-
-  private messagesToSync = new Set<string>()
 
   private messagesToIgnore = new Set<string>()
 
@@ -131,25 +126,6 @@ export default class InstagramPayloadHandler {
         })
       }
       this.threadsToSync.clear()
-    }
-
-    if (this.messagesToSync.size > 0) {
-      const _messages = queryMessages(this.papi.db, {
-        where: inArray(messagesSchema.messageId, [...this.messagesToSync]),
-      })
-      const messages = _messages?.length > 0 ? _messages : []
-      const mappedMessages = mapMessages(messages, this.papi.kv.get('fbid'))
-      const groupedMessages = groupBy(mappedMessages, 'threadID')
-      forEach(groupedMessages, (entries, threadID) => {
-        toSync.push({
-          type: ServerEventType.STATE_SYNC,
-          objectName: 'message',
-          objectIDs: { threadID },
-          mutationType: 'upsert',
-          entries,
-        })
-      })
-      this.messagesToSync.clear()
     }
 
     if (this.events.length > 0) {
@@ -379,7 +355,6 @@ export default class InstagramPayloadHandler {
   }
 
   private upsertMessage(a: SimpleArgType[]) {
-    this.logger.debug('upsertMessage', a)
     const m: IGMessage = {
       links: null,
       raw: JSON.stringify(a),
@@ -445,9 +420,8 @@ export default class InstagramPayloadHandler {
       isCollapsed: a[62] as boolean,
       subthreadKey: a[63] as string,
     }
-
     const { messageId } = this.papi.api.upsertMessage(m)
-    this.messagesToSync.add(messageId)
+    this.logger.debug('upsertMessage', m.threadKey, messageId, m.timestampMs, m.text)
   }
 
   private insertMessage(a: SimpleArgType[]) {
@@ -515,10 +489,21 @@ export default class InstagramPayloadHandler {
       isCollapsed: a[61] as boolean,
       subthreadKey: a[62] as string,
     }
-    this.logger.debug('insertMessage', a, m)
 
     const { messageId } = this.papi.api.upsertMessage(m)
-    this.messagesToSync.add(messageId)
+    this.logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
+
+    return () => {
+      const [message] = this.papi.api.queryMessages(m.threadKey, [messageId])
+      if (!message) return
+      this.events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadID },
+        mutationType: 'upsert',
+        entries: [message],
+      })
+    }
   }
 
   private updateReadReceipt(a: SimpleArgType[]) {

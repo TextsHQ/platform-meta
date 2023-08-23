@@ -551,8 +551,8 @@ export default class InstagramAPI {
     const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
 
     if (promiseEntries.length > 0) {
-      const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
-      resolve(ranges)
+      // const { resolve } = promiseEntries.shift() // Get and remove the oldest promise
+      // resolve(ranges)
     }
   }
 
