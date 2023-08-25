@@ -2,7 +2,6 @@ import { type Message } from '@textshq/platform-sdk'
 
 export enum SyncGroup {
   MAIN = 1,
-  SECONDARY = 2,
   UNKNOWN = 95,
 }
 

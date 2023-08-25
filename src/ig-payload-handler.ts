@@ -1443,4 +1443,8 @@ export default class InstagramPayloadHandler {
     const s = { statusPrimary: a[2] as string, endTimeMs: a[3] as string, resultCount: a[4] as string }
     this.logger.debug('updateSearchQueryStatus (ignored)', s, a)
   }
+
+  private upsertGradientColor(a: SimpleArgType[]) {
+    this.logger.debug('upsertGradientColor (ignored)', a)
+  }
 }

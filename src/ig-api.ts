@@ -100,16 +100,17 @@ export default class InstagramAPI {
     const config = getMessengerConfig(body)
 
     this.papi.kv.setMany({
+      'syncParams-1': JSON.stringify(config.syncParams),
+      _fullConfig: JSON.stringify(config),
       appId: String(config.appId),
       clientId: config.clientID,
       fb_dtsg: config.fbDTSG,
       fbid: config.fbid,
-      lsd: config.lsdToken,
-      igUserId: config.igViewerConfig.id,
       hasTabbedInbox: config.igViewerConfig.has_tabbed_inbox,
-      mqttClientCapabilities: String(config.mqttClientCapabilities),
+      igUserId: config.igViewerConfig.id,
+      lsd: config.lsdToken,
       mqttCapabilities: String(config.mqttCapabilities),
-      _fullConfig: JSON.stringify(config),
+      mqttClientCapabilities: String(config.mqttClientCapabilities),
     })
 
     this.papi.currentUser = {

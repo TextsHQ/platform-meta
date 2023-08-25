@@ -959,16 +959,17 @@ export default class InstagramWebSocket {
   // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
-  private subscribeToDB(reqNumber: number, db: number, cursor: `cursor-${SyncGroup}`, syncParams?: string) {
+  private subscribeToDB(db: number, cursor: `cursor-${SyncGroup}`, syncParams?: string) {
+    const request_id = this.genRequestId()
     this.send({
       cmd: 'publish',
-      messageId: reqNumber,
+      messageId: request_id, // @TODO: pretty sure this is wrong
       qos: 1,
       dup: false,
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: Number(this.papi.kv.get('appId')),
+        app_id: this.papi.kv.get('appId'),
         payload: JSON.stringify({
           database: db,
           epoch_id: getTimeValues().epoch_id,
@@ -977,14 +978,14 @@ export default class InstagramWebSocket {
           sync_params: syncParams,
           version: VERSION_ID,
         }),
-        request_id: reqNumber,
+        request_id,
         type: 1,
       }),
     })
   }
 
   private subscribeToAllDatabases() {
-    this.subscribeToDB(5, 1, 'cursor-1')
+    this.subscribeToDB(1, 'cursor-1')
     // this.send({
     //   cmd: 'publish',
     //   messageId: 5,
@@ -1006,25 +1007,16 @@ export default class InstagramWebSocket {
     //     type: 2,
     //   }),
     // })
-    this.subscribeToDB(6, 2, 'cursor-2')
-    this.subscribeToDB(7, 6, null, JSON.stringify({
-      locale: 'en_US',
-    }))
-    this.subscribeToDB(8, 7, null, JSON.stringify({
+    // this.subscribeToDB(2, 'cursor-2')
+    const syncParamsString = JSON.stringify(this.papi.kv.get('syncParams-1'))
+    this.subscribeToDB(6, null, syncParamsString)
+    this.subscribeToDB(7, null, JSON.stringify({
       mnet_rank_types: [44],
     }))
-    this.subscribeToDB(9, 16, null, JSON.stringify({
-      locale: 'en_US',
-    }))
-    this.subscribeToDB(10, 28, null, JSON.stringify({
-      locale: 'en_US',
-    }))
-    this.subscribeToDB(11, 196, null, JSON.stringify({
-      locale: 'en_US',
-    }))
-    this.subscribeToDB(11, 198, null, JSON.stringify({
-      locale: 'en_US',
-    }))
+    this.subscribeToDB(16, null, syncParamsString)
+    this.subscribeToDB(28, null, syncParamsString)
+    this.subscribeToDB(196, null, syncParamsString)
+    this.subscribeToDB(198, null, syncParamsString)
   }
 
   // does not work for moving threads out of the message requests folder

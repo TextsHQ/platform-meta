@@ -62,6 +62,7 @@ export type OperationKey =
   | 'updateThreadSnippet'
   | 'updateThreadsRangesV2'
   | 'upsertFolderSeenTimestamp'
+  | 'upsertGradientColor'
   | 'upsertInboxThreadsRange'
   | 'upsertMessage'
   | 'upsertReaction'

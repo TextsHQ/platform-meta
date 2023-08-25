@@ -2,32 +2,36 @@ import type Instagram from '../api'
 import { keyValues } from './schema'
 import { ParentThreadKey, SyncGroup } from '../ig-types'
 
-type Key = `cursor-${SyncGroup}`
+type Key =
+  | '_fullConfig' // not used, for debugging
+  | 'appId'
   | 'clientId'
   | 'fb_dtsg'
   | 'fbid'
+  | 'hasTabbedInbox'
   | 'igUserId'
   | 'lsd'
-  | 'wwwClaim'
-  | 'hasTabbedInbox'
-  | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
-  | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
-  | '_fullConfig' // not used, for debugging
-  | 'mqttClientCapabilities'
   | 'mqttCapabilities'
-  | 'appId'
+  | 'mqttClientCapabilities'
+  | 'wwwClaim'
+  | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
+  | `cursor-${SyncGroup}`
+  | `syncParams-${SyncGroup}`
+  | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
 
 const CACHED_KEYS = [
+  'appId',
   'clientId',
   'fb_dtsg',
   'fbid',
+  'hasTabbedInbox',
   'igUserId',
   'lsd',
-  'wwwClaim',
-  'hasTabbedInbox',
-  'mqttClientCapabilities',
   'mqttCapabilities',
-  'appId',
+  'mqttClientCapabilities',
+  'syncParams-1',
+  'syncParams-95',
+  'wwwClaim',
 ] as const
 
 type ValueType<K extends Key> =
