@@ -382,7 +382,7 @@ export default class InstagramWebSocket {
       messageId: 9,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: Number(this.papi.kv.get('appId')),
+        app_id: this.papi.kv.get('appId'),
         payload: JSON.stringify({
           label: '3',
           payload: JSON.stringify({
@@ -577,7 +577,7 @@ export default class InstagramWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: Number(this.papi.kv.get('appId')),
+        app_id: this.papi.kv.get('appId'),
         payload: JSON.stringify({
           tasks,
           epoch_id,
