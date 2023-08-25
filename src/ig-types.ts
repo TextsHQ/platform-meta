@@ -3,12 +3,6 @@ import { type Message } from '@textshq/platform-sdk'
 export enum SyncGroup {
   MAIN = 1,
   SECONDARY = 2,
-  DBSIX = 6,
-  DBSEVEN = 7,
-  DBSIXTEEN = 16,
-  TWENTYEIGHT = 28,
-  ONENINESIX = 196,
-  ONENINEEIGHT = 198,
   UNKNOWN = 95,
 }
 

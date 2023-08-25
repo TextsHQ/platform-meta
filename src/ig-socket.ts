@@ -1008,22 +1008,22 @@ export default class InstagramWebSocket {
     //   }),
     // })
     this.subscribeToDB(6, 2, 'cursor-2')
-    this.subscribeToDB(7, 6, 'cursor-6', JSON.stringify({
+    this.subscribeToDB(7, 6, null, JSON.stringify({
       locale: 'en_US',
     }))
-    this.subscribeToDB(8, 7, 'cursor-7', JSON.stringify({
+    this.subscribeToDB(8, 7, null, JSON.stringify({
       mnet_rank_types: [44],
     }))
-    this.subscribeToDB(9, 16, 'cursor-16', JSON.stringify({
+    this.subscribeToDB(9, 16, null, JSON.stringify({
       locale: 'en_US',
     }))
-    this.subscribeToDB(10, 28, 'cursor-28', JSON.stringify({
+    this.subscribeToDB(10, 28, null, JSON.stringify({
       locale: 'en_US',
     }))
-    this.subscribeToDB(11, 196, 'cursor-196', JSON.stringify({
+    this.subscribeToDB(11, 196, null, JSON.stringify({
       locale: 'en_US',
     }))
-    this.subscribeToDB(11, 198, 'cursor-198', JSON.stringify({
+    this.subscribeToDB(11, 198, null, JSON.stringify({
       locale: 'en_US',
     }))
   }
