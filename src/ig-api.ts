@@ -251,8 +251,8 @@ export default class InstagramAPI {
     await this.papi.socket.connect()
   }
 
-  async handlePayload(response: IGResponse['payload'], requestId: 'initial' | number) {
-    const handler = new InstagramPayloadHandler(this.papi, response)
+  async handlePayload(payload: IGResponse['payload'], requestId: 'initial' | number) {
+    const handler = new InstagramPayloadHandler(this.papi, payload, requestId)
     const [requestType, resolve, reject] = (requestId !== null && requestId !== 'initial' && this.papi.socket.requestResolvers?.has(requestId)) ? this.papi.socket.requestResolvers.get(requestId) : ([undefined, undefined] as const)
 
     await handler.run()

@@ -38,13 +38,21 @@ export interface InstagramPayloadHandlerResponse {
 }
 
 export default class InstagramPayloadHandler {
-  private calls: CallList
+  constructor(
+    private readonly papi: PlatformInstagram,
+    private readonly data: IGSocketPayload,
+    private readonly requestId: number | 'initial',
+  ) {
+    this.calls = generateCallList(this.data)
+  }
+
+  private readonly calls: CallList
 
   pQueue = new PromiseQueue()
 
   private afterCallbacks: (() => Promise<void> | void)[] = []
 
-  private logger = getLogger('payload')
+  private logger = getLogger(`payload${this.requestId ? `for request #${this.requestId}` : ''}`)
 
   private threadsToSync = new Set<string>()
 
@@ -57,14 +65,6 @@ export default class InstagramPayloadHandler {
   private errors: InstagramSocketServerError[] = []
 
   private events: ServerEvent[] = []
-
-  constructor(private readonly papi: PlatformInstagram, data: IGSocketPayload) {
-    if (!data) {
-      this.logger.error('Invalid payload', {}, data)
-      throw new Error('Invalid payload')
-    }
-    this.calls = generateCallList(data)
-  }
 
   private getCall(method: OperationKey): ((args: SimpleArgType[]) => (() => void | Promise<void>) | void | Promise<void>) {
     if (method in this && typeof this[method] === 'function') {
@@ -1218,7 +1218,10 @@ export default class InstagramPayloadHandler {
   }
 
   private handleFailedTask(a: SimpleArgType[]) {
-    this.logger.error('handleFailedTask (ignored)', { params: JSON.stringify(a) })
+    const taskId = a[0] as string
+    const queueName = a[1] as string
+    const errorMessage = a[2] as string
+    this.errors.push(new InstagramSocketServerError(0, 'FAILED_TO_HANDLE_TASK', `${errorMessage} (task #${this.requestId}/${taskId} in ${queueName})`))
   }
 
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
