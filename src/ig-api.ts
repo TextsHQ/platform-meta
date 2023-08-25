@@ -9,16 +9,17 @@ import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './s
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger } from './logger'
-import { APP_ID, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
+import { INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGAttachment, IGMessage, IGMessageRanges, IGParsedViewerConfig } from './ig-types'
+import type { IGAttachment, IGMessage, IGMessageRanges } from './ig-types'
 import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
 import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import InstagramPayloadHandler from './ig-payload-handler'
 import { IGResponse } from './ig-payload-parser'
+import { getMessengerConfig } from './parsers/messenger-config'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -80,29 +81,6 @@ export default class InstagramAPI {
   }
 
   async init() {
-    const { clientId, fb_dtsg, lsd, fbid, config } = await this.getClientId()
-
-    this.papi.kv.setMany({
-      clientId,
-      fb_dtsg,
-      fbid,
-      lsd,
-      igUserId: config.id,
-      hasTabbedInbox: config.has_tabbed_inbox,
-      _viewerConfig: JSON.stringify(config),
-    })
-
-    this.papi.currentUser = {
-      // id: config.id, // this is the instagram id but fbid is instead used for chat
-      id: fbid,
-      fullName: config.full_name?.length > 0 && parseUnicodeEscapeSequences(config.full_name),
-      imgURL: fixUrl(config.profile_pic_url_hd),
-      username: config.username,
-    }
-    await this.getInitialPayload()
-  }
-
-  private async getClientId() {
     const { body } = await this.httpRequest(INSTAGRAM_BASE_URL + 'direct/', {
       // todo: refactor headers
       headers: {
@@ -118,19 +96,30 @@ export default class InstagramAPI {
         'viewport-width': '1280',
       },
     })
-    const clientId = body.slice(body.indexOf('{"clientID":')).split('"')[3]
-    const fb_dtsg = body.slice(body.indexOf('DTSGInitialData')).split('"')[4]
-    const fbid = body.match(/"IG_USER_EIMU":"([^"]+)"/)?.[1]
-    const lsd = body.match(/"LSD",\[\],\{"token":"([^"]+)"\}/)?.[1]
-    const sharedData = body.match(/"XIGSharedData",\[\],({.*?})/s)[1]
-    // @TODO: this is disgusting
-    const config: IGParsedViewerConfig = JSON.parse(
-      `${
-        sharedData.split('"viewer\\":')[1].split(',\\"badge_count')[0]
-      // eslint-disable-next-line no-useless-escape
-      }}`.replace(/\\\"/g, '"'),
-    )
-    return { clientId, lsd, fb_dtsg, fbid, config }
+    // @TODO: there is an initial payload that needs to be parsed in body
+    const config = getMessengerConfig(body)
+
+    this.papi.kv.setMany({
+      appId: String(config.appId),
+      clientId: config.clientID,
+      fb_dtsg: config.fbDTSG,
+      fbid: config.fbid,
+      lsd: config.lsdToken,
+      igUserId: config.igViewerConfig.id,
+      hasTabbedInbox: config.igViewerConfig.has_tabbed_inbox,
+      mqttClientCapabilities: String(config.mqttClientCapabilities),
+      mqttCapabilities: String(config.mqttCapabilities),
+      _fullConfig: JSON.stringify(config),
+    })
+
+    this.papi.currentUser = {
+      // id: config.id, // this is the instagram id but fbid is instead used for chat
+      id: config.fbid,
+      fullName: config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(config.igViewerConfig.full_name),
+      imgURL: fixUrl(config.igViewerConfig.profile_pic_url_hd),
+      username: config.igViewerConfig.username,
+    }
+    await this.getInitialPayload()
   }
 
   getCookies() {
@@ -146,7 +135,7 @@ export default class InstagramAPI {
         ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': APP_ID,
+        'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: `${INSTAGRAM_BASE_URL}${username}/`,
@@ -189,7 +178,7 @@ export default class InstagramAPI {
         ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': APP_ID,
+        'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: INSTAGRAM_BASE_URL,
@@ -429,7 +418,7 @@ export default class InstagramAPI {
         ...SHARED_HEADERS,
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': APP_ID,
+        'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: INSTAGRAM_BASE_URL,

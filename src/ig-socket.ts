@@ -15,7 +15,7 @@ import {
   sleep,
 } from './util'
 import { getLogger } from './logger'
-import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
+import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 import { InstagramPayloadHandlerResponse } from './ig-payload-handler'
@@ -252,7 +252,6 @@ export default class InstagramWebSocket {
         messageId: 65536,
       } as const,
     ]
-
     const p = this.send({
       cmd: 'connect',
       protocolId: 'MQIsdp',
@@ -264,14 +263,14 @@ export default class InstagramWebSocket {
         // u: "17841418030588216", // doesnt seem to matter
         u: this.papi.kv.get('fbid'),
         s: this.mqttSid,
-        cp: 3,
-        ecp: 10,
+        cp: Number(this.papi.kv.get('mqttClientCapabilities')),
+        ecp: Number(this.papi.kv.get('mqttCapabilities')),
         chat_on: true,
         fg: false,
-        d: this.papi.kv.get('clientId'), // client id
+        d: this.papi.kv.get('clientId'),
         ct: 'cookie_auth',
         mqtt_sid: '', // @TODO: should we use the one from the cookie?
-        aid: 936619743392459, // app id
+        aid: Number(this.papi.kv.get('appId')),
         st,
         pm,
         dc: '',
@@ -383,7 +382,7 @@ export default class InstagramWebSocket {
       messageId: 9,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: APP_ID,
+        app_id: Number(this.papi.kv.get('appId')),
         payload: JSON.stringify({
           label: '3',
           payload: JSON.stringify({
@@ -578,7 +577,7 @@ export default class InstagramWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: APP_ID,
+        app_id: Number(this.papi.kv.get('appId')),
         payload: JSON.stringify({
           tasks,
           epoch_id,
@@ -969,7 +968,7 @@ export default class InstagramWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: APP_ID,
+        app_id: Number(this.papi.kv.get('appId')),
         payload: JSON.stringify({
           database: db,
           epoch_id: getTimeValues().epoch_id,
@@ -994,7 +993,7 @@ export default class InstagramWebSocket {
     //   retain: false,
     //   topic: '/ls_req',
     //   payload: JSON.stringify({
-    //     app_id: APP_ID,
+    //     app_id: Number(this.papi.kv.get('appId')),
     //     payload: JSON.stringify({
     //       database: 1,
     //       epoch_id: getTimeValues().epoch_id,

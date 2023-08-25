@@ -12,9 +12,12 @@ type Key = `cursor-${SyncGroup}`
   | 'hasTabbedInbox'
   | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
   | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
-  | '_viewerConfig' // not used, for debugging
+  | '_fullConfig' // not used, for debugging
+  | 'mqttClientCapabilities'
+  | 'mqttCapabilities'
+  | 'appId'
 
-const CACHE_KEYS = [
+const CACHED_KEYS = [
   'clientId',
   'fb_dtsg',
   'fbid',
@@ -22,6 +25,9 @@ const CACHE_KEYS = [
   'lsd',
   'wwwClaim',
   'hasTabbedInbox',
+  'mqttClientCapabilities',
+  'mqttCapabilities',
+  'appId',
 ] as const
 
 type ValueType<K extends Key> =
@@ -65,7 +71,7 @@ export default class KeyValueStore {
       .values({ key, value: serializedValue })
       .onConflictDoUpdate({ target: keyValues.key, set: { value: serializedValue } })
       .run()
-    if (includesKey(CACHE_KEYS, key)) this.cache.set(key, value)
+    if (includesKey(CACHED_KEYS, key)) this.cache.set(key, value)
   }
 
   setMany(values: Partial<KeyValue>) {
@@ -75,7 +81,7 @@ export default class KeyValueStore {
   }
 
   get<K extends Key>(key: K) {
-    const useCache = includesKey(CACHE_KEYS, key)
+    const useCache = includesKey(CACHED_KEYS, key)
     if (useCache && this.cache.has(key)) {
       const cachedValue = this.cache.get(key) as ValueType<K>
       if (

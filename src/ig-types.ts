@@ -298,36 +298,6 @@ export type IGAttachment = {
   cta1Title?: string
 }
 
-export type IGParsedViewerConfig = {
-  biography: string
-  business_address_json: null
-  business_contact_method: string
-  business_email: null
-  business_phone_number: null
-  can_see_organic_insights: boolean
-  category_name: null
-  external_url: null
-  fbid: string
-  full_name: string
-  has_phone_number: boolean
-  has_profile_pic: boolean
-  has_tabbed_inbox: boolean
-  hide_like_and_view_counts: boolean
-  id: string
-  is_business_account: boolean
-  is_joined_recently: boolean
-  is_supervised_user: boolean
-  guardian_id: null
-  is_private: boolean
-  is_professional_account: boolean
-  is_supervision_enabled: boolean
-  profile_pic_url: string
-  profile_pic_url_hd: string
-  should_show_category: boolean
-  should_show_public_contacts: boolean
-  username: string
-}
-
 export type IGReadReceipt = {
   threadKey: string
   contactId: string
