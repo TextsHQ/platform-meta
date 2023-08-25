@@ -1447,4 +1447,8 @@ export default class InstagramPayloadHandler {
   private upsertGradientColor(a: SimpleArgType[]) {
     this.logger.debug('upsertGradientColor (ignored)', a)
   }
+
+  private mailboxTaskCompletionApiOnTaskCompletion(a: SimpleArgType[]) {
+    this.logger.debug('mailboxTaskCompletionApiOnTaskCompletion (ignored)', a)
+  }
 }

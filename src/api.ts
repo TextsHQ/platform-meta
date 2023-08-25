@@ -37,8 +37,6 @@ import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParentThreadKey, SyncGroup } from './ig-types'
 import { QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 
-// const MESSAGE_PAGE_SIZE = 20
-
 export default class PlatformInstagram implements PlatformAPI {
   logger = getLogger()
 
@@ -160,7 +158,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      limit: 20,
+      limit: 15,
     })
 
     return {

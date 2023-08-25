@@ -31,6 +31,7 @@ export type OperationKey =
   | 'insertXmaAttachment'
   | 'issueError'
   | 'issueNewError'
+  | 'mailboxTaskCompletionApiOnTaskCompletion'
   | 'markThreadRead'
   | 'mciTraceLog'
   | 'moveThreadToInboxAndUpdateParent'
