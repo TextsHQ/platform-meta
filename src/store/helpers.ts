@@ -45,7 +45,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './schema'
 
 export type QueryMessagesArgs = Parameters<DrizzleDB['query']['messages']['findMany']>[0]
 
-export enum QueryMessageWhereSpecial {
+export enum QueryWhereSpecial {
   ALL,
   NEWEST,
   OLDEST,

@@ -1,28 +1,20 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import {
-  type FetchOptions,
-  type Message,
-  type MessageSendOptions,
-  ServerEventType,
-  texts,
-  type User,
-} from '@textshq/platform-sdk'
+import { type FetchOptions, type MessageSendOptions, ServerEventType, texts, type User } from '@textshq/platform-sdk'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
-import { type QueryMessagesArgs, QueryMessageWhereSpecial, QueryThreadsArgs } from './store/helpers'
+import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger } from './logger'
-import type { RequestResolverRejector, RequestResolverResolver, RequestResolverType } from './ig-socket'
 import { APP_ID, INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGAttachment, IGMessage, IGMessageRanges, IGParsedViewerConfig } from './ig-types'
 import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
-import { createPromise, parseUnicodeEscapeSequences } from './util'
+import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import InstagramPayloadHandler from './ig-payload-handler'
@@ -269,17 +261,18 @@ export default class InstagramAPI {
     await this.papi.socket.connect()
   }
 
-  async handlePayload(response: IGResponse['payload'], requestId: 'initial' | number, requestType?: RequestResolverType, requestResolver?: RequestResolverResolver, requestRejector?: RequestResolverRejector) {
+  async handlePayload(response: IGResponse['payload'], requestId: 'initial' | number) {
     const handler = new InstagramPayloadHandler(this.papi, response)
+    const [requestType, resolve, reject] = (requestId !== null && requestId !== 'initial' && this.papi.socket.requestResolvers?.has(requestId)) ? this.papi.socket.requestResolvers.get(requestId) : ([undefined, undefined] as const)
 
-    const knownRequest = requestId && requestId !== 'initial' && requestType
+    await handler.run()
 
     const errors = handler.getErrors()
     const hasErrors = errors.length > 0
-    if (knownRequest && hasErrors) {
+    if (requestType && hasErrors) {
       const [mainError, ...otherErrors] = errors || []
       if (mainError) {
-        requestRejector(mainError)
+        reject(mainError)
         // sentry should be captured upstream
         // texts.Sentry.captureException(new Error(mainError))
       }
@@ -298,16 +291,14 @@ export default class InstagramAPI {
       }
     }
 
-    await handler.run()
+    if (requestId !== 'initial') await handler.sync()
 
     // wait for everything to be synced before resolving
-    if (knownRequest && !hasErrors) {
+    if (requestType && !hasErrors) {
       const r = handler.getResponse()
       this.logger.debug(`[${requestId}] resolved request for ${requestType}`, r)
-      requestResolver(r)
+      resolve(r)
     }
-
-    if (requestId !== 'initial') await handler.sync()
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {
@@ -357,48 +348,21 @@ export default class InstagramAPI {
     })
   }
 
-  fetchContactsIfNotExist(contactIds: string[]) {
+  async fetchContactsIfNotExist(contactIds: string[]) {
+    this.logger.debug(`fetchContactsIfNotExist called with ${contactIds.length} contacts`, contactIds)
     if (contactIds.length === 0) return
 
-    const existing = this.papi.db.query.contacts.findMany({
+    const existing = (await this.papi.db.query.contacts.findMany({
       columns: {
         id: true,
       },
       where: inArray(schema.contacts.id, contactIds),
-    }).map(c => c.id)
+    })).map(c => c.id)
 
     const missing = contactIds.filter(id => !existing.includes(id))
     if (missing.length > 0) {
       this.papi.pQueue.addPromise(this.papi.socket.requestContacts(missing).then(() => {}))
     }
-  }
-
-  getMessage(threadKey: string, messageId: string) {
-    return this.papi.db
-      .select({
-        threadKey: schema.messages.threadKey,
-        messageId: schema.messages.messageId,
-        timestampMs: schema.messages.timestampMs,
-      })
-      .from(schema.messages)
-      .limit(1)
-      .where(eq(schema.messages.threadKey, threadKey))
-      .where(eq(schema.messages.messageId, messageId))
-      .get()
-  }
-
-  getOldestMessage(threadKey: string) {
-    return this.papi.db
-      .select({
-        threadKey: schema.messages.threadKey,
-        messageId: schema.messages.messageId,
-        timestampMs: schema.messages.timestampMs,
-      })
-      .from(schema.messages)
-      .limit(1)
-      .where(eq(schema.messages.threadKey, threadKey))
-      .orderBy(asc(schema.messages.timestampMs))
-      .get()
   }
 
   private async uploadFile(threadID: string, filePath: string, fileName?: string) {
@@ -477,36 +441,58 @@ export default class InstagramAPI {
     }
   }
 
-  queryThreads(threadIdsOrWhere: string[] | 'ALL' | QueryThreadsArgs['where'], extraArgs: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit'>> = {}) {
+  async queryThreads(threadIdsOrWhere: string[] | QueryWhereSpecial | QueryThreadsArgs['where'], extraArgs: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit'>> = {}) {
+    let orderBy: QueryThreadsArgs['orderBy']
+    let limit: number
     let where: QueryThreadsArgs['where']
-    if (threadIdsOrWhere === 'ALL') {
+    if (threadIdsOrWhere === QueryWhereSpecial.ALL) {
       // where = eq(threadsSchema.threadKey, threadKey)
+    } else if (
+      threadIdsOrWhere === QueryWhereSpecial.NEWEST
+      || threadIdsOrWhere === QueryWhereSpecial.OLDEST
+    ) {
+      limit = 1
+      const order = threadIdsOrWhere === QueryWhereSpecial.NEWEST ? desc : asc
+      orderBy = order(schema.messages.timestampMs)
     } else if (Array.isArray(threadIdsOrWhere)) {
       where = inArray(threadsSchema.threadKey, threadIdsOrWhere)
+      if (threadIdsOrWhere.length === 1) limit = 1
     } else {
       where = threadIdsOrWhere
     }
 
-    const threads = queryThreads(this.papi.db, {
+    const args = {
       where,
       ...extraArgs,
-    })?.map(t => mapThread(t, this.papi.kv.get('fbid'), this.getMessageRanges(t.threadKey, t.ranges)))
+    }
+
+    if (limit) args.limit = limit
+    if (orderBy) args.orderBy = orderBy
+
+    const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.kv.get('fbid'), parseMessageRanges(t.ranges)))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
-    this.fetchContactsIfNotExist(participantIDs)
+    await this.fetchContactsIfNotExist(participantIDs)
     return threads
   }
 
-  queryMessages(threadKey: string, messageIdsOrWhere?: string[] | QueryMessageWhereSpecial | QueryMessagesArgs['where'], extraArgs: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>> = {}): Message[] {
+  async queryMessages(threadKey: string, messageIdsOrWhere: string[] | QueryWhereSpecial | QueryMessagesArgs['where'], extraArgs: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit'>> = {}) {
+    let orderBy: QueryMessagesArgs['orderBy']
+    let limit: number
     let where: QueryMessagesArgs['where']
-    if (
-      messageIdsOrWhere === QueryMessageWhereSpecial.ALL
-      || messageIdsOrWhere === QueryMessageWhereSpecial.NEWEST
-      || messageIdsOrWhere === QueryMessageWhereSpecial.OLDEST
+    if (messageIdsOrWhere === QueryWhereSpecial.ALL) {
+      where = eq(messagesSchema.threadKey, threadKey)
+    } else if (
+      messageIdsOrWhere === QueryWhereSpecial.NEWEST
+      || messageIdsOrWhere === QueryWhereSpecial.OLDEST
     ) {
       where = eq(messagesSchema.threadKey, threadKey)
+      limit = 1
+      const order = messageIdsOrWhere === QueryWhereSpecial.NEWEST ? desc : asc
+      orderBy = order(schema.messages.timestampMs)
     } else if (Array.isArray(messageIdsOrWhere)) {
       where = inArray(messagesSchema.messageId, messageIdsOrWhere)
+      if (messageIdsOrWhere.length === 1) limit = 1
     } else {
       where = messageIdsOrWhere
     }
@@ -516,29 +502,24 @@ export default class InstagramAPI {
       ...extraArgs,
     }
 
-    if (messageIdsOrWhere === QueryMessageWhereSpecial.NEWEST) {
-      args.orderBy = desc(schema.messages.timestampMs)
-    } else if (messageIdsOrWhere === QueryMessageWhereSpecial.OLDEST) {
-      args.orderBy = asc(schema.messages.timestampMs)
-    }
+    if (limit) args.limit = limit
+    if (orderBy) args.orderBy = orderBy
 
-    const messages = queryMessages(this.papi.db, args)
-    if (!messages || messages.length === 0) return []
-    return mapMessages(messages, this.papi.kv.get('fbid'))
+    return mapMessages(await queryMessages(this.papi.db, args), this.papi.kv.get('fbid'))
   }
 
-  getMessageRanges(threadKey: string, _ranges?: string) {
-    const thread = _ranges ? { ranges: _ranges } : this.papi.db.query.threads.findFirst({
+  async getMessageRanges(threadKey: string, _ranges?: string) {
+    const thread = _ranges ? { ranges: _ranges } : await this.papi.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadKey),
       columns: { ranges: true },
     })
     if (!thread?.ranges) return
-    return JSON.parse(thread.ranges) as IGMessageRanges
+    return parseMessageRanges(thread.ranges)
   }
 
-  setMessageRanges(r: IGMessageRanges) {
+  async setMessageRanges(r: IGMessageRanges) {
     const ranges = {
-      ...this.getMessageRanges(r.threadKey!),
+      ...await this.getMessageRanges(r.threadKey!),
       ...r,
       // raw: undefined,
     }

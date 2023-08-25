@@ -15,7 +15,7 @@ import { fixEmoji, getAsDate, getAsMS, getOriginalURL, InstagramSocketServerErro
 import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
 import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
-import { QueryMessageWhereSpecial } from './store/helpers'
+import { QueryWhereSpecial } from './store/helpers'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -52,9 +52,7 @@ export default class InstagramPayloadHandler {
 
   private updatedThreads = new Set<string>()
 
-  private responses: InstagramPayloadHandlerResponse = {
-    insertSearchResult: [],
-  }
+  private responses: InstagramPayloadHandlerResponse = {}
 
   private errors: InstagramSocketServerError[] = []
 
@@ -80,12 +78,19 @@ export default class InstagramPayloadHandler {
   getErrors = () => this.errors
 
   run = async () => {
-    this.calls.forEach(([method, args]) => {
+    for (const [method, args] of this.calls) {
       try {
         const call = this.getCall(method)
-        const returns = call(args) // @TODO: does not support async
-        if (typeof returns === 'function') {
-          this.afterCallbacks.push(returns)
+
+        let result
+        if (call(args) instanceof Promise) {
+          result = await call(args)
+        } else {
+          result = call(args)
+        }
+
+        if (typeof result === 'function') {
+          this.afterCallbacks.push(result)
         }
       } catch (e) {
         if (e instanceof InstagramSocketServerError) {
@@ -94,7 +99,7 @@ export default class InstagramPayloadHandler {
           this.logger.error('failed to call method', { method }, e)
         }
       }
-    })
+    }
   }
 
   sync = async (): Promise<void> => {
@@ -108,7 +113,7 @@ export default class InstagramPayloadHandler {
 
     let toSync: ServerEvent[] = []
     if (this.threadsToSync.size > 0) {
-      const entries = this.papi.api.queryThreads([...this.threadsToSync])
+      const entries = await this.papi.api.queryThreads([...this.threadsToSync])
       if (entries.length > 0) {
         toSync.push({
           type: ServerEventType.STATE_SYNC,
@@ -132,7 +137,8 @@ export default class InstagramPayloadHandler {
       const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
       const ranges = this.papi.api.getMessageRanges(threadKey)
       promiseEntries.forEach(({ resolve }) => {
-        resolve(ranges)
+        ranges.then(r => resolve(r))
+        // resolve(ranges)
       })
     })
 
@@ -148,8 +154,8 @@ export default class InstagramPayloadHandler {
     await this.sync()
   }
 
-  private _syncAttachment(threadKey: string, messageId: string) {
-    const [message] = this.papi.api.queryMessages(threadKey, [messageId])
+  private async _syncAttachment(threadKey: string, messageId: string) {
+    const [message] = await this.papi.api.queryMessages(threadKey, [messageId])
     if (!message) return
     this.events.push({
       type: ServerEventType.STATE_SYNC,
@@ -164,8 +170,8 @@ export default class InstagramPayloadHandler {
     })
   }
 
-  private _syncContact(contactId: string) {
-    const participants = this.papi.db.query.participants.findMany({
+  private async _syncContact(contactId: string) {
+    const participants = await this.papi.db.query.participants.findMany({
       where: eq(schema.participants.userId, contactId),
       columns: {
         threadKey: true,
@@ -501,8 +507,8 @@ export default class InstagramPayloadHandler {
     const { messageId } = this.papi.api.upsertMessage(m)
     this.logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
 
-    return () => {
-      const [message] = this.papi.api.queryMessages(m.threadKey, [messageId])
+    return async () => {
+      const [message] = await this.papi.api.queryMessages(m.threadKey, [messageId])
       if (!message) return
       this.events.push({
         type: ServerEventType.STATE_SYNC,
@@ -534,8 +540,8 @@ export default class InstagramPayloadHandler {
       )).run()
     if (!r.readActionTimestampMs) return
 
-    return () => {
-      const [newestMessage] = this.papi.api.queryMessages(r.threadKey, QueryMessageWhereSpecial.NEWEST)
+    return async () => {
+      const [newestMessage] = await this.papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
       if (!newestMessage) return
 
       this.events.push({
@@ -931,7 +937,7 @@ export default class InstagramPayloadHandler {
     this.logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
   }
 
-  private insertAttachmentCta(a: SimpleArgType[]) {
+  private async insertAttachmentCta(a: SimpleArgType[]) {
     const r = {
       raw: JSON.stringify(a),
       attachmentFbid: a[1] as string,
@@ -943,7 +949,7 @@ export default class InstagramPayloadHandler {
     // const messages = await this.papi.db.select({ message: schema.messages.message }).from(schema.messages).where(eq(schema.messages.messageId, r.messageId!)).run()
     // FIXME: ^ above doesnt work, also the below code is an atrocity
     // ideally we would just update the field in the database without querying, parsing, updating, and reinserting the message
-    const messages = this.papi.db.query.messages.findFirst({
+    const messages = await this.papi.db.query.messages.findFirst({
       where: eq(schema.messages.messageId, r.messageId!),
       columns: {
         message: true,

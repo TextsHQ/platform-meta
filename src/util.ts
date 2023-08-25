@@ -1,6 +1,7 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
-import { SimpleArgType } from './ig-payload-parser'
+import type { SimpleArgType } from './ig-payload-parser'
+import { IGMessageRanges } from './ig-types'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -44,6 +45,8 @@ export function parseMqttPacket(data: WebSocket.RawData) {
 export const getMqttSid = () => parseInt(Math.random().toFixed(16).split('.')[1], 10)
 
 export const sleep = (ms: number) => new Promise(resolve => { setTimeout(resolve, ms) })
+
+export const parseMessageRanges = (ranges: string) => JSON.parse(ranges) as IGMessageRanges
 
 export function createPromise<T>() {
   const p: {

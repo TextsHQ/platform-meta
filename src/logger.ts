@@ -23,9 +23,6 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   })
 }
 
-// pretty print objects for logging
-export const pp = (obj: any) => JSON.stringify(obj, null, 2)
-
 export const getLogger = (feature = '') => {
   const prefix = `[ig${feature ? `:${feature}` : ''}]`
 

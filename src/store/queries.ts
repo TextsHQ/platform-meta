@@ -7,8 +7,8 @@ import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
 // "sometimes Drizzle ORM you can go faster than better-sqlite3 driver"
 // https://orm.drizzle.team/docs/performance
 
-export function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
-  return db.query.threads.findMany({
+export async function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
+  const threads = await db.query.threads.findMany({
     columns: {
       parentThreadKey: true,
       lastActivityTimestampMs: true,
@@ -61,12 +61,14 @@ export function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThreadsArgs,
     },
     ...args,
   })
+  if (!threads || threads.length === 0) return []
+  return threads
 }
 
-export type QueryThreadsResult = ReturnType<typeof queryThreads>
+export type QueryThreadsResult = Awaited<ReturnType<typeof queryThreads>>
 
-export function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
-  return db.query.messages.findMany({
+export async function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
+  const messages = await db.query.messages.findMany({
     columns: {
       // raw: true,
       message: true,
@@ -111,9 +113,11 @@ export function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessagesArg
     orderBy: [desc(messagesSchema.primarySortKey)],
     ...args,
   })
+  if (!messages || messages.length === 0) return []
+  return messages
 }
 
-export type QueryMessagesResult = ReturnType<typeof queryMessages>
+export type QueryMessagesResult = Awaited<ReturnType<typeof queryMessages>>
 
 export function preparedQueries(db: DrizzleDB) {
   return {

@@ -3,6 +3,7 @@ import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
+import { eq } from 'drizzle-orm'
 import {
   createPromise,
   genClientContext,
@@ -18,6 +19,7 @@ import { APP_ID, MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 import { InstagramPayloadHandlerResponse } from './ig-payload-handler'
+import * as schema from './store/schema'
 
 type IGSocketTask = {
   label: string
@@ -27,7 +29,34 @@ type IGSocketTask = {
   task_id: number
 }
 
-export type RequestResolverType = '_ignored' | `sendMessage-${string}` | 'sendTypingIndicator'
+export enum RequestResolverType {
+  CREATE_THREAD = 'CREATE_THREAD',
+  CREATE_GROUP_THREAD = 'CREATE_GROUP_THREAD',
+  SEND_MESSAGE = 'SEND_MESSAGE',
+  UNSEND_MESSAGE = 'UNSEND_MESSAGE',
+  FETCH_MESSAGES = 'FETCH_MESSAGES',
+  FETCH_INITIAL_THREADS = 'FETCH_INITIAL_THREADS',
+  FETCH_MORE_THREADS = 'FETCH_MORE_THREADS',
+  FETCH_MORE_INBOX_THREADS = 'FETCH_MORE_INBOX_THREADS',
+  REQUEST_CONTACTS = 'REQUEST_CONTACTS',
+  MUTE_THREAD = 'MUTE_THREAD',
+  SET_THREAD_NAME = 'SET_THREAD_NAME',
+  SET_THREAD_FOLDER = 'SET_THREAD_FOLDER',
+  SET_ADMIN_STATUS = 'SET_ADMIN_STATUS',
+  MOVE_OUT_OF_MESSAGE_REQUESTS = 'MOVE_OUT_OF_MESSAGE_REQUESTS',
+  ADD_PARTICIPANTS = 'ADD_PARTICIPANTS',
+  REMOVE_PARTICIPANT = 'REMOVE_PARTICIPANT',
+  GET_THREAD = 'GET_THREAD',
+  GET_NEW_THREAD = 'GET_NEW_THREAD',
+  DELETE_THREAD = 'DELETE_THREAD',
+  SEARCH_USERS_PRIMARY = 'SEARCH_USERS_PRIMARY',
+  SEARCH_USERS_SECONDARY = 'SEARCH_USERS_SECONDARY',
+  SEND_READ_RECEIPT = 'SEND_READ_RECEIPT',
+  FORWARD_MESSAGE = 'FORWARD_MESSAGE',
+  SEND_TYPING_INDICATOR = 'SEND_TYPING_INDICATOR',
+  ADD_REACTION = 'ADD_REACTION',
+}
+
 export type RequestResolverResolver = (response?: InstagramPayloadHandlerResponse) => void
 export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | InstagramSocketServerError) => void
 
@@ -343,13 +372,11 @@ export default class InstagramWebSocket {
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
 
-    const requestId = payload.request_id ? Number(payload.request_id) : null
-    const [requestType, requestResolver, requestRejector] = (requestId !== null && this.requestResolvers?.has(requestId)) ? this.requestResolvers.get(requestId) : ([undefined, undefined] as const)
-    await this.papi.api.handlePayload(payload.payload, requestId, requestType, requestResolver, requestRejector)
+    await this.papi.api.handlePayload(payload.payload, payload.request_id ? Number(payload.request_id) : null)
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
-    const { promise, request_id } = this.createRequest('sendTypingIndicator')
+    const { promise, request_id } = this.createRequest(RequestResolverType.SEND_TYPING_INDICATOR)
     this.logger.info(`sending typing indicator ${threadID}`)
     await this.send({
       cmd: 'publish',
@@ -386,7 +413,7 @@ export default class InstagramWebSocket {
 
     const hasAttachment = attachmentFbids.length > 0
 
-    const result = await this.publishTask('send message', [
+    const result = await this.publishTask(RequestResolverType.SEND_MESSAGE, [
       {
         label: '46',
         payload: JSON.stringify({
@@ -427,9 +454,20 @@ export default class InstagramWebSocket {
   }
 
   async addReaction(threadID: string, messageID: string, reaction: string) {
-    const message = this.papi.api.getMessage(threadID, messageID)
+    const message = this.papi.db
+      .select({
+        threadKey: schema.messages.threadKey,
+        messageId: schema.messages.messageId,
+        timestampMs: schema.messages.timestampMs,
+      })
+      .from(schema.messages)
+      .limit(1)
+      .where(eq(schema.messages.threadKey, threadID))
+      .where(eq(schema.messages.messageId, messageID))
+      .get()
+
     // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
-    await this.publishTask('add reaction', {
+    await this.publishTask(RequestResolverType.ADD_REACTION, {
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -450,7 +488,7 @@ export default class InstagramWebSocket {
   }
 
   async createThread(userId: string) {
-    const response = await this.publishTask('create thread', {
+    const response = await this.publishTask(RequestResolverType.CREATE_THREAD, {
       label: '209',
       payload: JSON.stringify({
         // thread_fbid: BigInt(userId),
@@ -466,7 +504,7 @@ export default class InstagramWebSocket {
   async createGroupThread(participants: string[]) {
     const { otid, now } = getTimeValues()
     const thread_id = genClientContext()
-    const response = await this.publishTask('create group thread', {
+    const response = await this.publishTask(RequestResolverType.CREATE_GROUP_THREAD, {
       label: '130',
       payload: JSON.stringify({
         participants,
@@ -497,8 +535,7 @@ export default class InstagramWebSocket {
     return ++this.lastRequestId
   }
 
-  // requests that respond to a request_id
-  private requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
+  requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
 
   messageRangesResolver = new Map<`messageRanges-${string}`, {
     promise: Promise<unknown>
@@ -506,11 +543,10 @@ export default class InstagramWebSocket {
     reject: RequestResolverRejector
   }[]>()
 
-  // Promise resolves to a parsed and mapped version of the response based on the type
-  private createRequest(type: RequestResolverType, debugLabel?: string) {
+  private createRequest(type: RequestResolverType) {
     const request_id = this.genRequestId()
     const { promise, resolve, reject } = createPromise<InstagramPayloadHandlerResponse>()
-    const logPrefix = `[REQUEST #${request_id}][${type}]` + (debugLabel ? `[${debugLabel}]` : '')
+    const logPrefix = `[REQUEST #${request_id}][${type}]`
     this.logger.info(logPrefix, 'sent')
     const resolver = (response: InstagramPayloadHandlerResponse) => {
       this.logger.info(logPrefix, 'got response', response)
@@ -529,10 +565,10 @@ export default class InstagramWebSocket {
   }
 
   // used for get messages and get threads
-  async publishTask(tag: string, _tasks: IGSocketTask | IGSocketTask[]) {
+  async publishTask(type: RequestResolverType, _tasks: IGSocketTask | IGSocketTask[]) {
     const tasks = Array.isArray(_tasks) ? _tasks.filter(Boolean) : [_tasks]
     const { epoch_id } = getTimeValues()
-    const { promise, request_id } = this.createRequest('_ignored', `publish task: ${tag}`)
+    const { promise, request_id } = this.createRequest(type)
 
     await this.send({
       cmd: 'publish',
@@ -556,14 +592,14 @@ export default class InstagramWebSocket {
     return promise
   }
 
-  async fetchMessages(threadID: string, _ranges?: ReturnType<typeof this.papi.api.getMessageRanges>) {
-    const ranges = _ranges || this.papi.api.getMessageRanges(threadID)
+  async fetchMessages(threadID: string, _ranges?: Awaited<ReturnType<typeof this.papi.api.getMessageRanges>>) {
+    const ranges = _ranges || await this.papi.api.getMessageRanges(threadID)
 
     this.logger.info('fetchMessages', {
       threadID,
       ranges,
     })
-    return this.publishTask('fetch messages', {
+    return this.publishTask(RequestResolverType.FETCH_MESSAGES, {
       label: '228',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -579,7 +615,7 @@ export default class InstagramWebSocket {
     })
   }
 
-  fetchInitialThreads = () => this.publishTask('fetch initial threads', [
+  fetchInitialThreads = () => this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
     {
       label: '145',
       payload: JSON.stringify({
@@ -641,7 +677,7 @@ export default class InstagramWebSocket {
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
     const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
 
-    return this.publishTask('fetch more threads', [
+    return this.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
       {
         label: '145',
         payload: JSON.stringify({
@@ -680,7 +716,7 @@ export default class InstagramWebSocket {
   fetchMoreInboxThreads = (filter: ThreadFilter) => {
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
 
-    return this.publishTask(`fetch more inbox threads (f:${filter})`, [
+    return this.publishTask(RequestResolverType.FETCH_MORE_INBOX_THREADS, [
       {
         label: '313',
         payload: JSON.stringify({
@@ -708,7 +744,7 @@ export default class InstagramWebSocket {
       group1,
       group95,
     })
-    return this.publishTask('fetch initial threads', [
+    return this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
       {
         label: '145',
         payload: JSON.stringify({
@@ -745,7 +781,7 @@ export default class InstagramWebSocket {
   }
 
   async requestContacts(contactIDs: string[]) {
-    return this.publishTask('request contacts', contactIDs.map(contact_id => ({
+    return this.publishTask(RequestResolverType.REQUEST_CONTACTS, contactIDs.map(contact_id => ({
       label: '207',
       payload: JSON.stringify({
         contact_id,
@@ -757,7 +793,7 @@ export default class InstagramWebSocket {
   }
 
   async muteThread(thread_key: string, mute_expiration_time_ms: -1 | 0) {
-    await this.publishTask('mute thread', {
+    await this.publishTask(RequestResolverType.MUTE_THREAD, {
       label: '144',
       payload: JSON.stringify({
         thread_key: Number(thread_key),
@@ -773,7 +809,7 @@ export default class InstagramWebSocket {
   }
 
   async setThreadName(thread_key: string, thread_name: string) {
-    await this.publishTask('set thread name', {
+    await this.publishTask(RequestResolverType.SET_THREAD_NAME, {
       label: '32',
       payload: JSON.stringify({
         thread_key,
@@ -787,7 +823,7 @@ export default class InstagramWebSocket {
   }
 
   async changeAdminStatus(thread_key: string, contact_id: string, is_admin: boolean) {
-    await this.publishTask('make admin', {
+    await this.publishTask(RequestResolverType.SET_ADMIN_STATUS, {
       label: '25',
       payload: JSON.stringify({
         thread_key,
@@ -803,7 +839,7 @@ export default class InstagramWebSocket {
   }
 
   async addParticipants(thread_key: string, contact_ids: string[]) {
-    await this.publishTask('add participants', {
+    await this.publishTask(RequestResolverType.ADD_PARTICIPANTS, {
       label: '23',
       payload: JSON.stringify({
         thread_key,
@@ -818,7 +854,7 @@ export default class InstagramWebSocket {
   }
 
   async removeParticipant(threadID: string, userID: string) {
-    await this.publishTask('remove participant', {
+    await this.publishTask(RequestResolverType.REMOVE_PARTICIPANT, {
       label: '140',
       payload: JSON.stringify({
         thread_id: threadID,
@@ -832,7 +868,7 @@ export default class InstagramWebSocket {
   }
 
   async unsendMessage(messageId: string) {
-    await this.publishTask('unsend message', {
+    await this.publishTask(RequestResolverType.UNSEND_MESSAGE, {
       label: '33',
       payload: JSON.stringify({
         message_id: messageId,
@@ -844,7 +880,7 @@ export default class InstagramWebSocket {
   }
 
   async getThread(threadKey: string) {
-    return this.publishTask('get new thread', {
+    return this.publishTask(RequestResolverType.GET_NEW_THREAD, {
       label: '209',
       payload: JSON.stringify({
         thread_fbid: threadKey,
@@ -861,7 +897,7 @@ export default class InstagramWebSocket {
   }
 
   async deleteThread(thread_key: string) {
-    return this.publishTask('delete thread', {
+    return this.publishTask(RequestResolverType.DELETE_THREAD, {
       label: '146',
       payload: JSON.stringify({
         thread_key,
@@ -886,14 +922,14 @@ export default class InstagramWebSocket {
     })
 
     const [primary, secondary] = await Promise.all([
-      this.publishTask('search users primary', {
+      this.publishTask(RequestResolverType.SEARCH_USERS_PRIMARY, {
         label: '30',
         payload,
         queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
         task_id: this.genTaskId(),
         failure_count: null,
       }),
-      this.publishTask('search users secondary', {
+      this.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, {
         label: '31',
         payload,
         queue_name: JSON.stringify(['search_secondary']),
@@ -908,7 +944,7 @@ export default class InstagramWebSocket {
   }
 
   async sendReadReceipt(thread_id: string, last_read_watermark_ts: number) {
-    await this.publishTask('send read receipt', {
+    await this.publishTask(RequestResolverType.SEND_READ_RECEIPT, {
       label: '21',
       payload: JSON.stringify({
         thread_id,
@@ -996,7 +1032,7 @@ export default class InstagramWebSocket {
   // prefer this.approveThread
   // since we pretend General and Primary are the same, this method is unused
   async changeThreadFolder(thread_key: string, old_ig_folder: number, new_ig_folder: number) {
-    await this.publishTask('change thread folder', {
+    await this.publishTask(RequestResolverType.SET_THREAD_FOLDER, {
       label: '511',
       payload: JSON.stringify({
         thread_key,
@@ -1011,7 +1047,7 @@ export default class InstagramWebSocket {
   }
 
   async approveThread(thread_key: string) {
-    await this.publishTask('move out of message requests', {
+    await this.publishTask(RequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, {
       label: '66',
       payload: JSON.stringify({
         thread_key,
@@ -1033,7 +1069,7 @@ export default class InstagramWebSocket {
     if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('messageID is required')
 
     const { otid } = getTimeValues()
-    await this.publishTask('forward message', {
+    await this.publishTask(RequestResolverType.FORWARD_MESSAGE, {
       label: '46',
       payload: JSON.stringify({
         thread_id,

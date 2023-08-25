@@ -35,7 +35,7 @@ import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParentThreadKey, SyncGroup } from './ig-types'
-import { QueryThreadsArgs } from './store/helpers'
+import { QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 
 // const MESSAGE_PAGE_SIZE = 20
 
@@ -150,7 +150,7 @@ export default class PlatformInstagram implements PlatformAPI {
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
 
-    let where: QueryThreadsArgs['where'] | 'ALL' = 'ALL'
+    let where: QueryThreadsArgs['where'] | QueryWhereSpecial.ALL = QueryWhereSpecial.ALL
     if (cursor) {
       const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
       if (minLastActivityTimestampMs) {
@@ -158,7 +158,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }
     }
 
-    const items = this.api.queryThreads(where, {
+    const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
       limit: 20,
     })
@@ -171,7 +171,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
-    const ranges = this.api.getMessageRanges(threadID)
+    const ranges = await this.api.getMessageRanges(threadID)
     this.logger.debug('getMessages [papi]', {
       threadID,
       pagination,
@@ -183,14 +183,14 @@ export default class PlatformInstagram implements PlatformAPI {
     let hasMore = ranges.hasMoreBeforeFlag
     try {
       await this.socket.waitForMessageRange(threadID)
-      hasMore = this.api.getMessageRanges(threadID).hasMoreBeforeFlag // refetch ranges from db
+      hasMore = (await this.api.getMessageRanges(threadID)).hasMoreBeforeFlag // refetch ranges from db
     } catch (e) {
       this.logger.error(e)
       hasMore = true
     }
 
     let where = eq(schema.messages.threadKey, threadID)
-    const { primarySortKey } = this.db.query.messages.findFirst({
+    const { primarySortKey } = await this.db.query.messages.findFirst({
       where,
       orderBy: [desc(schema.messages.primarySortKey)],
       columns: {
@@ -209,7 +209,7 @@ export default class PlatformInstagram implements PlatformAPI {
         filter(schema.messages.primarySortKey, primarySortKey),
       )
     }
-    const items = this.api.queryMessages(threadID, where, {
+    const items = await this.api.queryMessages(threadID, where, {
       orderBy: [order(schema.messages.primarySortKey)],
       limit: 20,
     })
@@ -220,11 +220,14 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   getThread = async (threadID: string): PAPIReturn<'getThread'> => {
-    const t = this.api.queryThreads([threadID], null)
+    const t = await this.api.queryThreads([threadID], null)
     return t[0]
   }
 
-  getMessage = (threadID: ThreadID, messageID: MessageID) => this.api.queryMessages(threadID, [messageID])[0]
+  getMessage = async (threadID: ThreadID, messageID: MessageID) => {
+    const [msg] = await this.api.queryMessages(threadID, [messageID])
+    return msg
+  }
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
@@ -276,7 +279,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
 
     const resp = await this.socket.createGroupThread(userIDs)
-    const users = this.api.getContacts(userIDs)
+    const users = await this.api.getContacts(userIDs)
     /// compare with userIDs to see if all users were found
     const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
     await this.socket.requestContacts(missingUserIDs)
@@ -404,9 +407,9 @@ export default class PlatformInstagram implements PlatformAPI {
 
   changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.socket.changeAdminStatus(threadID, participantID, role === 'admin')
 
-  getOriginalObject = (objName: 'thread' | 'message', objectID: ThreadID | MessageID) => {
+  getOriginalObject = async (objName: 'thread' | 'message', objectID: ThreadID | MessageID) => {
     if (objName === 'thread') {
-      const thread = this.db.query.threads.findFirst({
+      const thread = await this.db.query.threads.findFirst({
         where: eq(schema.threads.threadKey, objectID),
         columns: {
           threadKey: true,
@@ -442,7 +445,7 @@ export default class PlatformInstagram implements PlatformAPI {
       }, null, 2)
     }
     if (objName === 'message') {
-      const message = this.db.query.messages.findFirst({
+      const message = await this.db.query.messages.findFirst({
         where: eq(schema.messages.messageId, objectID),
         columns: {
           raw: true,
