@@ -289,6 +289,18 @@ export default class InstagramWebSocket {
       // ack for app settings
 
       if (!this.isSubscribedToLsResp) {
+        // subscribe to /ls_foreground_state
+        await this.send({
+          cmd: 'subscribe',
+          qos: 1,
+          subscriptions: [
+            {
+              topic: '/ls_foreground_state',
+              qos: 0,
+            },
+          ],
+          messageId: 3, // TODO: Auto increment messageID
+        } as any)
         // subscribe to /ls_resp
         await this.send({
           cmd: 'subscribe',
@@ -304,7 +316,7 @@ export default class InstagramWebSocket {
         this.isSubscribedToLsResp = true
       }
 
-      await this.maybeSubscribeToDatabaseOne()
+      await this.subscribeToAllDatabases()
       // this.getThreads()
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
@@ -912,11 +924,10 @@ export default class InstagramWebSocket {
   // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
-  private maybeSubscribeToDatabaseOne() {
-    const { epoch_id } = getTimeValues()
-    return this.send({
+  private subscribeToDB(reqNumber: number, db: number, cursor: `cursor-${SyncGroup}`, syncParams?: string) {
+    this.send({
       cmd: 'publish',
-      messageId: 5,
+      messageId: reqNumber,
       qos: 1,
       dup: false,
       retain: false,
@@ -924,17 +935,61 @@ export default class InstagramWebSocket {
       payload: JSON.stringify({
         app_id: APP_ID,
         payload: JSON.stringify({
-          database: 1,
-          epoch_id,
+          database: db,
+          epoch_id: getTimeValues().epoch_id,
           failure_count: null,
-          last_applied_cursor: this.papi.kv.get('cursor-1'),
-          sync_params: null,
+          last_applied_cursor: this.papi.kv.get(cursor),
+          sync_params: syncParams,
           version: VERSION_ID,
         }),
-        request_id: 5,
-        type: 2,
+        request_id: reqNumber,
+        type: 1,
       }),
     })
+  }
+
+  private subscribeToAllDatabases() {
+    this.subscribeToDB(5, 1, 'cursor-1')
+    // this.send({
+    //   cmd: 'publish',
+    //   messageId: 5,
+    //   qos: 1,
+    //   dup: false,
+    //   retain: false,
+    //   topic: '/ls_req',
+    //   payload: JSON.stringify({
+    //     app_id: APP_ID,
+    //     payload: JSON.stringify({
+    //       database: 1,
+    //       epoch_id: getTimeValues().epoch_id,
+    //       failure_count: null,
+    //       last_applied_cursor: this.papi.kv.get('cursor-1'),
+    //       sync_params: null,
+    //       version: VERSION_ID,
+    //     }),
+    //     request_id: 5,
+    //     type: 2,
+    //   }),
+    // })
+    this.subscribeToDB(6, 2, 'cursor-2')
+    this.subscribeToDB(7, 6, 'cursor-6', JSON.stringify({
+      locale: 'en_US',
+    }))
+    this.subscribeToDB(8, 7, 'cursor-7', JSON.stringify({
+      mnet_rank_types: [44],
+    }))
+    this.subscribeToDB(9, 16, 'cursor-16', JSON.stringify({
+      locale: 'en_US',
+    }))
+    this.subscribeToDB(10, 28, 'cursor-28', JSON.stringify({
+      locale: 'en_US',
+    }))
+    this.subscribeToDB(11, 196, 'cursor-196', JSON.stringify({
+      locale: 'en_US',
+    }))
+    this.subscribeToDB(11, 198, 'cursor-198', JSON.stringify({
+      locale: 'en_US',
+    }))
   }
 
   // does not work for moving threads out of the message requests folder
