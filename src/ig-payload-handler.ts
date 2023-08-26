@@ -568,8 +568,8 @@ export default class InstagramPayloadHandler {
         type: ServerEventType.STATE_SYNC,
         objectName: 'message_seen',
         mutationType: 'upsert',
-        objectIDs: { threadID: newestMessage.threadID, messageID: newestMessage.id },
-        entries: [newestMessage.seen],
+        objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
+        entries: [{ [r.contactId]: r.readActionTimestampMs || new Date(1) }],
       })
     }
   }
