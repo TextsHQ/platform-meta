@@ -275,7 +275,7 @@ export default class InstagramAPI {
 
   computeHasMoreSpamThreads() {
     const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
-    return values.hasMoreBefore
+    return values?.hasMoreBefore || true
   }
 
   getContact(contactId: string) {
