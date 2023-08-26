@@ -35,9 +35,10 @@ export default class InstagramPayloadHandler {
   constructor(
     private readonly papi: PlatformInstagram,
     private readonly data: IGSocketPayload,
-    private readonly requestId: number | 'initial' = Date.now(),
+    private readonly requestId: number | 'initial',
   ) {
-    this.logger = getLogger(`payload:${this.requestId}`)
+    const now = Date.now()
+    this.logger = getLogger(`payload:${this.requestId}:${now}`)
     this.calls = generateCallList(this.data)
   }
 
@@ -119,10 +120,7 @@ export default class InstagramPayloadHandler {
         this.logger.debug(`calling method ${method}`, { args })
         const call = this[method].bind(this)
 
-        let result = call(args)
-        if (result instanceof Promise) {
-          result = await result
-        }
+        const result = await call(args)
 
         if (typeof result === 'function') {
           this.afterCallbacks.push(result)
@@ -131,7 +129,7 @@ export default class InstagramPayloadHandler {
         if (e instanceof InstagramSocketServerError) {
           this.errors.push(e)
         } else {
-          this.logger.error('failed to call method', { method }, e)
+          this.logger.error('failed to call method', { method, args: JSON.stringify(args) }, e)
         }
       }
     }
