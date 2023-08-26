@@ -41,7 +41,7 @@ async function removeDatabaseFile(sqlitePath: string) {
   }
 }
 
-async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt = 0) {
+async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt = 0): Promise<void> {
   try {
     logger.debug('migrating database', { sqlitePath, retryAttempt })
     for (const migration of migrations) {
