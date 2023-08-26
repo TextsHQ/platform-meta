@@ -209,7 +209,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
     const items = await this.api.queryMessages(threadID, where, {
       orderBy: [order(schema.messages.primarySortKey)],
-      limit: 20,
+      // limit: 20,
     })
     return {
       items,
