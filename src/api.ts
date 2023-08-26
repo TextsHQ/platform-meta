@@ -75,7 +75,7 @@ export default class PlatformInstagram implements PlatformAPI {
     if (!session?.jar) return
     const { jar } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)
-    await this.api.init()
+    await this.api.init('init')
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -99,7 +99,7 @@ export default class PlatformInstagram implements PlatformAPI {
       this.api.authMethod = authMethod || 'login-window'
     }
     this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
-    await this.api.init()
+    await this.api.init('login')
     return { type: 'success' }
   }
 

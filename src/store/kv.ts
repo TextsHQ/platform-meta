@@ -2,6 +2,8 @@ import type Instagram from '../api'
 import { keyValues } from './schema'
 import { ParentThreadKey, SyncGroup } from '../ig-types'
 
+type DbId = number
+
 type Key =
   | '_fullConfig' // not used, for debugging
   | 'appId'
@@ -14,8 +16,8 @@ type Key =
   | 'mqttCapabilities'
   | 'mqttClientCapabilities'
   | 'wwwClaim'
-  | `_lastReceivedCursor-${SyncGroup}` // not used, for debugging
-  | `cursor-${SyncGroup}`
+  | `_lastReceivedCursor-${DbId}-${SyncGroup}` // not used, for debugging
+  | `cursor-${DbId}-${SyncGroup}`
   | `syncParams-${SyncGroup}`
   | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
 

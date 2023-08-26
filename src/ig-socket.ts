@@ -18,7 +18,7 @@ import { getLogger } from './logger'
 import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
-import { InstagramPayloadHandlerResponse } from './ig-payload-handler'
+import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './ig-payload-handler'
 import * as schema from './store/schema'
 
 type IGSocketTask = {
@@ -370,8 +370,7 @@ export default class InstagramWebSocket {
     // not sure exactly what the new cursor is for, but it's not needed. the request_id is null
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
-
-    await this.papi.api.handlePayload(payload.payload, payload.request_id ? Number(payload.request_id) : null)
+    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).handle()
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
@@ -606,7 +605,7 @@ export default class InstagramWebSocket {
         reference_timestamp_ms: Number(ranges.minTimestamp),
         reference_message_id: ranges.minMessageId,
         sync_group: 1,
-        cursor: this.papi.kv.get('cursor-1'),
+        cursor: this.papi.kv.get('cursor-1-1'),
       }),
       queue_name: `mrq.${threadID}`,
       task_id: this.genTaskId(),
@@ -623,7 +622,7 @@ export default class InstagramWebSocket {
         reference_thread_key: 0,
         reference_activity_timestamp: 9999999999999,
         additional_pages_to_fetch: 0,
-        cursor: this.papi.kv.get('cursor-1'),
+        cursor: this.papi.kv.get('cursor-1-1'),
         messaging_tag: null,
         sync_group: SyncGroup.MAIN,
       }),
@@ -639,7 +638,7 @@ export default class InstagramWebSocket {
         reference_thread_key: 0,
         reference_activity_timestamp: 9999999999999,
         additional_pages_to_fetch: 0,
-        cursor: this.papi.kv.get('cursor-95'),
+        cursor: this.papi.kv.get('cursor-1-95'),
         messaging_tag: null,
         sync_group: SyncGroup.UNKNOWN,
       }),
@@ -650,7 +649,7 @@ export default class InstagramWebSocket {
     this.papi.kv.get('hasTabbedInbox') && {
       label: '313',
       payload: JSON.stringify({
-        cursor: this.papi.kv.get('cursor-1'),
+        cursor: this.papi.kv.get('cursor-1-1'),
         filter: ThreadFilter.PRIMARY,
         is_after: 0,
         parent_thread_key: ParentThreadKey.GENERAL,
@@ -683,9 +682,9 @@ export default class InstagramWebSocket {
           is_after: 0,
           parent_thread_key: ParentThreadKey.PRIMARY,
           reference_thread_key: sg1Primary.minThreadKey,
-          reference_activity_timestamp: sg1Primary.minLastActivityTimestampMs,
+          reference_activity_timestamp: Number(sg1Primary.minLastActivityTimestampMs),
           additional_pages_to_fetch: 0,
-          cursor: this.papi.kv.get('cursor-1'),
+          cursor: this.papi.kv.get('cursor-1-1'),
           messaging_tag: null,
           sync_group: SyncGroup.MAIN,
         }),
@@ -699,7 +698,7 @@ export default class InstagramWebSocket {
           is_after: 0,
           parent_thread_key: ParentThreadKey.PRIMARY,
           reference_thread_key: sg95Primary.minThreadKey,
-          reference_activity_timestamp: sg95Primary.minLastActivityTimestampMs,
+          reference_activity_timestamp: Number(sg95Primary.minLastActivityTimestampMs),
           additional_pages_to_fetch: 0,
           cursor: null,
           messaging_tag: null,
@@ -719,7 +718,7 @@ export default class InstagramWebSocket {
       {
         label: '313',
         payload: JSON.stringify({
-          cursor: this.papi.kv.get('cursor-1'),
+          cursor: this.papi.kv.get('cursor-1-1'),
           filter,
           is_after: 0,
           parent_thread_key: 0,
@@ -752,7 +751,7 @@ export default class InstagramWebSocket {
           reference_thread_key: '9223372036854775807', // INT64_MAX
           reference_activity_timestamp: '9223372036854775807', // INT64_MAX
           additional_pages_to_fetch: 0,
-          cursor: this.papi.kv.get('cursor-1'),
+          cursor: this.papi.kv.get('cursor-1-1'),
           messaging_tag: null,
           sync_group: SyncGroup.MAIN,
         }),
@@ -768,7 +767,7 @@ export default class InstagramWebSocket {
           reference_thread_key: '9223372036854775807', // INT64_MAX
           reference_activity_timestamp: '9223372036854775807', // INT64_MAX
           additional_pages_to_fetch: 0,
-          cursor: this.papi.kv.get('cursor-95'),
+          cursor: this.papi.kv.get('cursor-1-95'),
           messaging_tag: null,
           sync_group: SyncGroup.UNKNOWN,
         }),
@@ -959,11 +958,11 @@ export default class InstagramWebSocket {
   // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
-  private subscribeToDB(db: number, cursor: `cursor-${SyncGroup}`, syncParams?: string) {
+  private subscribeToDB(database: number, cursor: `cursor-${number}-${SyncGroup}`, syncParams: string) {
     const request_id = this.genRequestId()
-    this.send({
+    return this.send({
       cmd: 'publish',
-      messageId: request_id, // @TODO: pretty sure this is wrong
+      messageId: 6, // @TODO: pretty sure this is wrong
       qos: 1,
       dup: false,
       retain: false,
@@ -971,7 +970,7 @@ export default class InstagramWebSocket {
       payload: JSON.stringify({
         app_id: this.papi.kv.get('appId'),
         payload: JSON.stringify({
-          database: db,
+          database,
           epoch_id: getTimeValues().epoch_id,
           failure_count: null,
           last_applied_cursor: this.papi.kv.get(cursor),
@@ -984,39 +983,39 @@ export default class InstagramWebSocket {
     })
   }
 
-  private subscribeToAllDatabases() {
-    this.subscribeToDB(1, 'cursor-1')
-    // this.send({
-    //   cmd: 'publish',
-    //   messageId: 5,
-    //   qos: 1,
-    //   dup: false,
-    //   retain: false,
-    //   topic: '/ls_req',
-    //   payload: JSON.stringify({
-    //     app_id: Number(this.papi.kv.get('appId')),
-    //     payload: JSON.stringify({
-    //       database: 1,
-    //       epoch_id: getTimeValues().epoch_id,
-    //       failure_count: null,
-    //       last_applied_cursor: this.papi.kv.get('cursor-1'),
-    //       sync_params: null,
-    //       version: VERSION_ID,
-    //     }),
-    //     request_id: 5,
-    //     type: 2,
-    //   }),
-    // })
+  private async subscribeToAllDatabases() {
+    // this.subscribeToDB(1, 'cursor-1-1', null)
+    await this.send({
+      cmd: 'publish',
+      messageId: 5,
+      qos: 1,
+      dup: false,
+      retain: false,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: Number(this.papi.kv.get('appId')),
+        payload: JSON.stringify({
+          database: 1,
+          epoch_id: getTimeValues().epoch_id,
+          failure_count: null,
+          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
+          sync_params: null,
+          version: VERSION_ID,
+        }),
+        request_id: this.genRequestId(),
+        type: 2,
+      }),
+    })
     // this.subscribeToDB(2, 'cursor-2')
-    const syncParamsString = JSON.stringify(this.papi.kv.get('syncParams-1'))
-    this.subscribeToDB(6, null, syncParamsString)
-    this.subscribeToDB(7, null, JSON.stringify({
+    const syncParamsString = this.papi.kv.get('syncParams-1')
+    await this.subscribeToDB(6, null, syncParamsString)
+    await this.subscribeToDB(7, null, JSON.stringify({
       mnet_rank_types: [44],
     }))
-    this.subscribeToDB(16, null, syncParamsString)
-    this.subscribeToDB(28, null, syncParamsString)
-    this.subscribeToDB(196, null, syncParamsString)
-    this.subscribeToDB(198, null, syncParamsString)
+    await this.subscribeToDB(16, null, syncParamsString)
+    await this.subscribeToDB(28, null, syncParamsString)
+    await this.subscribeToDB(196, null, syncParamsString)
+    await this.subscribeToDB(198, null, syncParamsString)
   }
 
   // does not work for moving threads out of the message requests folder
@@ -1092,7 +1091,7 @@ export default class InstagramWebSocket {
         if (index !== -1) {
           existingPromises.splice(index, 1)
         }
-      }, 5000)
+      }, 10000)
     })
 
     const racedPromise = Promise.race([p.promise, timeoutPromise])

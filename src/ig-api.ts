@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { type FetchOptions, type MessageSendOptions, ServerEventType, texts, type User } from '@textshq/platform-sdk'
+import { type FetchOptions, type MessageSendOptions, texts, type User } from '@textshq/platform-sdk'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
@@ -17,9 +17,8 @@ import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
 import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
-import InstagramPayloadHandler from './ig-payload-handler'
-import { IGResponse } from './ig-payload-parser'
 import { getMessengerConfig } from './parsers/messenger-config'
+import InstagramPayloadHandler from './ig-payload-handler'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -80,7 +79,8 @@ export default class InstagramAPI {
     return { statusCode: res.statusCode, headers: res.headers, json: JSON.parse(res.body) }
   }
 
-  async init() {
+  async init(triggeredFrom: 'login' | 'init') {
+    this.logger.debug(`init triggered from ${triggeredFrom}`)
     const { body } = await this.httpRequest(INSTAGRAM_BASE_URL + 'direct/', {
       // todo: refactor headers
       headers: {
@@ -240,55 +240,15 @@ export default class InstagramAPI {
       requestPayload: JSON.stringify({
         database: 1,
         epoch_id: 0,
-        last_applied_cursor: this.papi.kv.get('cursor-1'),
+        last_applied_cursor: this.papi.kv.get('cursor-1-1'),
         sync_params: JSON.stringify({}),
         version: 9477666248971112,
       }),
       requestType: 1,
     })
-    await this.handlePayload(response.data.data.lightspeed_web_request_for_igd.payload, 'initial')
+    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'initial').handle()
     this._initPromise?.resolve()
     await this.papi.socket.connect()
-  }
-
-  async handlePayload(payload: IGResponse['payload'], requestId: 'initial' | number) {
-    const handler = new InstagramPayloadHandler(this.papi, payload, requestId)
-    const [requestType, resolve, reject] = (requestId !== null && requestId !== 'initial' && this.papi.socket.requestResolvers?.has(requestId)) ? this.papi.socket.requestResolvers.get(requestId) : ([undefined, undefined] as const)
-
-    await handler.run()
-
-    const errors = handler.getErrors()
-    const hasErrors = errors.length > 0
-    if (requestType && hasErrors) {
-      const [mainError, ...otherErrors] = errors || []
-      if (mainError) {
-        reject(mainError)
-        // sentry should be captured upstream
-        // texts.Sentry.captureException(new Error(mainError))
-      }
-      if (otherErrors && otherErrors.length > 0) {
-        otherErrors.forEach(err => {
-          this.papi?.onEvent([
-            {
-              type: ServerEventType.TOAST,
-              toast: {
-                text: err.toString(),
-              },
-            },
-          ])
-          this.logger.error(err)
-        })
-      }
-    }
-
-    if (requestId !== 'initial') await handler.sync()
-
-    // wait for everything to be synced before resolving
-    if (requestType && !hasErrors) {
-      const r = handler.getResponse()
-      this.logger.debug(`[${requestId}] resolved request for ${requestType}`, r)
-      resolve(r)
-    }
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {
@@ -517,6 +477,14 @@ export default class InstagramAPI {
     this.papi.db.update(schema.threads).set({
       ranges: JSON.stringify(ranges),
     }).where(eq(schema.threads.threadKey, r.threadKey)).run()
+  }
+
+  async resolveMessageRanges(r: IGMessageRanges) {
+    const resolverKey = `messageRanges-${r.threadKey}` as const
+    const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
+    promiseEntries.forEach(p => {
+      p.resolve(r)
+    })
   }
 
   upsertAttachment(a: IGAttachment) {

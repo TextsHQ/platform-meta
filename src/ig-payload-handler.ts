@@ -3,13 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import {
-  type CallList,
-  generateCallList,
-  type IGSocketPayload,
-  type OperationKey,
-  type SimpleArgType,
-} from './ig-payload-parser'
+import { type CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './ig-payload-parser'
 import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL, InstagramSocketServerError } from './util'
 import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
@@ -41,9 +35,54 @@ export default class InstagramPayloadHandler {
   constructor(
     private readonly papi: PlatformInstagram,
     private readonly data: IGSocketPayload,
-    private readonly requestId: number | 'initial',
+    private readonly requestId: number | 'initial' = Date.now(),
   ) {
+    this.logger = getLogger(`payload:${this.requestId}`)
     this.calls = generateCallList(this.data)
+  }
+
+  private logger: ReturnType<typeof getLogger>
+
+  async handle() {
+    const [requestType, resolve, reject] = (
+      this.requestId !== null
+      && this.requestId !== 'initial'
+      && this.papi.socket.requestResolvers?.has(this.requestId)
+    ) ? this.papi.socket.requestResolvers.get(this.requestId) : ([undefined, undefined] as const)
+
+    await this.run()
+
+    const hasErrors = this.errors.length > 0
+    if (requestType && hasErrors) {
+      const [mainError, ...otherErrors] = this.errors || []
+      if (mainError) {
+        reject(mainError)
+        // sentry should be captured upstream
+        // texts.Sentry.captureException(new Error(mainError))
+      }
+      if (otherErrors && otherErrors.length > 0) {
+        otherErrors.forEach(err => {
+          this.papi?.onEvent([
+            {
+              type: ServerEventType.TOAST,
+              toast: {
+                text: err.toString(),
+              },
+            },
+          ])
+          this.logger.error(err)
+        })
+      }
+    }
+
+    if (this.requestId !== 'initial') await this.sync()
+
+    // wait for everything to be synced before resolving
+    if (requestType && !hasErrors) {
+      const r = this.getResponse()
+      this.logger.debug(`resolved request for type ${requestType}`, r)
+      resolve(r)
+    }
   }
 
   private readonly calls: CallList
@@ -52,13 +91,9 @@ export default class InstagramPayloadHandler {
 
   private afterCallbacks: (() => Promise<void> | void)[] = []
 
-  private logger = getLogger(`payload${this.requestId ? `for request #${this.requestId}` : ''}`)
-
   private threadsToSync = new Set<string>()
 
   private messagesToIgnore = new Set<string>()
-
-  private updatedThreads = new Set<string>()
 
   private responses: InstagramPayloadHandlerResponse = {}
 
@@ -66,27 +101,27 @@ export default class InstagramPayloadHandler {
 
   private events: ServerEvent[] = []
 
-  private getCall(method: OperationKey): ((args: SimpleArgType[]) => (() => void | Promise<void>) | void | Promise<void>) {
-    if (method in this && typeof this[method] === 'function') {
-      return this[method].bind(this)
-    }
-    throw new InstagramSocketServerError(0, 'UNHANDLED_CALL', `missing handler for ${method}`)
-  }
-
   getResponse = () => this.responses
 
-  getErrors = () => this.errors
-
   run = async () => {
+    this.logger.debug('loaded calls', { calls: this.calls })
     for (const [method, args] of this.calls) {
-      try {
-        const call = this.getCall(method)
+      if (['run', 'getResponse'].includes(method)) {
+        throw new InstagramSocketServerError(0, 'RESERVED_CALL', `called a reserved method (${method})`)
+      }
 
-        let result
-        if (call(args) instanceof Promise) {
-          result = await call(args)
-        } else {
-          result = call(args)
+      const isValidMethod = method in this && typeof this[method] === 'function'
+      if (!isValidMethod) {
+        this.errors.push(new InstagramSocketServerError(0, 'UNHANDLED_CALL', `missing handler for ${method}`))
+      }
+
+      try {
+        this.logger.debug(`calling method ${method}`, { args })
+        const call = this[method].bind(this)
+
+        let result = call(args)
+        if (result instanceof Promise) {
+          result = await result
         }
 
         if (typeof result === 'function') {
@@ -131,16 +166,6 @@ export default class InstagramPayloadHandler {
       }
       this.threadsToSync.clear()
     }
-
-    this.updatedThreads.forEach(threadKey => {
-      const resolverKey = `messageRanges-${threadKey}` as const
-      const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
-      const ranges = this.papi.api.getMessageRanges(threadKey)
-      promiseEntries.forEach(({ resolve }) => {
-        ranges.then(r => resolve(r))
-        // resolve(ranges)
-      })
-    })
 
     if (this.events.length > 0) {
       this.papi.onEvent([...toSync, ...this.events])
@@ -564,7 +589,7 @@ export default class InstagramPayloadHandler {
     const canIgnoreTimestamp = a[7] as string
     const syncChannel = a[8] as SyncGroup // @TODO: not sure
     // const lastSyncCompletedTimestampMs = d[5]
-    this.logger.debug('executeFirstBlockForSyncTransaction', a, {
+    this.logger.debug('executeFirstBlockForSyncTransaction', {
       database_id,
       epoch_id,
       currentCursor,
@@ -572,10 +597,11 @@ export default class InstagramPayloadHandler {
       sendSyncParams,
       canIgnoreTimestamp,
       syncChannel,
+      a2: a[2],
     })
 
-    this.papi.kv.set(`cursor-${syncChannel}`, currentCursor)
-    this.papi.kv.set(`_lastReceivedCursor-${syncChannel}`, JSON.stringify({
+    this.papi.kv.set(`cursor-${Number(database_id)}-${syncChannel}`, currentCursor)
+    this.papi.kv.set(`_lastReceivedCursor-${Number(database_id)}-${syncChannel}`, JSON.stringify({
       database_id,
       epoch_id,
       currentCursor,
@@ -608,7 +634,7 @@ export default class InstagramPayloadHandler {
     this.logger.debug('setMessageDisplayedContentTypes (ignored)', a)
   }
 
-  private insertNewMessageRange(a: SimpleArgType[]) {
+  private async insertNewMessageRange(a: SimpleArgType[]) {
     const msgRange = {
       threadKey: a[0] as string,
       minTimestamp: a[1] as string,
@@ -619,15 +645,14 @@ export default class InstagramPayloadHandler {
       hasMoreAfterFlag: a[8] as boolean,
     }
     this.logger.debug('insertNewMessageRange', a, msgRange)
-    this.papi.api.setMessageRanges(msgRange)
-    this.updatedThreads.add(msgRange.threadKey)
+    await this.papi.api.setMessageRanges(msgRange)
+    await this.papi.api.resolveMessageRanges(msgRange)
   }
 
-  private updateExistingMessageRange(a: SimpleArgType[]) {
+  private async updateExistingMessageRange(a: SimpleArgType[]) {
     const isMaxTimestamp = a[2] as boolean
     const timestamp = a[1] as string
     const msgRange = {
-      raw: JSON.stringify(a),
       threadKey: a[0] as string,
       hasMoreBeforeFlag: a[2] && !a[3],
       hasMoreAfterFlag: !a[2] && !a[3],
@@ -636,8 +661,8 @@ export default class InstagramPayloadHandler {
     }
 
     this.logger.debug('updateExistingMessageRange', a, msgRange)
-    this.papi.api.setMessageRanges(msgRange)
-    this.updatedThreads.add(msgRange.threadKey)
+    await this.papi.api.setMessageRanges(msgRange)
+    await this.papi.api.resolveMessageRanges(msgRange)
   }
 
   private upsertSequenceId(a: SimpleArgType[]) {
@@ -783,8 +808,18 @@ export default class InstagramPayloadHandler {
     this.logger.debug('upsertFolderSeenTimestamp (ignored)', a)
   }
 
-  private deleteExistingMessageRanges(a: SimpleArgType[]) {
-    this.logger.debug('deleteExistingMessageRanges (ignored)', a)
+  private async deleteExistingMessageRanges(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    this.logger.debug('deleteExistingMessageRanges', threadKey)
+    const threadExists = await this.papi.db.query.threads.findFirst({
+      where: eq(schema.threads.threadKey, a[0] as string),
+      columns: {
+        threadKey: true,
+        ranges: true,
+      },
+    })
+    if (!threadExists || (threadExists && !threadExists.ranges)) return
+    this.papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
   }
 
   private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
@@ -1453,5 +1488,13 @@ export default class InstagramPayloadHandler {
 
   private mailboxTaskCompletionApiOnTaskCompletion(a: SimpleArgType[]) {
     this.logger.debug('mailboxTaskCompletionApiOnTaskCompletion (ignored)', a)
+  }
+
+  private upsertTheme(a: SimpleArgType[]) {
+    this.logger.debug('upsertTheme (ignored)', a)
+  }
+
+  private truncatePresenceDatabase(a: SimpleArgType[]) {
+    this.logger.debug('truncatePresenceDatabase (ignored)', a)
   }
 }
