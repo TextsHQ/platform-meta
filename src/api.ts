@@ -21,7 +21,7 @@ import type {
   User,
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './ig-api'
@@ -35,7 +35,6 @@ import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { ParentThreadKey, SyncGroup } from './ig-types'
-import { QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 
 export default class PlatformInstagram implements PlatformAPI {
   logger = getLogger()
@@ -148,17 +147,27 @@ export default class PlatformInstagram implements PlatformAPI {
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
 
-    let where: QueryThreadsArgs['where'] | QueryWhereSpecial.ALL = QueryWhereSpecial.ALL
+    let whereArgs: SQLWrapper[] = [
+      isSpam ? inArray(schema.threads.parentThreadKey, [
+        ParentThreadKey.SPAM,
+        this.kv.get('hasTabbedInbox') && ParentThreadKey.GENERAL,
+      ].filter(Boolean)) : eq(schema.threads.parentThreadKey, ParentThreadKey.PRIMARY),
+    ]
+
     if (cursor) {
       const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
       if (minLastActivityTimestampMs) {
-        where = filter(schema.threads.lastActivityTimestampMs, new Date(minLastActivityTimestampMs))
+        whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(minLastActivityTimestampMs)))
       }
     }
 
+    whereArgs = whereArgs.filter(Boolean)
+
+    const where = whereArgs.length > 0 ? and(...whereArgs) : eq(schema.threads.parentThreadKey, ParentThreadKey.PRIMARY)
+
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      limit: 15,
+      // limit: 15,
     })
 
     return {
