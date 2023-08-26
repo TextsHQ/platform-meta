@@ -114,6 +114,7 @@ export default class InstagramPayloadHandler {
       const isValidMethod = method in this && typeof this[method] === 'function'
       if (!isValidMethod) {
         this.errors.push(new InstagramSocketServerError(0, 'UNHANDLED_CALL', `missing handler for ${method}`))
+        continue
       }
 
       try {
@@ -137,11 +138,7 @@ export default class InstagramPayloadHandler {
 
   sync = async (): Promise<void> => {
     for (const callback of this.afterCallbacks) {
-      if (callback instanceof Promise) {
-        await callback
-      } else {
-        callback()
-      }
+      await callback()
     }
 
     let toSync: ServerEvent[] = []
@@ -1494,5 +1491,9 @@ export default class InstagramPayloadHandler {
 
   private truncatePresenceDatabase(a: SimpleArgType[]) {
     this.logger.debug('truncatePresenceDatabase (ignored)', a)
+  }
+
+  private appendDataTraceAddon(a: SimpleArgType[]) {
+    this.logger.debug('appendDataTraceAddon (ignored)', a)
   }
 }

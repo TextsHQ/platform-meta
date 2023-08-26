@@ -1,6 +1,7 @@
 type NumberString = `${number}`
 
 export type OperationKey =
+  | 'appendDataTraceAddon'
   | 'addParticipantIdToGroupThread'
   | 'bumpThread'
   | 'checkAuthoritativeMessageExists'
