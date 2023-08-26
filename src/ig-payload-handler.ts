@@ -1,4 +1,4 @@
-import { ServerEvent, ServerEventType } from '@textshq/platform-sdk'
+import { ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
@@ -569,7 +569,7 @@ export default class InstagramPayloadHandler {
         objectName: 'message_seen',
         mutationType: 'upsert',
         objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
-        entries: [{ [r.contactId]: r.readActionTimestampMs || new Date(1) }],
+        entries: [{ [r.contactId]: r.readActionTimestampMs || UNKNOWN_DATE }],
       })
     }
   }

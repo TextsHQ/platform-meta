@@ -1,4 +1,4 @@
-import { AttachmentType, InboxName, Message, type Participant, type Thread, ThreadType } from '@textshq/platform-sdk'
+import { AttachmentType, InboxName, Message, type Participant, type Thread, ThreadType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import type { DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
@@ -98,7 +98,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   if (threadType !== 'single') {
     seen = participants.reduce(
       (acc, p) => {
-        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = new Date(1) // Date(1) is unknown date
+        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = UNKNOWN_DATE
         return acc
       },
       {} as {
