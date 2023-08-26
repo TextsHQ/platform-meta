@@ -1496,4 +1496,8 @@ export default class InstagramPayloadHandler {
   private appendDataTraceAddon(a: SimpleArgType[]) {
     this.logger.debug('appendDataTraceAddon (ignored)', a)
   }
+
+  private replaceOptimisticReaction(a: SimpleArgType[]) {
+    this.logger.debug('replaceOptimisticReaction (ignored)', a)
+  }
 }

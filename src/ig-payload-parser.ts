@@ -39,6 +39,7 @@ export type OperationKey =
   | 'removeOptimisticGroupThread'
   | 'removeParticipantFromThread'
   | 'removeTask'
+  | 'replaceOptimisticReaction'
   | 'replaceOptimisticThread'
   | 'replaceOptimsiticMessage'
   | 'setForwardScore'
