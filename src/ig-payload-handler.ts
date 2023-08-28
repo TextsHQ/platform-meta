@@ -1,5 +1,6 @@
 import { type ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
+import { pick } from 'lodash'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
@@ -94,6 +95,8 @@ export default class InstagramPayloadHandler {
 
   private __threadsToSync = new Set<string>()
 
+  private __messagesToSync = new Set<string>()
+
   private __messagesToIgnore = new Set<string>()
 
   private __responses: InstagramPayloadHandlerResponse = {}
@@ -183,7 +186,7 @@ export default class InstagramPayloadHandler {
   }
 
   private async __syncAttachment(threadKey: string, messageId: string) {
-    if (this.__threadsToSync.has(threadKey)) return
+    if (this.__threadsToSync.has(threadKey) || this.__messagesToSync.has(messageId)) return
 
     const [message] = await this.__papi.api.queryMessages(threadKey, [messageId])
     if (!message) return
@@ -193,9 +196,7 @@ export default class InstagramPayloadHandler {
       mutationType: 'update',
       objectName: 'message',
       entries: [{
-        id: message.id,
-        attachments: message.attachments,
-        textHeading: message.textHeading,
+        ...pick(message, ['id', 'textHeading', 'attachments']),
       }],
     })
   }
@@ -466,6 +467,7 @@ export default class InstagramPayloadHandler {
       subthreadKey: a[63] as string,
     }
     const { messageId } = this.__papi.api.upsertMessage(m)
+    this.__messagesToSync.add(messageId)
     this.__logger.debug('upsertMessage', m.threadKey, messageId, m.timestampMs, m.text)
   }
 
@@ -536,6 +538,8 @@ export default class InstagramPayloadHandler {
     }
 
     const { messageId } = this.__papi.api.upsertMessage(m)
+
+    this.__messagesToSync.add(messageId)
     this.__logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
 
     return async () => {
@@ -574,9 +578,25 @@ export default class InstagramPayloadHandler {
 
     return async () => {
       if (this.__threadsToSync.has(r.threadKey)) return
-
       const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
       if (!newestMessage) return
+      if (this.__messagesToSync.has(newestMessage.id)) return
+
+      const readOn = r.readActionTimestampMs || UNKNOWN_DATE
+
+      if (newestMessage.seen === true) return
+      if (newestMessage.seen instanceof Date && newestMessage.seen.getTime() >= readOn.getTime()) return
+      if (
+        !(newestMessage.seen instanceof Date)
+        && newestMessage.seen !== false
+        && r.contactId in newestMessage.seen
+        && (
+          newestMessage.seen[r.contactId] === true
+          || (newestMessage.seen[r.contactId] instanceof Date && newestMessage.seen[r.contactId].getTime() >= readOn.getTime())
+        )
+      ) {
+        return
+      }
 
       this.__events.push({
         type: ServerEventType.STATE_SYNC,
@@ -1410,7 +1430,7 @@ export default class InstagramPayloadHandler {
       .run()
 
     return () => {
-      if (this.__threadsToSync.has(r.threadKey)) return
+      if (this.__threadsToSync.has(r.threadKey) || this.__messagesToSync.has(r.messageId)) return
 
       this.__events.push({
         type: ServerEventType.STATE_SYNC,

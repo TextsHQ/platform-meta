@@ -12,7 +12,7 @@ export const migrations = [
   PRIMARY KEY(\`attachmentFbid\`, \`messageId\`, \`threadKey\`)
 );
 `,
-sql`CREATE TABLE \`contacts\` (
+  sql`CREATE TABLE \`contacts\` (
   \`raw\` text,
   \`contact\` text,
   \`id\` text PRIMARY KEY NOT NULL,
@@ -21,12 +21,12 @@ sql`CREATE TABLE \`contacts\` (
   \`username\` text
 );
 `,
-sql`CREATE TABLE \`key_values\` (
+  sql`CREATE TABLE \`key_values\` (
   \`key\` text PRIMARY KEY NOT NULL,
   \`value\` text
 );
 `,
-sql`CREATE TABLE \`messages\` (
+  sql`CREATE TABLE \`messages\` (
   \`raw\` text,
   \`message\` text,
   \`threadKey\` text NOT NULL,
@@ -37,7 +37,7 @@ sql`CREATE TABLE \`messages\` (
   \`senderId\` text NOT NULL
 );
 `,
-sql`CREATE TABLE \`participants\` (
+  sql`CREATE TABLE \`participants\` (
   \`raw\` text,
   \`threadKey\` text NOT NULL,
   \`userId\` text NOT NULL,
@@ -49,7 +49,7 @@ sql`CREATE TABLE \`participants\` (
   PRIMARY KEY(\`threadKey\`, \`userId\`)
 );
 `,
-sql`CREATE TABLE \`reactions\` (
+  sql`CREATE TABLE \`reactions\` (
   \`raw\` text,
   \`threadKey\` text,
   \`timestampMs\` integer,
@@ -59,7 +59,7 @@ sql`CREATE TABLE \`reactions\` (
   PRIMARY KEY(\`actorId\`, \`messageId\`, \`threadKey\`)
 );
 `,
-sql`CREATE TABLE \`threads\` (
+  sql`CREATE TABLE \`threads\` (
   \`threadKey\` text PRIMARY KEY NOT NULL,
   \`thread\` text,
   \`lastActivityTimestampMs\` integer,
