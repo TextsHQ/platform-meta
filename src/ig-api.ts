@@ -99,6 +99,10 @@ export default class InstagramAPI {
     // @TODO: there is an initial payload that needs to be parsed in body
     const config = getMessengerConfig(body)
 
+    if (!config.igViewerConfig?.id) {
+      throw new Error('[IG] Failed to fetch: igViewerConfig')
+    }
+
     this.papi.kv.setMany({
       'syncParams-1': JSON.stringify(config.syncParams),
       _fullConfig: JSON.stringify(config),
@@ -262,15 +266,14 @@ export default class InstagramAPI {
 
   computeHasMoreThreads() {
     const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-
-    let hasMore = primary.hasMoreBefore
+    if (primary.hasMoreBefore) return true
 
     if (this.papi.kv.get('hasTabbedInbox')) {
       const general = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
-      hasMore = hasMore || general.hasMoreBefore
+      if (general.hasMoreBefore) return true
     }
 
-    return hasMore
+    return false
   }
 
   computeHasMoreSpamThreads() {

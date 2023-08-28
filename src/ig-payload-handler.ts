@@ -130,7 +130,6 @@ export default class InstagramPayloadHandler {
         if (e instanceof InstagramSocketServerError) {
           this.errors.push(e)
         } else {
-          this.logger.error('failed to call method', { method, args: JSON.stringify(args) }, e)
           this.logger.error(`(ig payload) failed to call method: ${method}`, {
             method,
             args: JSON.stringify(args),
@@ -241,8 +240,8 @@ export default class InstagramPayloadHandler {
       lastReadWatermarkTimestampMs: getAsMS(a[1]),
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9],
-      folderName: a[10],
-      parentThreadKey: a[35],
+      folderName: a[10] as string,
+      parentThreadKey: a[35] as unknown as number,
       lastActivityTimestampMs: getAsMS(a[0]),
       snippet: a[2],
       threadPictureUrl: a[4],
@@ -331,7 +330,8 @@ export default class InstagramPayloadHandler {
     this.papi.db.insert(schema.threads).values({
       raw: JSON.stringify(a),
       threadKey,
-      parentThreadKey: a[35] as unknown as number,
+      folderName: thread.folderName,
+      parentThreadKey: thread.parentThreadKey,
       lastActivityTimestampMs: new Date(thread.lastActivityTimestampMs),
       thread: JSON.stringify(thread),
     }).run()
@@ -532,6 +532,7 @@ export default class InstagramPayloadHandler {
     this.logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
 
     return async () => {
+      if (this.messagesToIgnore.has(messageId)) return
       const [message] = await this.papi.api.queryMessages(m.threadKey, [messageId])
       if (!message) return
       this.events.push({
@@ -1093,8 +1094,6 @@ export default class InstagramPayloadHandler {
     this.logger.debug('insertBlobAttachment', a, ba)
     const { messageId } = this.papi.api.upsertAttachment(ba)
 
-    return () => {
-      this._syncAttachment(ba.threadKey, messageId)
     return async () => {
       await this._syncAttachment(ba.threadKey, messageId)
     }
@@ -1217,8 +1216,6 @@ export default class InstagramPayloadHandler {
     }
     this.logger.debug('insertXmaAttachment', a, ba)
     const { messageId } = this.papi.api.upsertAttachment(ba)
-    return () => {
-      this._syncAttachment(ba.threadKey, messageId)
     return async () => {
       await this._syncAttachment(ba.threadKey, messageId)
     }

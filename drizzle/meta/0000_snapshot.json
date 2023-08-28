@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "be41d888-7c42-4f3e-b546-ad70e00e94b7",
+  "id": "8ca852bb-f164-4753-8ace-22d34cf8e3a4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -360,6 +360,13 @@
         "lastActivityTimestampMs": {
           "name": "lastActivityTimestampMs",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "folderName": {
+          "name": "folderName",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

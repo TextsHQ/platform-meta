@@ -10,6 +10,7 @@ import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
 export async function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
   const threads = await db.query.threads.findMany({
     columns: {
+      folderName: true,
       parentThreadKey: true,
       lastActivityTimestampMs: true,
       threadKey: true,

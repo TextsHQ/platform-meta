@@ -385,7 +385,7 @@ export default class PlatformInstagram implements PlatformAPI {
     }
     const { timestamp, messageId } = await this.socket.sendMessage(threadID, { text }, { pendingMessageID, quotedMessageID })
     return [{
-      id: messageId || pendingMessageID,
+      id: messageId,
       timestamp,
       text,
       linkedMessageID: quotedMessageID,
