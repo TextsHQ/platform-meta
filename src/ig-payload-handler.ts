@@ -218,6 +218,7 @@ export default class InstagramPayloadHandler {
             name: true,
             username: true,
             profilePictureUrl: true,
+            igContact: true,
           },
         },
         thread: {
@@ -857,7 +858,103 @@ export default class InstagramPayloadHandler {
   private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
     const threadKey = a[0] as string
     const igThreadId = a[1] as string
-    this.__logger.debug('deleteThenInsertIgThreadInfo (ignored)', { threadKey, igThreadId })
+    this.__papi.db.update(schema.threads).set({
+      threadKey,
+      igThread: JSON.stringify({ igThreadId }),
+    }).where(eq(schema.threads.threadKey, threadKey)).run()
+    this.__logger.debug('deleteThenInsertIgThreadInfo', { threadKey, igThreadId })
+  }
+
+  private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertMessageRequest (ignored)', a)
+  }
+
+  private deleteThenInsertContact(a: SimpleArgType[]) {
+    const parsed = {
+      id: a[0] as string,
+      profilePictureUrl: a[2] as string,
+      profilePictureFallbackUrl: a[3] as string,
+      profilePictureUrlExpirationTimestampMs: a[4] as string,
+      profilePictureLargeUrl: a[5] as string,
+      profilePictureLargeFallbackUrl: a[6] as string,
+      profilePictureLargeUrlExpirationTimestampMs: a[7] as string,
+      name: a[9] as string,
+      secondaryName: a[41] as string,
+      normalizedNameForSearch: a[10] as string,
+      normalizedSearchTerms: a[33] as string,
+      isMessengerUser: a[11] as string,
+      isMemorialized: a[12] as string,
+      isManagedByViewer: a[35] as string,
+      blockedByViewerStatus: a[14] as string,
+      rank: a[17] as string,
+      firstName: a[18] as string,
+      contactType: a[19] as string,
+      contactTypeExact: a[20] as string,
+      authorityLevel: a[21] as string,
+      messengerCallLogThirdPartyId: a[22] as string,
+      profileRingColor: a[23] as string,
+      requiresMultiway: a[24] as string,
+      blockedSinceTimestampMs: a[25] as string,
+      fbUnblockedSinceTimestampMs: a[46] as string,
+      canViewerMessage: a[26] as string,
+      profileRingColorExpirationTimestampMs: a[27] as string,
+      phoneNumber: a[28] as string,
+      emailAddress: a[29] as string,
+      workCompanyId: a[30] as string,
+      workCompanyName: a[31] as string,
+      workJobTitle: a[32] as string,
+      deviceContactId: a[34] as string,
+      workForeignEntityType: a[36] as string,
+      capabilities: a[37] as string,
+      capabilities2: a[38] as string,
+      // profileRingState: d[0],
+      contactViewerRelationship: a[39] as string,
+      gender: a[40] as string,
+      contactReachabilityStatusType: a[43] as string,
+      restrictionType: a[44] as string,
+      waConnectStatus: a[45] as string,
+      // isEmployee: !1
+    }
+    const { id, name, profilePictureUrl, secondaryName: username, ...contact } = parsed
+    const c = {
+      id,
+      name,
+      profilePictureUrl,
+      username,
+      contact: JSON.stringify(contact),
+    } as const
+
+    this.__logger.debug('deleteThenInsertContact', a, parsed)
+
+    this.__papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
+      target: schema.contacts.id,
+      set: { ...c },
+    }).run()
+  }
+
+  private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
+    const contactId = a[0] as string
+
+    const igContact = JSON.stringify({
+      igId: a[1] as string,
+      igFollowStatus: a[4] as string,
+      verificationStatus: a[5] as string,
+      linkedFbid: a[2] as string,
+      e2eeEligibility: a[6] as string,
+      supportsE2eeSpamdStorage: a[7] as string,
+    })
+
+    this.__logger.debug('deleteThenInsertIGContactInfo', a)
+
+    // we don't keep it in a separate table, just in the contacts table
+    // since we overwrite the profile, no need to delete first
+    this.__papi.db.insert(schema.contacts).values({
+      id: contactId,
+      igContact,
+    }).onConflictDoUpdate({
+      target: schema.contacts.id,
+      set: { igContact },
+    }).run()
   }
 
   private writeThreadCapabilities(a: SimpleArgType[]) {
@@ -866,10 +963,6 @@ export default class InstagramPayloadHandler {
 
   private clearPinnedMessages(a: SimpleArgType[]) {
     this.__logger.debug('clearPinnedMessages (ignored)', a)
-  }
-
-  private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
-    this.__logger.debug('deleteThenInsertMessageRequest (ignored)', a)
   }
 
   private updateLastSyncCompletedTimestampMsToNow(a: SimpleArgType[]) {
@@ -934,70 +1027,6 @@ export default class InstagramPayloadHandler {
         entries: [actorID],
       })
     }
-  }
-
-  private deleteThenInsertContact(a: SimpleArgType[]) {
-    const _c = {
-      id: a[0] as string,
-      profilePictureUrl: a[2] as string,
-      profilePictureFallbackUrl: a[3] as string,
-      profilePictureUrlExpirationTimestampMs: a[4] as string,
-      profilePictureLargeUrl: a[5] as string,
-      profilePictureLargeFallbackUrl: a[6] as string,
-      profilePictureLargeUrlExpirationTimestampMs: a[7] as string,
-      name: a[9] as string,
-      secondaryName: a[41] as string,
-      normalizedNameForSearch: a[10] as string,
-      normalizedSearchTerms: a[33] as string,
-      isMessengerUser: a[11] as string,
-      isMemorialized: a[12] as string,
-      isManagedByViewer: a[35] as string,
-      blockedByViewerStatus: a[14] as string,
-      rank: a[17] as string,
-      firstName: a[18] as string,
-      contactType: a[19] as string,
-      contactTypeExact: a[20] as string,
-      authorityLevel: a[21] as string,
-      messengerCallLogThirdPartyId: a[22] as string,
-      profileRingColor: a[23] as string,
-      requiresMultiway: a[24] as string,
-      blockedSinceTimestampMs: a[25] as string,
-      fbUnblockedSinceTimestampMs: a[46] as string,
-      canViewerMessage: a[26] as string,
-      profileRingColorExpirationTimestampMs: a[27] as string,
-      phoneNumber: a[28] as string,
-      emailAddress: a[29] as string,
-      workCompanyId: a[30] as string,
-      workCompanyName: a[31] as string,
-      workJobTitle: a[32] as string,
-      deviceContactId: a[34] as string,
-      workForeignEntityType: a[36] as string,
-      capabilities: a[37] as string,
-      capabilities2: a[38] as string,
-      // profileRingState: d[0],
-      contactViewerRelationship: a[39] as string,
-      gender: a[40] as string,
-      contactReachabilityStatusType: a[43] as string,
-      restrictionType: a[44] as string,
-      waConnectStatus: a[45] as string,
-      // isEmployee: !1
-    }
-    this.__logger.debug('deleteThenInsertContact (ignored)', a, _c)
-    // @TODO: implement
-  }
-
-  private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
-    const c = {
-      contactId: a[0],
-      igId: a[1],
-      igFollowStatus: a[4],
-      verificationStatus: a[5],
-      linkedFbid: a[2],
-      e2eeEligibility: a[6],
-      supportsE2eeSpamdStorage: a[7],
-    }
-    this.__logger.debug('deleteThenInsertIGContactInfo (ignored)', a, c)
-    // @TODO: implement
   }
 
   private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
@@ -1071,6 +1100,10 @@ export default class InstagramPayloadHandler {
       previewUrl: a[17],
     }
     this.__logger.debug('insertAttachmentItem (ignored)', a, i)
+  }
+
+  private insertAttachment(a: SimpleArgType[]) {
+    this.__logger.debug('insertAttachment (ignored)', a)
   }
 
   private insertBlobAttachment(a: SimpleArgType[]) {
@@ -1535,8 +1568,10 @@ export default class InstagramPayloadHandler {
     this.__logger.debug('mailboxTaskCompletionApiOnTaskCompletion (ignored)', a)
   }
 
-  private upsertTheme(a: SimpleArgType[]) {
-    this.__logger.debug('upsertTheme (ignored)', a)
+  // eslint-disable-next-line class-methods-use-this
+  private upsertTheme(_a: SimpleArgType[]) {
+    // don't care about themes, spams the logs
+    // this.__logger.debug('upsertTheme (ignored)', a)
   }
 
   private truncatePresenceDatabase(a: SimpleArgType[]) {

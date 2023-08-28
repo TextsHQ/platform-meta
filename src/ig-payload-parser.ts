@@ -25,6 +25,7 @@ export type OperationKey =
   | 'getFirstAvailableAttachmentCTAID'
   | 'handleFailedTask'
   | 'hasMatchingAttachmentCTA'
+  | 'insertAttachment'
   | 'insertAttachmentCta'
   | 'insertAttachmentItem'
   | 'insertBlobAttachment'
