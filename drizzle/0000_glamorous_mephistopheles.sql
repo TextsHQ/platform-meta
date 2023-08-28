@@ -65,16 +65,3 @@ CREATE TABLE `threads` (
 	`raw` text,
 	`ranges` text
 );
---> statement-breakpoint
-CREATE TABLE `typing_indicators` (
-	`raw` text,
-	`threadKey` text NOT NULL,
-	`minTimestampMs` integer,
-	`minMessageId` text,
-	`maxTimestampMs` integer,
-	`maxMessageId` text,
-	`isLoadingBefore` integer,
-	`isLoadingAfter` integer,
-	`hasMoreBefore` integer,
-	`hasMoreAfter` integer
-);

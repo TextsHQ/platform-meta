@@ -31,20 +31,6 @@ export const messages = sqliteTable('messages', {
   senderId: text('senderId').notNull(),
 })
 
-export const typingIndicators = sqliteTable('typing_indicators', {
-  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  raw: text('raw'),
-  threadKey: text('threadKey').notNull(),
-  minTimestampMs: integer('minTimestampMs', { mode: 'timestamp' }),
-  minMessageId: text('minMessageId'),
-  maxTimestampMs: integer('maxTimestampMs', { mode: 'timestamp' }),
-  maxMessageId: text('maxMessageId'),
-  isLoadingBefore: integer('isLoadingBefore', { mode: 'boolean' }),
-  isLoadingAfter: integer('isLoadingAfter', { mode: 'boolean' }),
-  hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
-  hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
-})
-
 export type RawAttachment = Omit<IGAttachment, 'raw' | 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
 
 export const attachments = sqliteTable('attachments', {

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "8ca852bb-f164-4753-8ace-22d34cf8e3a4",
+  "id": "ccc65ff7-a8f3-4b17-a76a-c1987cb0cbb0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -388,85 +388,6 @@
         "ranges": {
           "name": "ranges",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "typing_indicators": {
-      "name": "typing_indicators",
-      "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "threadKey": {
-          "name": "threadKey",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "minTimestampMs": {
-          "name": "minTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "minMessageId": {
-          "name": "minMessageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "maxTimestampMs": {
-          "name": "maxTimestampMs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "maxMessageId": {
-          "name": "maxMessageId",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isLoadingBefore": {
-          "name": "isLoadingBefore",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "isLoadingAfter": {
-          "name": "isLoadingAfter",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "hasMoreBefore": {
-          "name": "hasMoreBefore",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "hasMoreAfter": {
-          "name": "hasMoreAfter",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
