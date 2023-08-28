@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "7b79c001-3456-4fb9-831c-c868024b790b",
+  "id": "862459ec-4fd9-480f-af51-d6db61c62d4f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -96,7 +96,7 @@
         },
         "igContact": {
           "name": "igContact",
-          "type": "blob",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

@@ -935,14 +935,14 @@ export default class InstagramPayloadHandler {
   private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
     const contactId = a[0] as string
 
-    const igContact = {
+    const igContact = JSON.stringify({
       igId: a[1] as string,
       igFollowStatus: a[4] as string,
       verificationStatus: a[5] as string,
       linkedFbid: a[2] as string,
       e2eeEligibility: a[6] as string,
       supportsE2eeSpamdStorage: a[7] as string,
-    } as const
+    })
 
     this.__logger.debug('deleteThenInsertIGContactInfo', a)
 

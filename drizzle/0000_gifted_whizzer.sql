@@ -13,7 +13,7 @@ CREATE TABLE `contacts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`raw` text,
 	`contact` text,
-	`igContact` blob,
+	`igContact` text,
 	`profilePictureUrl` text,
 	`name` text,
 	`username` text

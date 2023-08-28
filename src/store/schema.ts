@@ -1,6 +1,6 @@
 import type { InferSelectModel } from 'drizzle-orm'
 import { relations } from 'drizzle-orm'
-import { blob, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
 export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
@@ -55,14 +55,15 @@ export const contacts = sqliteTable('contacts', {
   id: text('id').notNull().primaryKey(),
   raw: text('raw'),
   contact: text('contact'),
-  igContact: blob('igContact', { mode: 'json' }).$type<{
-    igId: string
-    igFollowStatus: string
-    verificationStatus: string
-    linkedFbid: string
-    e2eeEligibility: string
-    supportsE2eeSpamdStorage: string
-  }>(),
+  // igContact: blob('igContact', { mode: 'json' }).$type<{
+  //   igId: string
+  //   igFollowStatus: string
+  //   verificationStatus: string
+  //   linkedFbid: string
+  //   e2eeEligibility: string
+  //   supportsE2eeSpamdStorage: string
+  // }>(),
+  igContact: text('igContact'),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
   username: text('username'),
