@@ -14,8 +14,7 @@ export class MetaMessengerError extends Error {
 
   constructor(env: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra) {
     super([
-      `[${env}] Error`,
-      id === -1 ? '' : ` (${id}): `,
+      `[${env}] Error${id === -1 ? '' : ` (${id})`}: `,
       title,
       details?.length > 0 ? `(${details})` : '',
       context ? ` context: [${JSON.stringify(context)}]` : '',

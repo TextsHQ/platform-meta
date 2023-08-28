@@ -4,8 +4,8 @@ import { META_MESSENGER_ENV } from './constants'
 type NumberString = `${number}`
 
 export type OperationKey =
-  | 'appendDataTraceAddon'
   | 'addParticipantIdToGroupThread'
+  | 'appendDataTraceAddon'
   | 'bumpThread'
   | 'checkAuthoritativeMessageExists'
   | 'clearPinnedMessages'
@@ -56,6 +56,7 @@ export type OperationKey =
   | 'truncatePresenceDatabase'
   | 'updateAttachmentCtaAtIndexIgnoringAuthority'
   | 'updateAttachmentItemCtaAtIndex'
+  | 'updateCommunityThreadStaleState'
   | 'updateDeliveryReceipt'
   | 'updateExistingMessageRange'
   | 'updateFilteredThreadsRanges'
@@ -65,6 +66,8 @@ export type OperationKey =
   | 'updateParticipantLastMessageSendTimestamp'
   | 'updateReadReceipt'
   | 'updateSearchQueryStatus'
+  | 'updateSelectiveSyncState'
+  | 'updateThreadNullState'
   | 'updateThreadParticipantAdminStatus'
   | 'updateThreadSnippet'
   | 'updateThreadsRangesV2'

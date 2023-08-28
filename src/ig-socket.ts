@@ -486,19 +486,19 @@ export default class InstagramWebSocket {
     })
   }
 
-  async createThread(userId: string) {
-    const response = await this.publishTask(RequestResolverType.CREATE_THREAD, {
-      label: '209',
-      payload: JSON.stringify({
-        // thread_fbid: BigInt(userId),
-        thread_fbid: userId,
-      }),
-      queue_name: userId,
-      task_id: this.genTaskId(),
-      failure_count: null,
-    })
-    this.logger.info('create thread response', response)
-  }
+  // async createThread(userId: string) {
+  //   const response = await this.publishTask(RequestResolverType.CREATE_THREAD, {
+  //     label: '209',
+  //     payload: JSON.stringify({
+  //       // thread_fbid: BigInt(userId),
+  //       thread_fbid: userId,
+  //     }),
+  //     queue_name: userId,
+  //     task_id: this.genTaskId(),
+  //     failure_count: null,
+  //   })
+  //   this.logger.info('create thread response', response)
+  // }
 
   async createGroupThread(participants: string[]) {
     const { otid, now } = getTimeValues()

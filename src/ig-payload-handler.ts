@@ -7,7 +7,7 @@ import { getLogger } from './logger'
 import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './ig-payload-parser'
 import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, META_MESSENGER_ENV } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
-import { type IGAttachment, type IGMessage, type IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
+import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './ig-types'
 import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
 import { QueryWhereSpecial } from './store/helpers'
@@ -58,26 +58,26 @@ export default class InstagramPayloadHandler {
     await this.__run()
 
     const hasErrors = this.__errors.length > 0
-    if (requestType && hasErrors) {
-      const [mainError, ...otherErrors] = this.__errors || []
-      if (mainError) {
-        reject(mainError)
-        // sentry should be captured upstream
-        // texts.Sentry.captureException(new Error(mainError))
+
+    if (hasErrors) {
+      if (requestType) {
+        reject(this.__errors[0])
       }
-      if (otherErrors && otherErrors.length > 0) {
-        otherErrors.forEach(err => {
-          this.__papi?.onEvent([
-            {
-              type: ServerEventType.TOAST,
-              toast: {
-                text: err.getPublicMessage?.() || err.toString(),
-              },
-            },
-          ])
-          this.__logger.error(err)
+
+      const errorEvents: ServerEvent[] = []
+
+      this.__errors.forEach((err, i) => {
+        this.__logger.error(err)
+        if (requestType && i === 0) return
+        errorEvents.push({
+          type: ServerEventType.TOAST,
+          toast: {
+            text: err?.getPublicMessage?.() || err?.toString?.() || `Unknown error: ${JSON.stringify(err)}`,
+          },
         })
-      }
+      })
+
+      this.__papi.onEvent(errorEvents)
     }
 
     if (this.__requestId !== 'initial' && this.__requestId !== 'snapshot') await this.__sync()
@@ -118,6 +118,7 @@ export default class InstagramPayloadHandler {
 
       const isValidMethod = method in this && typeof this[method] === 'function'
       if (!isValidMethod) {
+        this.__logger.debug(`missing handler (${method})`, args)
         this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${method})`))
         continue
       }
@@ -1552,5 +1553,29 @@ export default class InstagramPayloadHandler {
 
   private issueNewTask(a: SimpleArgType[]) {
     this.__logger.debug('issueNewTask (ignored)', a)
+  }
+
+  private updateCommunityThreadStaleState(a: SimpleArgType[]) {
+    this.__logger.debug('updateCommunityThreadStaleState (ignored)', a)
+  }
+
+  private updateThreadNullState(a: SimpleArgType[]) {
+    const parsed: Partial<IGThread> = {
+      threadPictureUrl: a[1] as string,
+      threadPictureUrlFallback: a[2] as string,
+      threadPictureUrlExpirationTimestampMs: a[3] as number,
+      nullstateDescriptionText1: a[4] as string,
+      nullstateDescriptionType1: a[9] as string,
+      nullstateDescriptionText2: a[5] as string,
+      nullstateDescriptionType2: a[10] as string,
+      nullstateDescriptionText3: a[6] as string,
+      nullstateDescriptionType3: a[11] as string,
+      capabilities: a[14] as string,
+    }
+    this.__logger.debug('updateThreadNullState (ignored)', a, parsed)
+  }
+
+  private updateSelectiveSyncState(a: SimpleArgType[]) {
+    this.__logger.debug('updateSelectiveSyncState (ignored)', a)
   }
 }
