@@ -183,6 +183,8 @@ export default class InstagramPayloadHandler {
   }
 
   private async __syncAttachment(threadKey: string, messageId: string) {
+    if (this.__threadsToSync.has(threadKey)) return
+
     const [message] = await this.__papi.api.queryMessages(threadKey, [messageId])
     if (!message) return
     this.__events.push({
@@ -537,7 +539,7 @@ export default class InstagramPayloadHandler {
     this.__logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
 
     return async () => {
-      if (this.__messagesToIgnore.has(messageId)) return
+      if (this.__threadsToSync.has(m.threadKey) || this.__messagesToIgnore.has(messageId)) return
       const [message] = await this.__papi.api.queryMessages(m.threadKey, [messageId])
       if (!message) return
       this.__events.push({
@@ -571,6 +573,8 @@ export default class InstagramPayloadHandler {
     if (!r.readActionTimestampMs) return
 
     return async () => {
+      if (this.__threadsToSync.has(r.threadKey)) return
+
       const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
       if (!newestMessage) return
 
@@ -741,6 +745,8 @@ export default class InstagramPayloadHandler {
     const contact = this.__papi.api.getContact(p.userId)
 
     return () => {
+      if (this.__threadsToSync.has(p.threadKey)) return
+
       this.__events.push({
         type: ServerEventType.STATE_SYNC,
         objectIDs: { threadID: p.threadKey },
@@ -1404,6 +1410,8 @@ export default class InstagramPayloadHandler {
       .run()
 
     return () => {
+      if (this.__threadsToSync.has(r.threadKey)) return
+
       this.__events.push({
         type: ServerEventType.STATE_SYNC,
         objectName: 'message_reaction',
