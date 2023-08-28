@@ -748,7 +748,7 @@ export default class InstagramPayloadHandler {
         mutationType: 'upsert',
         entries: [{
           id: p.userId,
-          isAdmin: p.isAdmin,
+          isAdmin: Boolean(p.isAdmin),
           username: contact?.username,
           fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
           imgURL: contact?.profilePictureUrl,
