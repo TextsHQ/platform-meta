@@ -59,6 +59,7 @@ export default class InstagramAPI {
     const res = await this.http.requestAsString(url, {
       cookieJar: this.jar,
       ...opts,
+      followRedirect: false,
       headers: {
         'user-agent': this.ua,
         ...commonHeaders,
@@ -98,6 +99,14 @@ export default class InstagramAPI {
         'viewport-width': '1280',
       },
     })
+
+    // const result = await texts.openBrowserWindow(this.papi.accountID, {
+    //   url: ENDPOINT,
+    //   cookieJar: this.jar.toJSON(),
+    //   userAgent: this.ua,
+    //   runJSOnLaunch: CLOSE_ON_AUTHENTICATED_JS,
+    //   runJSOnNavigate: CLOSE_ON_AUTHENTICATED_JS,
+    // })
 
     const config = getMessengerConfig(body)
 
