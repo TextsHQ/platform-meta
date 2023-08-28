@@ -10,7 +10,7 @@ export const threads = sqliteTable('threads', {
   // thread: blob('thread', { mode: 'json' }).$type<IGThreadInDB>(), //SqliteError: JSON cannot hold BLOB values
   thread: text('thread'),
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
-  // folderName: text('folderName').$type<InboxName.NORMAL | InboxName.REQUESTS>(),
+  folderName: text('folderName'),
   parentThreadKey: integer('parentThreadKey'),
   raw: text('raw'),
   // hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),

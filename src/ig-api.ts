@@ -9,12 +9,12 @@ import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './s
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger } from './logger'
-import { INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
+import { INSTAGRAM_BASE_URL, META_MESSENGER_ENV, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { IGAttachment, IGMessage, IGMessageRanges } from './ig-types'
 import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
-import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
+import { createPromise, getEnvOptions, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
@@ -43,9 +43,9 @@ export default class InstagramAPI {
     return this._initPromise.promise
   }
 
-  private logger = getLogger('ig-api')
-
   constructor(private readonly papi: Instagram) {}
+
+  private logger = getLogger(META_MESSENGER_ENV, 'mm-api')
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -81,7 +81,9 @@ export default class InstagramAPI {
 
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
-    const { body } = await this.httpRequest(INSTAGRAM_BASE_URL + 'direct/', {
+    const envOptions = getEnvOptions(this.papi.env)
+
+    const { body } = await this.httpRequest(envOptions.initialURL, {
       // todo: refactor headers
       headers: {
         accept:
@@ -96,8 +98,13 @@ export default class InstagramAPI {
         'viewport-width': '1280',
       },
     })
-    // @TODO: there is an initial payload that needs to be parsed in body
+
     const config = getMessengerConfig(body)
+
+    console.log(JSON.stringify(config, null, 2))
+    if (!config.igViewerConfig?.id) {
+      throw new Error('[IG] Failed to fetch: igViewerConfig')
+    }
 
     this.papi.kv.setMany({
       'syncParams-1': JSON.stringify(config.syncParams),
@@ -120,7 +127,14 @@ export default class InstagramAPI {
       imgURL: fixUrl(config.igViewerConfig.profile_pic_url_hd),
       username: config.igViewerConfig.username,
     }
-    await this.getInitialPayload()
+
+    for (const payload of config.initialPayloads) {
+      await new InstagramPayloadHandler(this.papi, payload, 'initial').__handle()
+    }
+
+    this._initPromise?.resolve()
+    await this.getSnapshotPayload()
+    await this.papi.socket.connect()
   }
 
   getCookies() {
@@ -233,7 +247,7 @@ export default class InstagramAPI {
       .find(c => c.key === 'csrftoken')?.value
   }
 
-  async getInitialPayload() {
+  async getSnapshotPayload() {
     const response = await this.graphqlCall('6195354443842040', {
       deviceId: this.papi.kv.get('clientId'),
       requestId: 0,
@@ -246,9 +260,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'initial').handle()
-    this._initPromise?.resolve()
-    await this.papi.socket.connect()
+    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {
@@ -262,15 +274,13 @@ export default class InstagramAPI {
 
   computeHasMoreThreads() {
     const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+    const general = this.papi.kv.get('hasTabbedInbox') ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
 
-    let hasMore = primary.hasMoreBefore
-
-    if (this.papi.kv.get('hasTabbedInbox')) {
-      const general = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL)
-      hasMore = hasMore || general.hasMoreBefore
+    if (primary?.hasMoreBefore || general?.hasMoreBefore || (!primary && !general)) {
+      return true
     }
 
-    return hasMore
+    return false
   }
 
   computeHasMoreSpamThreads() {

@@ -6,8 +6,9 @@ import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
 import { getLogger } from '../logger'
 import { migrations } from './migrations'
+import { META_MESSENGER_ENV } from '../constants'
 
-const logger = getLogger('drizzle')
+const logger = getLogger(META_MESSENGER_ENV, 'drizzle')
 const migrationsFolder = resolve(__dirname, '../drizzle')
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>

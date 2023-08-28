@@ -10,16 +10,16 @@ import {
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
-  InstagramSocketServerError,
   parseMqttPacket,
   sleep,
 } from './util'
 import { getLogger } from './logger'
-import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
+import { MAX_RETRY_ATTEMPTS, META_MESSENGER_ENV, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './ig-payload-handler'
 import * as schema from './store/schema'
+import { MetaMessengerError } from './errors'
 
 type IGSocketTask = {
   label: string
@@ -58,7 +58,7 @@ export enum RequestResolverType {
 }
 
 export type RequestResolverResolver = (response?: InstagramPayloadHandlerResponse) => void
-export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | InstagramSocketServerError) => void
+export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | MetaMessengerError) => void
 
 const lsAppSettings = {
   qos: 1,
@@ -76,15 +76,16 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger = getLogger('socket')
+  constructor(private readonly papi: PlatformInstagram) {
+  }
+
+  private logger = getLogger(META_MESSENGER_ENV, 'socket')
 
   private mqttSid: number
 
   private isInitialConnection = true
 
   private isSubscribedToLsResp = false
-
-  constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
@@ -370,7 +371,7 @@ export default class InstagramWebSocket {
     // not sure exactly what the new cursor is for, but it's not needed. the request_id is null
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
-    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).handle()
+    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
@@ -551,9 +552,9 @@ export default class InstagramWebSocket {
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    const rejector = (response: InstagramPayloadHandlerResponse | InstagramSocketServerError) => {
-      if (!(response instanceof InstagramSocketServerError)) {
-        this.logger.error(new InstagramSocketServerError('REQUEST_RESOLVER_REJECTED', 'Request resolver rejected', `Payload: ${response}`), {}, response)
+    const rejector = (response: InstagramPayloadHandlerResponse | MetaMessengerError) => {
+      if (!(response instanceof MetaMessengerError)) {
+        this.logger.error(new MetaMessengerError(this.papi.env, -1, 'request resolver rejected', `payload: ${JSON.stringify(response)}`))
       }
       reject(response)
       this.requestResolvers.delete(request_id)
@@ -665,12 +666,10 @@ export default class InstagramWebSocket {
     },
   ])
 
-  fetchMoreThreads = () => {
+  fetchMoreThreads = async () => {
     if (this.papi.kv.get('hasTabbedInbox')) {
-      return Promise.all([
-        this.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
-        this.fetchMoreInboxThreads(ThreadFilter.GENERAL),
-      ])
+      await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
+      await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
     }
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
     const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary

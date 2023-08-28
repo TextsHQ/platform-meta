@@ -1,12 +1,13 @@
 import { getLogger } from './logger'
-import { InstagramSocketServerError } from './util'
+import { MetaMessengerError } from './errors'
+import { META_MESSENGER_ENV } from './constants'
 
 export class PromiseQueue {
   private promises: Promise<void>[] = []
 
   private isProcessing = false
 
-  private logger = getLogger('PromiseQueue')
+  private logger = getLogger(META_MESSENGER_ENV, 'p-queue')
 
   private async processQueue() {
     if (this.isProcessing) return
@@ -32,10 +33,9 @@ export class PromiseQueue {
       if (err instanceof Error) {
         this.logger.error(err)
       } else {
+        const errorMessage = typeof err === 'string' ? err : JSON.stringify(err)
         this.logger.error(
-          new InstagramSocketServerError('PQUEUE_REJECTION', 'Promise queue got rejection', err),
-          {},
-          'PromiseQueue failed',
+          new MetaMessengerError(META_MESSENGER_ENV, -1, 'promise queue got rejection', errorMessage),
         )
       }
     }

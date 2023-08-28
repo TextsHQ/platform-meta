@@ -1,10 +1,12 @@
 import { texts } from '@textshq/platform-sdk'
 import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
+import { EnvironmentKey } from './ig-types'
+import { MetaMessengerError } from './errors'
 
-type SentryExtra = Record<string, string | boolean | number>
+export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
-export type ErrorAlt = Error | WSErrorEvent
+export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError
 
 const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const message = feature ? `${feature} ${err.message}` : err.message
@@ -16,6 +18,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
     extra: {
       feature,
       ...extra,
+      ...((err instanceof MetaMessengerError) ? err.getErrorData?.() : {}),
       ...{
         socketStatus: isWSError ? err.target.readyState : undefined,
       },
@@ -23,8 +26,8 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   })
 }
 
-export const getLogger = (feature = '') => {
-  const prefix = `[ig${feature ? `:${feature}` : ''}]`
+export const getLogger = (env: EnvironmentKey, feature = '') => {
+  const prefix = `[${env}${feature ? `:${feature}` : ''}]`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
     [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg))].join(' ')

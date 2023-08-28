@@ -1,7 +1,7 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
 import type { SimpleArgType } from './ig-payload-parser'
-import { IGMessageRanges } from './ig-types'
+import { EnvironmentKey, IGMessageRanges } from './ig-types'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -105,31 +105,21 @@ export function parseUnicodeEscapeSequences(str: string) {
   return decodeURIComponent(JSON.parse('"' + str.replace(/\\u([\d\w]{4})/gi, (match, grp) => '\\u' + grp) + '"'))
 }
 
-export class InstagramSocketServerError extends Error {
-  info: {
-    id: number | string
-    message: string
-  }
-
-  constructor(errorId: number | string, errorTitle: string, errorMessage: string) {
-    super(`Error ${errorId}: ${errorMessage}`)
-    this.name = errorTitle
-    this.info = {
-      id: errorId,
-      message: errorMessage,
-    }
-
-    // Ensure the instance is correctly set up
-    // If transpiling to ES5, this line is needed to correctly set up the prototype chain
-    Object.setPrototypeOf(this, InstagramSocketServerError.prototype)
-
-    // Capture the stack trace (removes the constructor call from it)
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, InstagramSocketServerError)
-    }
-  }
-
-  toString() {
-    return `${this.name} (ID: ${this.info.id}): ${this.message}`
+export function getEnvOptions(env: EnvironmentKey) {
+  switch (env) {
+    case 'IG':
+      return {
+        initialURL: 'https://www.instagram.com/direct/' as const,
+      }
+    case 'FB':
+      return {
+        initialURL: 'https://www.facebook.com/messages' as const,
+      }
+    case 'MESSENGER':
+      return {
+        initialURL: 'https://www.messenger.com' as const,
+      }
+    default:
+      throw new Error(`Invalid environment: ${env}`)
   }
 }

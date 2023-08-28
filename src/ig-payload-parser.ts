@@ -1,3 +1,6 @@
+import { MetaMessengerError } from './errors'
+import { META_MESSENGER_ENV } from './constants'
+
 type NumberString = `${number}`
 
 export type OperationKey =
@@ -137,8 +140,7 @@ export function safeNumberOrString(input: unknown): number | string {
 
 export function generateCallList(payload: string) {
   if (!payload) {
-    console.error(`Invalid payload: ${payload}`)
-    return []
+    throw new MetaMessengerError(META_MESSENGER_ENV, -1, 'failed to generate call list, invalid payload')
   }
 
   const calls: [OperationKey, SimpleArgType[]][] = []
@@ -200,8 +202,8 @@ export function generateCallList(payload: string) {
   // Extract the actual payload from the provided data
   const internalPayload = JSON.parse(payload) as Payload
   if (!internalPayload.step) {
-    console.error('Invalid payload', internalPayload)
-    throw new Error('Invalid payload!')
+    console.error('invalid payload step', internalPayload)
+    throw new MetaMessengerError(META_MESSENGER_ENV, -1, 'failed to parse payload step, invalid payload')
   }
 
   processStep(internalPayload.step)

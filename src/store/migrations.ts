@@ -63,6 +63,7 @@ export const migrations = [
   \`threadKey\` text PRIMARY KEY NOT NULL,
   \`thread\` text,
   \`lastActivityTimestampMs\` integer,
+  \`folderName\` text,
   \`parentThreadKey\` integer,
   \`raw\` text,
   \`ranges\` text
