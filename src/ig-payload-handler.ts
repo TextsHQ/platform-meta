@@ -131,6 +131,10 @@ export default class InstagramPayloadHandler {
           this.errors.push(e)
         } else {
           this.logger.error('failed to call method', { method, args: JSON.stringify(args) }, e)
+          this.logger.error(`(ig payload) failed to call method: ${method}`, {
+            method,
+            args: JSON.stringify(args),
+          }, e)
         }
       }
     }
@@ -1091,6 +1095,8 @@ export default class InstagramPayloadHandler {
 
     return () => {
       this._syncAttachment(ba.threadKey, messageId)
+    return async () => {
+      await this._syncAttachment(ba.threadKey, messageId)
     }
   }
 
@@ -1213,6 +1219,8 @@ export default class InstagramPayloadHandler {
     const { messageId } = this.papi.api.upsertAttachment(ba)
     return () => {
       this._syncAttachment(ba.threadKey, messageId)
+    return async () => {
+      await this._syncAttachment(ba.threadKey, messageId)
     }
   }
 
@@ -1231,6 +1239,7 @@ export default class InstagramPayloadHandler {
       // isVerified: Boolean(a[12]),
     }
     this.logger.debug('insertSearchResult', a, r)
+    if (!this.responses.insertSearchResult || !this.responses.insertSearchResult.length) this.responses.insertSearchResult = []
     this.responses.insertSearchResult.push(r)
   }
 
@@ -1320,7 +1329,6 @@ export default class InstagramPayloadHandler {
 
     if (this.responses.replaceOptimsiticMessage?.messageId) { // @TODO: not sure if it needs to handle multiple in one payload
       this.logger.warn('replaceOptimsiticMessage: already exists', a)
-      return
     }
 
     this.responses.replaceOptimsiticMessage = {
@@ -1499,5 +1507,9 @@ export default class InstagramPayloadHandler {
 
   private replaceOptimisticReaction(a: SimpleArgType[]) {
     this.logger.debug('replaceOptimisticReaction (ignored)', a)
+  }
+
+  private issueNewTask(a: SimpleArgType[]) {
+    this.logger.debug('issueNewTask (ignored)', a)
   }
 }
