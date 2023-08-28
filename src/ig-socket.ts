@@ -10,7 +10,6 @@ import {
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
-  InstagramSocketServerError,
   parseMqttPacket,
   sleep,
 } from './util'
@@ -20,6 +19,7 @@ import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './ig-payload-handler'
 import * as schema from './store/schema'
+import { MetaMessengerError } from './errors'
 
 type IGSocketTask = {
   label: string
@@ -58,7 +58,7 @@ export enum RequestResolverType {
 }
 
 export type RequestResolverResolver = (response?: InstagramPayloadHandlerResponse) => void
-export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | InstagramSocketServerError) => void
+export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | MetaMessengerError) => void
 
 const lsAppSettings = {
   qos: 1,
@@ -551,9 +551,9 @@ export default class InstagramWebSocket {
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    const rejector = (response: InstagramPayloadHandlerResponse | InstagramSocketServerError) => {
-      if (!(response instanceof InstagramSocketServerError)) {
-        this.logger.error(new InstagramSocketServerError('REQUEST_RESOLVER_REJECTED', 'Request resolver rejected', `Payload: ${response}`), {}, response)
+    const rejector = (response: InstagramPayloadHandlerResponse | MetaMessengerError) => {
+      if (!(response instanceof MetaMessengerError)) {
+        this.logger.error(new MetaMessengerError(this.papi.env, -1, 'request resolver rejected', `payload: ${JSON.stringify(response)}`))
       }
       reject(response)
       this.requestResolvers.delete(request_id)

@@ -34,12 +34,14 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { ParentThreadKey, SyncGroup } from './ig-types'
+import { EnvironmentKey, ParentThreadKey, SyncGroup } from './ig-types'
 
 export default class PlatformInstagram implements PlatformAPI {
-  logger = getLogger()
+  env: EnvironmentKey = 'IG'
 
   db: DrizzleDB
+
+  logger = getLogger('papi', this.env)
 
   api = new InstagramAPI(this)
 
@@ -70,7 +72,7 @@ export default class PlatformInstagram implements PlatformAPI {
     this.db = await getDB(accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
 
-    this.logger.info('loading keys', this.kv.getAll())
+    this.logger.debug('loading keys', this.kv.getAll())
     if (!session?.jar) return
     const { jar } = session
     this.api.jar = CookieJar.fromJSON(jar as unknown as string)

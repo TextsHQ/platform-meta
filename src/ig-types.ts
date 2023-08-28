@@ -16,6 +16,17 @@ export enum ParentThreadKey {
   SPAM = -3,
 }
 
+export const Environments = {
+  FB: 'facebookdotcom',
+  IG: 'instagramdotcom',
+  WORK: 'workplacedotcom',
+  WORKMETA: 'workdotmetadotcom',
+  MESSENGER: 'messengerdotcom',
+} as const
+
+export type EnvironmentKey = keyof typeof Environments
+export type EnvironmentName = typeof Environments[EnvironmentKey]
+
 export type IGThread = {
   raw: string
   threadKey: string

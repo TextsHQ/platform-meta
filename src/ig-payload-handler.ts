@@ -5,11 +5,12 @@ import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { type CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './ig-payload-parser'
 import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
-import { fixEmoji, getAsDate, getAsMS, getOriginalURL, InstagramSocketServerError } from './util'
+import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
 import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
 import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
 import { QueryWhereSpecial } from './store/helpers'
+import { MetaMessengerError } from './errors'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -67,7 +68,7 @@ export default class InstagramPayloadHandler {
             {
               type: ServerEventType.TOAST,
               toast: {
-                text: err.toString(),
+                text: err.getPublicMessage?.() || err.toString(),
               },
             },
           ])
@@ -98,7 +99,7 @@ export default class InstagramPayloadHandler {
 
   private responses: InstagramPayloadHandlerResponse = {}
 
-  private errors: InstagramSocketServerError[] = []
+  private errors: MetaMessengerError[] = []
 
   private events: ServerEvent[] = []
 
@@ -108,12 +109,12 @@ export default class InstagramPayloadHandler {
     this.logger.debug('loaded calls', { calls: this.calls })
     for (const [method, args] of this.calls) {
       if (['run', 'getResponse'].includes(method)) {
-        throw new InstagramSocketServerError(0, 'RESERVED_CALL', `called a reserved method (${method})`)
+        throw new MetaMessengerError(this.papi.env, -1, `called a reserved method (${method})`)
       }
 
       const isValidMethod = method in this && typeof this[method] === 'function'
       if (!isValidMethod) {
-        this.errors.push(new InstagramSocketServerError(0, 'UNHANDLED_CALL', `missing handler for ${method}`))
+        this.errors.push(new MetaMessengerError(this.papi.env, -1, `missing handler (${method})`))
         continue
       }
 
@@ -126,14 +127,22 @@ export default class InstagramPayloadHandler {
         if (typeof result === 'function') {
           this.afterCallbacks.push(result)
         }
-      } catch (e) {
-        if (e instanceof InstagramSocketServerError) {
-          this.errors.push(e)
+      } catch (err) {
+        if (err instanceof MetaMessengerError) {
+          this.errors.push(err)
         } else {
-          this.logger.error(`(ig payload) failed to call method: ${method}`, {
-            method,
-            args: JSON.stringify(args),
-          }, e)
+          this.errors.push(
+            new MetaMessengerError(
+              this.papi.env,
+              -1,
+              `failed to call method (${method})`,
+              typeof err === 'string' ? err : err.message,
+              {
+                error: err.toString(),
+                // args: JSON.stringify(args), // @IMPORTANT@ This creates privacy issues
+              },
+            ),
+          )
         }
       }
     }
@@ -1243,21 +1252,32 @@ export default class InstagramPayloadHandler {
   private issueNewError(a: SimpleArgType[]) {
     this.logger.debug('issueNewError', a)
     const _requestId = a[0] as string
-    const errorId = a[1] as string // @TODO: not sure what this value is
+    const errorId = a[1] as number // @TODO: not sure what this value is
     const errorTitle = a[2] as string
     const errorMessage = a[3] as string
-    this.errors.push(new InstagramSocketServerError(errorId, errorTitle, errorMessage))
+    this.errors.push(new MetaMessengerError(this.papi.env, errorId, errorTitle, errorMessage, {
+      requestId: _requestId,
+      issuedByMethod: 'issueNewError',
+    }))
   }
 
   private issueError(a: SimpleArgType[]) {
-    this.logger.error('issueError (ignored)', { params: JSON.stringify(a) })
+    // @TODO: we don't know how to parse this error yet
+    this.errors.push(new MetaMessengerError(this.papi.env, -1, 'unknown error', JSON.stringify(a), {
+      issuedByMethod: 'issueError',
+    }))
   }
 
   private handleFailedTask(a: SimpleArgType[]) {
     const taskId = a[0] as string
     const queueName = a[1] as string
     const errorMessage = a[2] as string
-    this.errors.push(new InstagramSocketServerError(0, 'FAILED_TO_HANDLE_TASK', `${errorMessage} (task #${this.requestId}/${taskId} in ${queueName})`))
+    this.errors.push(new MetaMessengerError(this.papi.env, -1, 'failed to handle task', `${errorMessage} (task #${this.requestId}/${taskId} in ${queueName})`, {
+      taskId,
+      queueName,
+      args: JSON.stringify(a),
+      issuedByMethod: 'handleFailedTask',
+    }))
   }
 
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
