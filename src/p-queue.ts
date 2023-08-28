@@ -6,7 +6,7 @@ export class PromiseQueue {
 
   private isProcessing = false
 
-  private logger = getLogger('PromiseQueue')
+  private logger = getLogger('p-queue')
 
   private async processQueue() {
     if (this.isProcessing) return

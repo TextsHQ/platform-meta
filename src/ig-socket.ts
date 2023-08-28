@@ -76,15 +76,16 @@ export default class InstagramWebSocket {
 
   private ws: WebSocket
 
-  private logger = getLogger('socket')
+  constructor(private readonly papi: PlatformInstagram) {
+  }
+
+  private logger = getLogger('socket', this.papi.env)
 
   private mqttSid: number
 
   private isInitialConnection = true
 
   private isSubscribedToLsResp = false
-
-  constructor(private readonly papi: PlatformInstagram) {}
 
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
@@ -370,7 +371,7 @@ export default class InstagramWebSocket {
     // not sure exactly what the new cursor is for, but it's not needed. the request_id is null
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
-    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).handle()
+    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {

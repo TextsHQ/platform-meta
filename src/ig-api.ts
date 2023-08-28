@@ -43,9 +43,9 @@ export default class InstagramAPI {
     return this._initPromise.promise
   }
 
-  private logger = getLogger('ig-api')
-
   constructor(private readonly papi: Instagram) {}
+
+  private logger = getLogger('mm-api', this.papi.env)
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -250,7 +250,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'initial').handle()
+    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'initial').__handle()
     this._initPromise?.resolve()
     await this.papi.socket.connect()
   }
