@@ -14,7 +14,7 @@ import {
   sleep,
 } from './util'
 import { getLogger } from './logger'
-import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
+import { MAX_RETRY_ATTEMPTS, META_MESSENGER_ENV, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
 import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './ig-payload-handler'
@@ -79,7 +79,7 @@ export default class InstagramWebSocket {
   constructor(private readonly papi: PlatformInstagram) {
   }
 
-  private logger = getLogger('socket', this.papi.env)
+  private logger = getLogger(META_MESSENGER_ENV, 'socket')
 
   private mqttSid: number
 

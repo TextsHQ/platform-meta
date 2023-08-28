@@ -26,7 +26,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   })
 }
 
-export const getLogger = (feature = '', env?: EnvironmentKey) => {
+export const getLogger = (env: EnvironmentKey, feature = '') => {
   const prefix = `[${env}${feature ? `:${feature}` : ''}]`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>

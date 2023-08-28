@@ -1,3 +1,5 @@
+import { EnvironmentKey } from '../ig-types'
+
 type InnerObject = {
   __bbox: BboxEntry
 }
@@ -175,14 +177,30 @@ interface Config {
     isProductionEndpoint: boolean
     workRequestTaggingProduct: null | string
     encryptionKeyParams: null | string
-
+  }
+  CurrentEnvironment: {
+    facebookdotcom: boolean
+    messengerdotcom: boolean
+    workplacedotcom: boolean
+    instagramdotcom: boolean
+    workdotmetadotcom: boolean
   }
 }
 
-export function parseMessengerConfig(html: string) {
+function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvironmentKey {
+  if (env.instagramdotcom) return 'IG'
+  if (env.messengerdotcom) return 'MESSENGER'
+  if (env.workdotmetadotcom) return 'WORKMETA'
+  if (env.workplacedotcom) return 'WORK'
+  if (env.facebookdotcom) return 'FB' // this can return `true` for instagram
+  throw new Error('Unknown Meta Messenger environment')
+}
+
+export function parseMessengerInitialPage(html: string) {
   const scriptTags = html.match(/type="application\/json"[\s\S]*?>[\s\S]*?<\/script>/g) || []
 
   const definesMap = new Map<string, unknown>()
+  const initialPayloads: string[] = []
   scriptTags.forEach(scriptTag => {
     const startIndex = scriptTag.indexOf('{')
     const endIndex = scriptTag.lastIndexOf('}')
@@ -214,6 +232,22 @@ export function parseMessengerConfig(html: string) {
                     'WebLoomConfig',
                   ].includes(callName)) return
                 definesMap.set(callName, define[2])
+              })
+              bbox.require?.forEach(req => {
+                const m = req[0]
+                if (!m.startsWith('RelayPrefetchedStreamCache')) return
+                req?.[3]?.forEach((p: any) => {
+                  if (typeof p === 'string') return
+                  const data = p?.__bbox?.result?.data
+                  const payload = data?.viewer?.lightspeed_web_request?.payload
+                  if (payload?.length > 0) {
+                    initialPayloads.push(payload)
+                  }
+                  const igPayload = data?.lightspeed_web_request_for_igd?.payload
+                  if (igPayload?.length > 0) {
+                    initialPayloads.push(igPayload)
+                  }
+                })
               })
             }
           })
@@ -249,13 +283,16 @@ export function parseMessengerConfig(html: string) {
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults') as Config['RelayAPIConfigDefaults'],
     XIGSharedData,
+    CurrentEnvironment: pickMessengerEnv(definesMap.get('CurrentEnvironment') as Config['CurrentEnvironment']),
+    initialPayloads: initialPayloads.filter(Boolean),
   } as const
 }
 
 export function getMessengerConfig(html: string) {
-  const parsed = parseMessengerConfig(html)
+  const parsed = parseMessengerInitialPage(html)
   const igViewerConfig = parsed.XIGSharedData?.raw?.config?.viewer // instagram-only
   return {
+    env: parsed.CurrentEnvironment,
     appId: parsed.MessengerWebInitData?.appId,
     clientID: parsed.MqttWebDeviceID?.clientID,
     fbDTSG: parsed.DTSGInitialData?.token,
@@ -265,6 +302,7 @@ export function getMessengerConfig(html: string) {
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,
     mqttClientCapabilities: parsed.MqttWebConfig?.clientCapabilities,
     syncParams: parsed.LSPlatformMessengerSyncParams?.contact,
+    initialPayloads: parsed.initialPayloads,
   }
 }
 

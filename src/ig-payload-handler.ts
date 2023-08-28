@@ -1,12 +1,12 @@
-import { ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
+import { type ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
 import type PlatformInstagram from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { generateCallList, type IGSocketPayload, type SimpleArgType } from './ig-payload-parser'
-import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
+import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './ig-payload-parser'
+import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, META_MESSENGER_ENV } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
-import { IGAttachment, IGMessage, IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
+import { type IGAttachment, type IGMessage, type IGReadReceipt, ParentThreadKey, SyncGroup } from './ig-types'
 import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
 import { QueryWhereSpecial } from './store/helpers'
@@ -33,21 +33,24 @@ export interface InstagramPayloadHandlerResponse {
 }
 
 export default class InstagramPayloadHandler {
+  private readonly __calls: CallList
+
+  private readonly __logger: ReturnType<typeof getLogger>
+
   constructor(
     private readonly __papi: PlatformInstagram,
     private readonly __data: IGSocketPayload,
-    private readonly __requestId: number | 'initial',
+    private readonly __requestId: number | 'initial' | 'snapshot',
   ) {
+    this.__logger = getLogger(META_MESSENGER_ENV, `payload:${this.__requestId}:${Date.now()}`)
+    this.__calls = generateCallList(__data)
   }
-
-  private __logger = getLogger(`payload:${this.__requestId}:${Date.now()}`, this.__papi.env)
-
-  private readonly __calls = generateCallList(this.__data)
 
   async __handle() {
     const [requestType, resolve, reject] = (
       this.__requestId !== null
       && this.__requestId !== 'initial'
+      && this.__requestId !== 'snapshot'
       && this.__papi.socket.requestResolvers?.has(this.__requestId)
     ) ? this.__papi.socket.requestResolvers.get(this.__requestId) : ([undefined, undefined] as const)
 
@@ -76,7 +79,7 @@ export default class InstagramPayloadHandler {
       }
     }
 
-    if (this.__requestId !== 'initial') await this.__sync()
+    if (this.__requestId !== 'initial' && this.__requestId !== 'snapshot') await this.__sync()
 
     // wait for everything to be synced before resolving
     if (requestType && !hasErrors) {

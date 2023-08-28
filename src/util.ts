@@ -1,7 +1,7 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
 import type { SimpleArgType } from './ig-payload-parser'
-import { IGMessageRanges } from './ig-types'
+import { EnvironmentKey, IGMessageRanges } from './ig-types'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -103,4 +103,23 @@ export function getOriginalURL(linkURL: string) {
 
 export function parseUnicodeEscapeSequences(str: string) {
   return decodeURIComponent(JSON.parse('"' + str.replace(/\\u([\d\w]{4})/gi, (match, grp) => '\\u' + grp) + '"'))
+}
+
+export function getEnvOptions(env: EnvironmentKey) {
+  switch (env) {
+    case 'IG':
+      return {
+        initialURL: 'https://www.instagram.com/direct/' as const,
+      }
+    case 'FB':
+      return {
+        initialURL: 'https://www.facebook.com/messages' as const,
+      }
+    case 'MESSENGER':
+      return {
+        initialURL: 'https://www.messenger.com' as const,
+      }
+    default:
+      throw new Error(`Invalid environment: ${env}`)
+  }
 }

@@ -1,12 +1,13 @@
 import { getLogger } from './logger'
 import { MetaMessengerError } from './errors'
+import { META_MESSENGER_ENV } from './constants'
 
 export class PromiseQueue {
   private promises: Promise<void>[] = []
 
   private isProcessing = false
 
-  private logger = getLogger('p-queue')
+  private logger = getLogger(META_MESSENGER_ENV, 'p-queue')
 
   private async processQueue() {
     if (this.isProcessing) return
@@ -34,7 +35,7 @@ export class PromiseQueue {
       } else {
         const errorMessage = typeof err === 'string' ? err : JSON.stringify(err)
         this.logger.error(
-          new MetaMessengerError('IG', -1, 'promise queue got rejection', errorMessage),
+          new MetaMessengerError(META_MESSENGER_ENV, -1, 'promise queue got rejection', errorMessage),
         )
       }
     }

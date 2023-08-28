@@ -33,15 +33,15 @@ import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
-import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { EnvironmentKey, ParentThreadKey, SyncGroup } from './ig-types'
+import { DEFAULT_PARTICIPANT_NAME, META_MESSENGER_ENV } from './constants'
+import { ParentThreadKey, SyncGroup } from './ig-types'
 
 export default class PlatformInstagram implements PlatformAPI {
-  env: EnvironmentKey = 'IG'
+  env = META_MESSENGER_ENV
 
   db: DrizzleDB
 
-  logger = getLogger('papi', this.env)
+  logger = getLogger(META_MESSENGER_ENV)
 
   api = new InstagramAPI(this)
 
