@@ -56,7 +56,6 @@ export const contacts = sqliteTable('contacts', {
   raw: text('raw'),
   contact: text('contact'),
   igContact: blob('igContact', { mode: 'json' }).$type<{
-    contactId: string
     igId: string
     igFollowStatus: string
     verificationStatus: string

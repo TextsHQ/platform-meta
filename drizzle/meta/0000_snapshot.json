@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "ccc65ff7-a8f3-4b17-a76a-c1987cb0cbb0",
+  "id": "7b79c001-3456-4fb9-831c-c868024b790b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -73,6 +73,13 @@
     "contacts": {
       "name": "contacts",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
         "raw": {
           "name": "raw",
           "type": "text",
@@ -87,11 +94,11 @@
           "notNull": false,
           "autoincrement": false
         },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
+        "igContact": {
+          "name": "igContact",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "profilePictureUrl": {
@@ -380,6 +387,13 @@
         },
         "raw": {
           "name": "raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "igThread": {
+          "name": "igThread",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

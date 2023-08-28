@@ -1,4 +1,12 @@
-import { AttachmentType, InboxName, Message, type Participant, type Thread, ThreadType, UNKNOWN_DATE } from '@textshq/platform-sdk'
+import {
+  AttachmentType,
+  InboxName,
+  Message,
+  type Participant,
+  type Thread,
+  ThreadType,
+  UNKNOWN_DATE,
+} from '@textshq/platform-sdk'
 import type { DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
 import { IGThreadInDB } from './store/schema'
 import { fixEmoji } from './util'
@@ -70,7 +78,7 @@ export function mapParticipants(_participants: DBParticipantSelect[], fbid: stri
     displayText: p.contacts.name,
     hasExited: false,
     isAdmin: Boolean(p.isAdmin),
-    isVerified: p.contacts.igContact.
+    // isVerified: p.contacts.igContact.verificationStatus,
   }))
 
   if (participants?.length > 1) {

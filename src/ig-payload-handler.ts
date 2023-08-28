@@ -933,8 +933,9 @@ export default class InstagramPayloadHandler {
   }
 
   private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
-    const c = {
-      contactId: a[0] as string,
+    const contactId = a[0] as string
+
+    const igContact = {
       igId: a[1] as string,
       igFollowStatus: a[4] as string,
       verificationStatus: a[5] as string,
@@ -943,14 +944,12 @@ export default class InstagramPayloadHandler {
       supportsE2eeSpamdStorage: a[7] as string,
     } as const
 
-    const igContact = JSON.stringify(c)
-
-    this.__logger.debug('deleteThenInsertIGContactInfo', a, c)
+    this.__logger.debug('deleteThenInsertIGContactInfo', a)
 
     // we don't keep it in a separate table, just in the contacts table
     // since we overwrite the profile, no need to delete first
     this.__papi.db.insert(schema.contacts).values({
-      id: c.contactId,
+      id: contactId,
       igContact,
     }).onConflictDoUpdate({
       target: schema.contacts.id,
@@ -1101,6 +1100,10 @@ export default class InstagramPayloadHandler {
       previewUrl: a[17],
     }
     this.__logger.debug('insertAttachmentItem (ignored)', a, i)
+  }
+
+  private insertAttachment(a: SimpleArgType[]) {
+    this.__logger.debug('insertAttachment (ignored)', a)
   }
 
   private insertBlobAttachment(a: SimpleArgType[]) {

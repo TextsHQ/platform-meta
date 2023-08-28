@@ -10,9 +10,10 @@ CREATE TABLE `attachments` (
 );
 --> statement-breakpoint
 CREATE TABLE `contacts` (
+	`id` text PRIMARY KEY NOT NULL,
 	`raw` text,
 	`contact` text,
-	`id` text PRIMARY KEY NOT NULL,
+	`igContact` blob,
 	`profilePictureUrl` text,
 	`name` text,
 	`username` text
@@ -63,5 +64,6 @@ CREATE TABLE `threads` (
 	`folderName` text,
 	`parentThreadKey` integer,
 	`raw` text,
+	`igThread` text,
 	`ranges` text
 );
