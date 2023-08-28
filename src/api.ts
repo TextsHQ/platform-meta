@@ -189,10 +189,13 @@ export default class PlatformInstagram implements PlatformAPI {
 
     await this.socket.fetchMessages(threadID, ranges)
 
-    let hasMore = ranges.hasMoreBeforeFlag
+    let hasMore = !ranges ? true : ranges.hasMoreBeforeFlag
     try {
       await this.socket.waitForMessageRange(threadID)
-      hasMore = (await this.api.getMessageRanges(threadID)).hasMoreBeforeFlag // refetch ranges from db
+      const _ranges = await this.api.getMessageRanges(threadID)
+      if (typeof _ranges?.hasMoreBeforeFlag !== 'undefined') {
+        hasMore = _ranges.hasMoreBeforeFlag // refetch ranges from db
+      }
     } catch (e) {
       this.logger.error(e)
       hasMore = true

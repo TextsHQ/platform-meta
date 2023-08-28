@@ -598,6 +598,9 @@ export default class InstagramWebSocket {
       threadID,
       ranges,
     })
+
+    if (!ranges) return
+
     return this.publishTask(RequestResolverType.FETCH_MESSAGES, {
       label: '228',
       payload: JSON.stringify({

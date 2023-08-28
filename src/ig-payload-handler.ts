@@ -585,17 +585,17 @@ export default class InstagramPayloadHandler {
       const readOn = r.readActionTimestampMs || UNKNOWN_DATE
 
       if (newestMessage.seen === true) return
-      if (newestMessage.seen instanceof Date && newestMessage.seen.getTime() >= readOn.getTime()) return
-      if (
-        !(newestMessage.seen instanceof Date)
-        && newestMessage.seen !== false
-        && r.contactId in newestMessage.seen
-        && (
-          newestMessage.seen[r.contactId] === true
-          || (newestMessage.seen[r.contactId] instanceof Date && newestMessage.seen[r.contactId].getTime() >= readOn.getTime())
-        )
-      ) {
-        return
+      if (typeof newestMessage.seen !== 'boolean') {
+        if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
+        if (!(newestMessage.seen instanceof Date) && r.contactId in newestMessage.seen) {
+          const contactSeen = newestMessage.seen[r.contactId]
+          if (contactSeen === true) return
+          if (
+            typeof contactSeen !== 'boolean'
+            && contactSeen instanceof Date
+            && contactSeen.getTime?.() >= readOn.getTime()
+          ) return
+        }
       }
 
       this.__events.push({
