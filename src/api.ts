@@ -263,9 +263,7 @@ export default class PlatformInstagram implements PlatformAPI {
     if (userIDs.length === 1) {
       const [userID] = userIDs
       const user = this.api.getContact(userID)
-      this.pQueue.addPromise(this.socket.getThread(userID).then(() => {
-        this.logger.debug('createThread got thread', userID)
-      }))
+      await this.socket.getThread(userID)
 
       const participants: Participant[] = [{
         id: userID,
@@ -446,6 +444,7 @@ export default class PlatformInstagram implements PlatformAPI {
                   name: true,
                   username: true,
                   profilePictureUrl: true,
+                  igContact: true,
                 },
               },
             },

@@ -70,6 +70,7 @@ export function mapParticipants(_participants: DBParticipantSelect[], fbid: stri
     displayText: p.contacts.name,
     hasExited: false,
     isAdmin: Boolean(p.isAdmin),
+    isVerified: p.contacts.igContact.
   }))
 
   if (participants?.length > 1) {

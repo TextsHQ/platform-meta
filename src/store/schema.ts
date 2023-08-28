@@ -1,6 +1,6 @@
-import type { InferModel } from 'drizzle-orm'
+import type { InferSelectModel } from 'drizzle-orm'
 import { relations } from 'drizzle-orm'
-import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { blob, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
 
 export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
@@ -13,6 +13,7 @@ export const threads = sqliteTable('threads', {
   folderName: text('folderName'),
   parentThreadKey: integer('parentThreadKey'),
   raw: text('raw'),
+  igThread: text('igThread'),
   // hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
   ranges: text('ranges'),
 })
@@ -51,10 +52,18 @@ export const attachmentRelations = relations(attachments, ({ one }) => ({
 }))
 
 export const contacts = sqliteTable('contacts', {
-  // original: blob('_original', { mode: 'json' }).$type<unknown>(),
+  id: text('id').notNull().primaryKey(),
   raw: text('raw'),
   contact: text('contact'),
-  id: text('id').notNull().primaryKey(),
+  igContact: blob('igContact', { mode: 'json' }).$type<{
+    contactId: string
+    igId: string
+    igFollowStatus: string
+    verificationStatus: string
+    linkedFbid: string
+    e2eeEligibility: string
+    supportsE2eeSpamdStorage: string
+  }>(),
   profilePictureUrl: text('profilePictureUrl'),
   name: text('name'),
   username: text('username'),
@@ -89,11 +98,12 @@ export const threadsRelation = relations(threads, ({ many }) => ({
   participants: many(participants),
 }))
 
-export type DBContactSelect = InferModel<typeof contacts, 'select'>
-export type DBParticipantSelect = Pick<InferModel<typeof participants, 'select'>, 'userId' | 'isAdmin' | 'readWatermarkTimestampMs'> & {
-  contacts: Pick<DBContactSelect, 'id' | 'name' | 'username' | 'profilePictureUrl'>
-}
-export type DBParticipantInsert = InferModel<typeof participants, 'insert'>
+export type DBContactSelect = InferSelectModel<typeof contacts>
+export type DBParticipantSelect =
+  Pick<InferSelectModel<typeof participants>, 'userId' | 'isAdmin' | 'readWatermarkTimestampMs'>
+  & {
+    contacts: Pick<DBContactSelect, 'id' | 'name' | 'username' | 'profilePictureUrl' | 'igContact'>
+  }
 
 export const reactions = sqliteTable('reactions', {
   raw: text('raw'),
@@ -118,7 +128,7 @@ export const messageRelations = relations(messages, ({ one, many }) => ({
   reactions: many(reactions),
   attachments: many(attachments),
 }))
-export type DBReaction = InferModel<typeof reactions, 'select'>
+export type DBReaction = InferSelectModel<typeof reactions>
 
 export const keyValues = sqliteTable('key_values', {
   key: text('key').notNull().primaryKey(),
