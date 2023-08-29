@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { type FetchOptions, type MessageSendOptions, texts, type User } from '@textshq/platform-sdk'
+import { type FetchOptions, type MessageSendOptions, ReAuthError, texts, type User } from '@textshq/platform-sdk'
 import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
@@ -74,9 +74,22 @@ export default class InstagramAPI {
   private async httpJSONRequest(url: string, opts: FetchOptions) {
     const res = await this.httpRequest(url, opts)
     if (res.body[0] === '<') {
-      console.log(res.statusCode, url, res.body)
+      this.logger.warn(res.statusCode, url, res.body)
       throw new ExpectedJSONGotHTMLError(res.statusCode, res.body)
     }
+    // check for redirect
+    if (res.statusCode === 302 && res.headers.location) {
+      this.logger.warn(res.statusCode, url, 'redirecting to', res.headers.location)
+      throw new ReAuthError('Encountered a checkpoint')
+      // const result = await texts.openBrowserWindow(this.papi.accountID, {
+      //   url: res.headers.location,
+      //   cookieJar: this.jar.toJSON(),
+      //   userAgent: this.ua,
+      //   runJSOnLaunch: CLOSE_ON_AUTHENTICATED_JS,
+      //   runJSOnNavigate: CLOSE_ON_AUTHENTICATED_JS,
+      // })
+    }
+
     return { statusCode: res.statusCode, headers: res.headers, json: JSON.parse(res.body) }
   }
 
@@ -100,17 +113,8 @@ export default class InstagramAPI {
       },
     })
 
-    const result = await texts.openBrowserWindow(this.papi.accountID, {
-      url: ENDPOINT,
-      cookieJar: this.jar.toJSON(),
-      userAgent: this.ua,
-      runJSOnLaunch: CLOSE_ON_AUTHENTICATED_JS,
-      runJSOnNavigate: CLOSE_ON_AUTHENTICATED_JS,
-    })
-
     const config = getMessengerConfig(body)
 
-    console.log(JSON.stringify(config, null, 2))
     if (!config.igViewerConfig?.id) {
       throw new Error('[IG] Failed to fetch: igViewerConfig')
     }

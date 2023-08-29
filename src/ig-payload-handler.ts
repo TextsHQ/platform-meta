@@ -1324,6 +1324,14 @@ export default class InstagramPayloadHandler {
     }))
   }
 
+  private markOptimisticMessageFailed(a: SimpleArgType[]) {
+    this.__logger.debug('markOptimisticMessageFailed', a)
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to update optimistic message', JSON.stringify(a), {
+      args: JSON.stringify(a),
+      issuedByMethod: 'markOptimisticMessageFailed',
+    }))
+  }
+
   private handleFailedTask(a: SimpleArgType[]) {
     const taskId = a[0] as string
     const queueName = a[1] as string
@@ -1334,6 +1342,10 @@ export default class InstagramPayloadHandler {
       args: JSON.stringify(a),
       issuedByMethod: 'handleFailedTask',
     }))
+  }
+
+  private updateTypingIndicator(a: SimpleArgType[]) {
+    this.__logger.debug('updateTypingIndicator (ignored)', a)
   }
 
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
@@ -1612,5 +1624,9 @@ export default class InstagramPayloadHandler {
 
   private updateSelectiveSyncState(a: SimpleArgType[]) {
     this.__logger.debug('updateSelectiveSyncState (ignored)', a)
+  }
+
+  private updateExtraAttachmentColumns(a: SimpleArgType[]) {
+    this.__logger.debug('updateExtraAttachmentColumns (ignored)', a)
   }
 }
