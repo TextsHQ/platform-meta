@@ -1620,4 +1620,8 @@ export default class InstagramPayloadHandler {
   private updateSelectiveSyncState(a: SimpleArgType[]) {
     this.__logger.debug('updateSelectiveSyncState (ignored)', a)
   }
+
+  private updateExtraAttachmentColumns(a: SimpleArgType[]) {
+    this.__logger.debug('updateExtraAttachmentColumns (ignored)', a)
+  }
 }

@@ -61,6 +61,7 @@ export type OperationKey =
   | 'updateCommunityThreadStaleState'
   | 'updateDeliveryReceipt'
   | 'updateExistingMessageRange'
+  | 'updateExtraAttachmentColumns'
   | 'updateFilteredThreadsRanges'
   | 'updateLastSyncCompletedTimestampMsToNow'
   | 'updateMessagesOptimisticContext'
