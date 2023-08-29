@@ -177,7 +177,7 @@ export default class InstagramAPI {
       fullName: userInfo?.full_name,
       username: userInfo?.username,
     }
-    this.logger.info(
+    this.logger.debug(
       `getUserByUsername ${username} response: ${JSON.stringify(user, null, 2)}`,
     )
     return user
@@ -221,9 +221,9 @@ export default class InstagramAPI {
 
   // get username from here
   async getUserById(userID: string) {
-    this.logger.info(`getUser ${userID}`)
+    this.logger.debug(`getUser ${userID}`)
     const response = await this.graphqlCall('6083412141754133', { userID })
-    this.logger.info(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
+    this.logger.debug(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
     const data = response.data as {
       data: {
         userInfo: {

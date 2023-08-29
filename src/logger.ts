@@ -5,7 +5,7 @@ import { MetaMessengerError } from './errors'
 
 export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
-type LoggerType = 'debug' | 'info' | 'warn' | 'error' | 'fatal'
+type LoggerType = 'debug' | 'info' | 'warn' | 'error'
 export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError
 
 const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
@@ -27,21 +27,28 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
 }
 
 export const getLogger = (env: EnvironmentKey, feature = '') => {
-  const prefix = `[${env}${feature ? `:${feature}` : ''}]`
+  const prefix = `[${env}][${feature ? `:${feature}` : ''}]`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
     [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg))].join(' ')
 
   const logger = (method: LoggerMethod, type: LoggerType) => (...args: any[]) => texts[method](formatMessage(type, ...args))
+  const warn = logger('log', 'warn')
+  const debug = logger('log', 'debug')
 
   return {
-    debug: logger('log', 'debug'),
+    debug: (...args: any[]) => {
+      if (!texts.isLoggingEnabled) return
+      debug(...args)
+    },
     info: logger('log', 'info'),
-    warn: logger('log', 'warn'),
+    warn: (...args: any[]) => {
+      console.warn(formatMessage('warn', ...args))
+      warn('log', 'warn')
+    },
     error: (err: ErrorAlt | string, extra: SentryExtra = {}, ...args: any[]) => {
       onError(typeof err === 'string' ? new Error(err) : err, feature, extra)
       texts.error(formatMessage('error', ...args, typeof err === 'string' ? err : err.message))
     },
-    // fatal: logger('error', 'fatal'),
   }
 }

@@ -1060,7 +1060,7 @@ export default class InstagramPayloadHandler {
 
       const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl)
 
-      this.__logger.info('insertAttachmentCta mediaLink', mediaLink)
+      this.__logger.debug('insertAttachmentCta mediaLink', mediaLink)
       const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/'
       if (mediaLink.startsWith(INSTAGRAM_PROFILE_BASE_URL)) {
         mparse.extra = {}

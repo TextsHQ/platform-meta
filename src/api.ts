@@ -20,7 +20,7 @@ import type {
   ThreadID,
   User,
 } from '@textshq/platform-sdk'
-import { ActivityType, AttachmentType, InboxName, ReAuthError, texts } from '@textshq/platform-sdk'
+import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
@@ -28,7 +28,7 @@ import InstagramAPI from './ig-api'
 import InstagramWebSocket from './ig-socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
-import { PAPIReturn, SerializedSession } from './types'
+import type { PAPIReturn, SerializedSession } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -52,7 +52,7 @@ export default class PlatformInstagram implements PlatformAPI {
   socket = new InstagramWebSocket(this)
 
   onEvent: OnServerEventCallback = events => {
-    this.logger.info('instagram got server event before ready', JSON.stringify(events, null, 2))
+    this.logger.debug('instagram got server event before ready', JSON.stringify(events, null, 2))
     this.pendingEvents.push(...events)
   }
 
@@ -67,7 +67,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     await fs.mkdir(dataDirPath, { recursive: true })
 
-    if (texts.isLoggingEnabled) this.logger.info('starting ig', { dataDirPath, accountID })
+    this.logger.info('starting ig', { dataDirPath, accountID })
 
     this.db = await getDB(accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
@@ -79,7 +79,6 @@ export default class PlatformInstagram implements PlatformAPI {
     await this.api.init('init')
   }
 
-  // eslint-disable-next-line class-methods-use-this
   dispose = () => {
     this.socket?.dispose()
     // if (this.api?.socket?.ws?.readyState === WebSocket.OPEN) {
@@ -119,10 +118,7 @@ export default class PlatformInstagram implements PlatformAPI {
       this.pendingEvents = []
     }
 
-    this.onEvent = events => {
-      this.logger.info('instagram got server event', JSON.stringify(events, null, 2))
-      onEvent(events)
-    }
+    this.onEvent = events => onEvent(events)
 
     await this.socket.connect()
   }
@@ -132,7 +128,7 @@ export default class PlatformInstagram implements PlatformAPI {
   getThreads = async (_folderName: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
 
-    this.logger.info('getThreads', { folderName, _folderName, pagination })
+    this.logger.debug('getThreads', { folderName, _folderName, pagination })
 
     const isSpam = folderName === InboxName.REQUESTS
     if (isSpam) {
@@ -243,14 +239,14 @@ export default class PlatformInstagram implements PlatformAPI {
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
     // type check username
-    this.logger.info('getUser', ids)
+    this.logger.debug('getUser', ids)
     if ('userID' in ids && typeof ids.userID === 'string') {
       const a = await this.socket.requestContacts([ids.userID])
-      this.logger.info('getUser got user', a)
+      this.logger.debug('getUser got user', a)
     }
     const username = 'username' in ids && ids.username
     const user: User = await this.api.getUserByUsername(username)
-    this.logger.info('instagram got user', user)
+    this.logger.debug('instagram got user', user)
     return user
   }
 
@@ -341,7 +337,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
-    this.logger.info('updateThread', threadID, updates)
+    this.logger.debug('updateThread', threadID, updates)
     const promises: Promise<void>[] = []
 
     if ('title' in updates) {
@@ -368,9 +364,9 @@ export default class PlatformInstagram implements PlatformAPI {
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
-      this.logger.info('sendMessage', filePath)
+      this.logger.debug('sendMessage', filePath)
       const { timestamp, messageId } = await this.api.sendMedia(threadID, { pendingMessageID, quotedMessageID }, { fileName, filePath })
-      this.logger.info('sendMessage got it', {
+      this.logger.debug('sendMessage got response', {
         timestamp,
         messageId,
       })
@@ -400,7 +396,7 @@ export default class PlatformInstagram implements PlatformAPI {
   }
 
   sendActivityIndicator = (type: ActivityType, threadID: string) => {
-    this.logger.info('sendActivityIndicator', threadID, type)
+    this.logger.debug('sendActivityIndicator', threadID, type)
     if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
     return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }

@@ -89,12 +89,12 @@ export default class InstagramWebSocket {
 
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      this.logger.warn('[ws connection]', 'already connected')
+      this.logger.warn('[ws] already connected')
       return
     }
-    this.logger.debug('[ws connection]', 'connecting (will wait for api to be ready)')
+    this.logger.info('[ws] connecting (will wait for api to be ready)')
     await this.papi.api.initPromise // wait for api to be ready
-    this.logger.debug('[ws connection]', 'connecting to ws', {
+    this.logger.debug('[ws]', 'connecting to ws', {
       mqttSid: this.mqttSid,
       lastTaskId: this.lastTaskId,
       lastRequestId: this.lastRequestId,
@@ -107,7 +107,7 @@ export default class InstagramWebSocket {
         mqttSid: this.mqttSid,
         lastTaskId: this.lastTaskId,
         lastRequestId: this.lastRequestId,
-      }, '[ws connection]', 'failed to close previous on connect error')
+      }, '[ws]', 'failed to close previous on connect error')
     }
 
     this.mqttSid = getMqttSid()
@@ -145,7 +145,7 @@ export default class InstagramWebSocket {
     })
 
     const retry = debounce(() => {
-      this.logger.debug('[ws connection]', {
+      this.logger.debug('[ws]', {
         retryAttempt: this.retryAttempt,
         MAX_RETRY_ATTEMPTS,
         stop: this.stop,
@@ -164,7 +164,7 @@ export default class InstagramWebSocket {
     }, 25)
 
     this.ws.onopen = () => {
-      this.logger.info('[ws connection] onopen', {
+      this.logger.debug('[ws] onopen', {
         retryAttempt: this.retryAttempt,
       })
       if (this.retryAttempt) this.onReconnected()
@@ -173,7 +173,7 @@ export default class InstagramWebSocket {
     }
 
     this.ws.onerror = ev => {
-      this.logger.error(ev, {}, '[ws connection] onerror', {
+      this.logger.error(ev, {}, '[ws] onerror', {
         error: ev.error,
         type: ev.type,
         message: ev.message,
@@ -182,7 +182,7 @@ export default class InstagramWebSocket {
     }
 
     this.ws.onclose = ev => {
-      this.logger.info('[ws connection] onclose', ev)
+      this.logger.debug('[ws] onclose', ev)
       clearInterval(this.pingInterval)
       this.pingInterval = null
       if (!this.stop) retry()
@@ -190,7 +190,7 @@ export default class InstagramWebSocket {
   }
 
   dispose() {
-    this.logger.info('[ws connection] disposing', {
+    this.logger.info('[ws] disposing', {
       stop: this.stop,
     })
     this.stop = true
@@ -199,24 +199,24 @@ export default class InstagramWebSocket {
     } catch (err) {
       this.logger.error(err, {
         stop: this.stop,
-      }, '[ws connection] failed to close on dispose')
+      }, '[ws] failed to close on dispose')
     }
     clearTimeout(this.connectTimeout)
   }
 
   private onReconnected() {
-    this.logger.info('[ws connection] reconnected')
+    this.logger.info('[ws] reconnected')
   }
 
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (p: Packet) => {
     while (this.ws?.readyState !== WebSocket.OPEN && !this.stop) {
-      this.logger.info('[ws connection] waiting 5ms to send')
+      this.logger.debug('[ws] waiting 5ms to send')
       await sleep(5)
     }
     if (this.stop) {
-      this.logger.info('[ws connection] stop is true, not sending', p.cmd.toString())
+      this.logger.debug('[ws] stop is true, not sending', p.cmd.toString())
       return
     }
     return this.send(p)
@@ -235,7 +235,7 @@ export default class InstagramWebSocket {
   }
 
   private afterConnect() {
-    this.logger.info('[ws connection] after connect', {
+    this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
       isSubscribedToLsResp: this.isSubscribedToLsResp,
     })
@@ -350,17 +350,17 @@ export default class InstagramWebSocket {
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
-      this.logger.info('unhandled message (1)', data)
+      this.logger.debug('unhandled message (1)', data)
     }
   }
 
   private async parseNon0x42Data(data: any) {
-    // for some reason fb sends wrongly formatted packets for PUBACK.
+    // for some reason, fb sends wrongly formatted packets for PUBACK.
     // this causes mqtt-packet to throw an error.
     // this is a hacky way to fix it.
     const payload = (await parseMqttPacket(data)) as any
     if (!payload) {
-      this.logger.info('empty message (1.1)', data)
+      this.logger.debug('empty message (1.1)', data)
       return
     }
 
@@ -376,7 +376,7 @@ export default class InstagramWebSocket {
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
     const { promise, request_id } = this.createRequest(RequestResolverType.SEND_TYPING_INDICATOR)
-    this.logger.info(`sending typing indicator ${threadID}`)
+    this.logger.debug(`sending typing indicator ${threadID}`)
     await this.send({
       cmd: 'publish',
       messageId: 9,
@@ -518,7 +518,7 @@ export default class InstagramWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })
-    this.logger.info('create group thread response', response)
+    this.logger.debug('create group thread response', response)
     return { now, offlineThreadingId: response?.replaceOptimisticThread?.offlineThreadingId, threadId: response?.replaceOptimisticThread?.threadId }
   }
 
@@ -546,20 +546,20 @@ export default class InstagramWebSocket {
     const request_id = this.genRequestId()
     const { promise, resolve, reject } = createPromise<InstagramPayloadHandlerResponse>()
     const logPrefix = `[REQUEST #${request_id}][${type}]`
-    this.logger.info(logPrefix, 'sent')
+    this.logger.debug(logPrefix, 'sent')
     const resolver = (response: InstagramPayloadHandlerResponse) => {
-      this.logger.info(logPrefix, 'got response', response)
+      this.logger.debug(logPrefix, 'got response', response)
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    const rejector = (response: InstagramPayloadHandlerResponse | MetaMessengerError) => {
+    const _reject = (response: InstagramPayloadHandlerResponse | MetaMessengerError) => {
       if (!(response instanceof MetaMessengerError)) {
         this.logger.error(new MetaMessengerError(this.papi.env, -1, 'request resolver rejected', `payload: ${JSON.stringify(response)}`))
       }
       reject(response)
       this.requestResolvers.delete(request_id)
     }
-    this.requestResolvers.set(request_id, [type, resolver, rejector])
+    this.requestResolvers.set(request_id, [type, resolver, _reject])
     return { request_id, promise }
   }
 
@@ -594,7 +594,7 @@ export default class InstagramWebSocket {
   async fetchMessages(threadID: string, _ranges?: Awaited<ReturnType<typeof this.papi.api.getMessageRanges>>) {
     const ranges = _ranges || await this.papi.api.getMessageRanges(threadID)
 
-    this.logger.info('fetchMessages', {
+    this.logger.debug('fetchMessages', {
       threadID,
       ranges,
     })
@@ -740,7 +740,7 @@ export default class InstagramWebSocket {
   fetchSpamThreads = () => {
     const group1 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
     const group95 = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.SPAM)
-    this.logger.info('fetchRequestThreads', {
+    this.logger.debug('fetchRequestThreads', {
       group1,
       group95,
     })
