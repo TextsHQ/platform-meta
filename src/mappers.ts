@@ -1,18 +1,16 @@
 import {
   AttachmentType,
   InboxName,
-  Message,
+  type Message,
   type Participant,
-  type Thread,
-  ThreadType,
+  type ThreadType,
   UNKNOWN_DATE,
 } from '@textshq/platform-sdk'
-import type { DBParticipantSelect, IGMessageInDB, RawAttachment } from './store/schema'
-import { IGThreadInDB } from './store/schema'
+import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { IGMessageRanges, ParentThreadKey } from './ig-types'
-import { QueryMessagesResult, QueryThreadsResult } from './store/queries'
+import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -59,13 +57,6 @@ export function mapReaction(r: QueryMessagesResult[number]['reactions'][number])
     participantID: r.actorId,
     emoji: true,
   }
-}
-
-export type MapMessageCommonOptions = {
-  // users: Participant[] // naming seems wrong but maps to how ig client stores it
-  // participants: DBParticipantSelect[]
-  fbid: string
-  threadType: Thread['type']
 }
 
 export function mapParticipants(_participants: DBParticipantSelect[], fbid: string) {
