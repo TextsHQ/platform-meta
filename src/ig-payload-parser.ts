@@ -24,6 +24,7 @@ export type OperationKey =
   | 'executeFirstBlockForSyncTransaction'
   | 'getFirstAvailableAttachmentCTAID'
   | 'handleFailedTask'
+  | 'handleSyncFailure'
   | 'hasMatchingAttachmentCTA'
   | 'insertAttachment'
   | 'insertAttachmentCta'

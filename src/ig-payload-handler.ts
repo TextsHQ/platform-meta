@@ -1324,6 +1324,13 @@ export default class InstagramPayloadHandler {
     }))
   }
 
+  private handleSyncFailure(a: SimpleArgType[]) {
+    // @TODO: we don't know how to parse this error yet
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
+      issuedByMethod: 'handleSyncFailure',
+    }))
+  }
+
   private handleFailedTask(a: SimpleArgType[]) {
     const taskId = a[0] as string
     const queueName = a[1] as string
