@@ -118,8 +118,7 @@ export default class PlatformInstagram implements PlatformAPI {
       this.pendingEvents = []
     }
 
-    this.onEvent = events => onEvent(events)
-
+    this.onEvent = onEvent
     await this.socket.connect()
   }
 
