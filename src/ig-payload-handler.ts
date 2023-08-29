@@ -1324,7 +1324,6 @@ export default class InstagramPayloadHandler {
     }))
   }
 
-
   private markOptimisticMessageFailed(a: SimpleArgType[]) {
     this.__logger.debug('markOptimisticMessageFailed', a)
     this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to update optimistic message', JSON.stringify(a), {
