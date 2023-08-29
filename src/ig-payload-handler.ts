@@ -1324,6 +1324,14 @@ export default class InstagramPayloadHandler {
     }))
   }
 
+  private markOptimisticMessageFailed(a: SimpleArgType[]) {
+    this.__logger.debug('markOptimisticMessageFailed', a)
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to update optimistic message', JSON.stringify(a), {
+      args: JSON.stringify(a),
+      issuedByMethod: 'markOptimisticMessageFailed',
+    }))
+  }
+
   private handleSyncFailure(a: SimpleArgType[]) {
     // @TODO: we don't know how to parse this error yet
     this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
@@ -1341,6 +1349,10 @@ export default class InstagramPayloadHandler {
       args: JSON.stringify(a),
       issuedByMethod: 'handleFailedTask',
     }))
+  }
+
+  private updateTypingIndicator(a: SimpleArgType[]) {
+    this.__logger.debug('updateTypingIndicator (ignored)', a)
   }
 
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
