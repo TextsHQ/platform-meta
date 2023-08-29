@@ -22,6 +22,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
       ...{
         socketStatus: isWSError ? err.target.readyState : undefined,
       },
+      metaMessengerType: 'instagram',
     },
   })
 }

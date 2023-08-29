@@ -2,7 +2,7 @@ import type { EnvironmentKey } from './ig-types'
 import type { SentryExtra } from './logger'
 
 export class MetaMessengerError extends Error {
-  private readonly env: EnvironmentKey
+  private readonly metaMessengerEnv: EnvironmentKey
 
   private readonly id: -1 | number // -1 is internal error, not coming from meta
 
@@ -12,9 +12,9 @@ export class MetaMessengerError extends Error {
 
   private readonly context?: SentryExtra
 
-  constructor(env: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra) {
+  constructor(metaMessengerEnv: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra) {
     super([
-      `[${env}] Error${id === -1 ? '' : ` (${id})`}: `,
+      `[${metaMessengerEnv}] Error${id === -1 ? '' : ` (${id})`}: `,
       title,
       details?.length > 0 ? `(${details})` : '',
       context ? ` context: [${JSON.stringify(context)}]` : '',
@@ -24,7 +24,7 @@ export class MetaMessengerError extends Error {
 
     this.id = id
     this.title = title
-    this.env = env
+    this.metaMessengerEnv = metaMessengerEnv
     this.details = details
     this.context = context
 
@@ -41,7 +41,7 @@ export class MetaMessengerError extends Error {
   getErrorData() {
     return {
       id: this.id,
-      env: this.env,
+      metaMessengerEnv: this.metaMessengerEnv,
       message: this.message,
       title: this.title,
       details: this.details,
