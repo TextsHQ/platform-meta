@@ -50,11 +50,6 @@ export class MetaMessengerError extends Error {
   }
 
   getPublicMessage() {
-    return [
-      'Error',
-      this.id === -1 ? '' : ` (${this.id}): `,
-      this.title,
-      this.details?.length > 0 ? `(${this.details})` : '',
-    ].filter(Boolean).join('')
+    return `Error${this.id === -1 ? '' : ` (${this.id})`}: ${this.title}${this.details?.length > 0 ? ` (${this.details})` : ''}`
   }
 }
