@@ -473,8 +473,27 @@ export default class InstagramPayloadHandler {
     this.__logger.debug('upsertMessage', m.threadKey, messageId, m.timestampMs, m.text)
   }
 
+  private __upsertMessageAndSync(m: IGMessage) {
+    this.__logger.debug('__upsertMessageAndSync', m.threadKey, m.messageId, m.timestampMs, m.text)
+    const { messageId } = this.__papi.api.upsertMessage(m)
+    this.__messagesToSync.add(messageId)
+    return async () => {
+      if (this.__threadsToSync.has(m.threadKey) || this.__messagesToIgnore.has(messageId)) return
+      const [message] = await this.__papi.api.queryMessages(m.threadKey, [messageId])
+      if (!message) return
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadID },
+        mutationType: 'upsert',
+        entries: [message],
+      })
+    }
+  }
+
   private insertMessage(a: SimpleArgType[]) {
-    const m: IGMessage = {
+    this.__logger.debug('insertMessage', a)
+    return this.__upsertMessageAndSync({
       raw: JSON.stringify(a),
       links: null,
       threadKey: a[3] as string,
@@ -537,25 +556,73 @@ export default class InstagramPayloadHandler {
       takedownState: a[60] as string,
       isCollapsed: a[61] as boolean,
       subthreadKey: a[62] as string,
-    }
+    })
+  }
 
-    const { messageId } = this.__papi.api.upsertMessage(m)
-
-    this.__messagesToSync.add(messageId)
-    this.__logger.debug('insertMessage', m.threadKey, messageId, m.timestampMs, m.text)
-
-    return async () => {
-      if (this.__threadsToSync.has(m.threadKey) || this.__messagesToIgnore.has(messageId)) return
-      const [message] = await this.__papi.api.queryMessages(m.threadKey, [messageId])
-      if (!message) return
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadID },
-        mutationType: 'upsert',
-        entries: [message],
-      })
-    }
+  private deleteThenInsertMessage(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertMessage', a)
+    return this.__upsertMessageAndSync({
+      threadKey: a[3] as string,
+      timestampMs: getAsMS(a[5]),
+      messageId: a[8] as string,
+      offlineThreadingId: a[9] as string,
+      authorityLevel: Number(a[2]),
+      primarySortKey: a[6] as string,
+      senderId: a[10] as string,
+      isAdminMessage: Boolean(a[12]),
+      sendStatus: a[15] as string,
+      sendStatusV2: a[16] as string,
+      text: a[0] as string,
+      subscriptErrorMessage: a[1] as string,
+      secondarySortKey: a[7] as string,
+      stickerId: a[11] as string,
+      messageRenderingType: a[13] as string,
+      isUnsent: Boolean(a[17]),
+      unsentTimestampMs: getAsMS(a[18]),
+      mentionOffsets: a[19] as string,
+      mentionLengths: a[20] as string,
+      mentionIds: a[21] as string,
+      mentionTypes: a[22] as string,
+      replySourceId: a[23] as string,
+      replySourceType: a[24] as string,
+      replySourceTypeV2: a[25] as string,
+      replyStatus: a[26] as string,
+      replySnippet: a[27] as string,
+      replyMessageText: a[28] as string,
+      replyToUserId: a[29] as string,
+      replyMediaExpirationTimestampMs: getAsMS(a[30]),
+      replyMediaUrl: a[31] as string,
+      replyMediaPreviewWidth: a[33] as string,
+      replyMediaPreviewHeight: a[34] as string,
+      replyMediaUrlMimeType: a[35] as string,
+      replyMediaUrlFallback: a[36] as string,
+      replyCtaId: a[37] as string,
+      replyCtaTitle: a[38] as string,
+      replyAttachmentType: a[39] as string,
+      replyAttachmentId: a[40] as string,
+      replyAttachmentExtra: a[41] as string,
+      isForwarded: Boolean(a[42]),
+      forwardScore: a[43] as string,
+      hasQuickReplies: Boolean(a[44]),
+      adminMsgCtaId: a[45] as string,
+      adminMsgCtaTitle: a[46] as string,
+      adminMsgCtaType: a[47] as string,
+      cannotUnsendReason: a[48] as string,
+      textHasLinks: a[49] as number,
+      viewFlags: a[50] as string,
+      displayedContentTypes: a[51] as string,
+      viewedPluginKey: a[52] as string,
+      viewedPluginContext: a[53] as string,
+      quickReplyType: a[54] as string,
+      hotEmojiSize: a[55] as string,
+      replySourceTimestampMs: getAsMS(a[56]),
+      ephemeralDurationInSec: a[57] as string,
+      msUntilExpirationTs: getAsMS(a[58]),
+      ephemeralExpirationTs: getAsMS(a[59]),
+      takedownState: a[60] as string,
+      isCollapsed: Boolean(a[61]),
+      subthreadKey: a[62] as string,
+    })
   }
 
   private updateReadReceipt(a: SimpleArgType[]) {
@@ -1644,5 +1711,9 @@ export default class InstagramPayloadHandler {
       errorMessage: a[2] as string,
     }
     this.__errors.push(new MetaMessengerError(this.__papi.env, -1, parsed.errorMessage))
+  }
+  
+  private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {
+    this.__logger.debug('updateUnsentMessageCollapsedStatus (ignored)', a)
   }
 }
