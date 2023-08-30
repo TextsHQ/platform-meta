@@ -77,6 +77,7 @@ export type OperationKey =
   | 'updateReadReceipt'
   | 'updateSearchQueryStatus'
   | 'updateSelectiveSyncState'
+  | 'updateSubscriptErrorMessage'
   | 'updateThreadMuteSetting'
   | 'updateThreadNullState'
   | 'updateThreadParticipantAdminStatus'

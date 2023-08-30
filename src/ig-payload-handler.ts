@@ -1712,8 +1712,24 @@ export default class InstagramPayloadHandler {
     }
     this.__errors.push(new MetaMessengerError(this.__papi.env, -1, parsed.errorMessage))
   }
-  
+
   private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {
     this.__logger.debug('updateUnsentMessageCollapsedStatus (ignored)', a)
+  }
+
+  private handleRepliesOnUnsend(a: SimpleArgType[]) {
+    this.__logger.debug('handleRepliesOnUnsend (ignored)', a)
+  }
+
+  private updateForRollCallMessageDeleted(a: SimpleArgType[]) {
+    this.__logger.debug('updateForRollCallMessageDeleted (ignored)', a)
+  }
+
+  private updateOptimisticEphemeralMediaState(a: SimpleArgType[]) {
+    this.__logger.debug('updateOptimisticEphemeralMediaState (ignored)', a)
+  }
+
+  private updateThreadSnippetFromLastMessage(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadSnippetFromLastMessage (ignored)', a)
   }
 }
