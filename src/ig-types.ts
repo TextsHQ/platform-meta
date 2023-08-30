@@ -116,7 +116,7 @@ export type IGThread = {
 }
 
 export type IGMessage = {
-  raw: string
+  raw?: string
   threadKey: string
   offlineThreadingId: string
   authorityLevel: number
@@ -178,7 +178,7 @@ export type IGMessage = {
   takedownState: string
   isCollapsed: boolean
   subthreadKey: string
-  links: Message['links']
+  links?: Message['links']
   extra?: {
     mediaLink?: string
   }
