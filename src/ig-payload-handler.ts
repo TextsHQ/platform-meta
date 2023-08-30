@@ -1636,4 +1636,13 @@ export default class InstagramPayloadHandler {
   private updateExtraAttachmentColumns(a: SimpleArgType[]) {
     this.__logger.debug('updateExtraAttachmentColumns (ignored)', a)
   }
+
+  private updateSubscriptErrorMessage(a: SimpleArgType[]) {
+    const parsed = {
+      threadKey: a[0] as string,
+      offlineThreadingID: a[1] as string,
+      errorMessage: a[2] as string,
+    }
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, parsed.errorMessage))
+  }
 }
