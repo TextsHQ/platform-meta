@@ -28,7 +28,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
 }
 
 export const getLogger = (env: EnvironmentKey, feature = '') => {
-  const prefix = `[${env}]${feature ? `[${feature}}` : ''}`
+  const prefix = `[${env}]${feature ? `[${feature}]` : ''}`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
     [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg))].join(' ')
