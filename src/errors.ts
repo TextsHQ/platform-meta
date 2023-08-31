@@ -1,3 +1,4 @@
+import { texts } from '@textshq/platform-sdk'
 import type { EnvironmentKey } from './ig-types'
 import type { SentryExtra } from './logger'
 
@@ -10,9 +11,11 @@ export class MetaMessengerError extends Error {
 
   private readonly details?: string
 
+  private readonly disableToast?: boolean
+
   private readonly context?: SentryExtra
 
-  constructor(metaMessengerEnv: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra) {
+  constructor(metaMessengerEnv: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra, disableToast = false) {
     super([
       `[${metaMessengerEnv}] Error${id === -1 ? '' : ` (${id})`}: `,
       title,
@@ -27,6 +30,7 @@ export class MetaMessengerError extends Error {
     this.metaMessengerEnv = metaMessengerEnv
     this.details = details
     this.context = context
+    this.disableToast = !texts.isLoggingEnabled && disableToast
 
     // Ensure the instance is correctly set up
     // If transpiling to ES5; this line is needed to correctly set up the prototype chain
@@ -46,7 +50,12 @@ export class MetaMessengerError extends Error {
       title: this.title,
       details: this.details,
       context: this.context,
+      disableToast: this.disableToast,
     }
+  }
+
+  isToastDisabled() {
+    return this.disableToast
   }
 
   getPublicMessage() {

@@ -68,7 +68,7 @@ export default class InstagramPayloadHandler {
 
       this.__errors.forEach((err, i) => {
         this.__logger.error(err)
-        if (requestType && i === 0) return
+        if ((requestType && i === 0) || err?.isToastDisabled) return
         errorEvents.push({
           type: ServerEventType.TOAST,
           toast: {
@@ -119,7 +119,7 @@ export default class InstagramPayloadHandler {
       const isValidMethod = method in this && typeof this[method] === 'function'
       if (!isValidMethod) {
         this.__logger.debug(`missing handler (${method})`, args)
-        this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${method})`))
+        this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${method})`, undefined, undefined, true))
         continue
       }
 
@@ -983,20 +983,18 @@ export default class InstagramPayloadHandler {
       // isEmployee: !1
     }
     const { id, name, profilePictureUrl, secondaryName: username, ...contact } = parsed
-    const c = {
+
+    this.__logger.debug('deleteThenInsertContact', a, parsed)
+
+    this.__papi.db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
+    this.__papi.db.insert(schema.contacts).values({
+      raw: JSON.stringify(a),
       id,
       name,
       profilePictureUrl,
       username,
       contact: JSON.stringify(contact),
-    } as const
-
-    this.__logger.debug('deleteThenInsertContact', a, parsed)
-
-    this.__papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
-      target: schema.contacts.id,
-      set: { ...c },
-    }).run()
+    } as const).run()
   }
 
   private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
@@ -1731,5 +1729,17 @@ export default class InstagramPayloadHandler {
 
   private updateThreadSnippetFromLastMessage(a: SimpleArgType[]) {
     this.__logger.debug('updateThreadSnippetFromLastMessage (ignored)', a)
+  }
+
+  private updateThreadApprovalMode(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadApprovalMode (ignored)', a)
+  }
+
+  private updateParticipantCapabilities(a: SimpleArgType[]) {
+    this.__logger.debug('updateParticipantCapabilities (ignored)', a)
+  }
+
+  private updateThreadInviteLinksInfo(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadInviteLinksInfo (ignored)', a)
   }
 }
