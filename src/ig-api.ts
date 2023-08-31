@@ -26,14 +26,14 @@ const fixUrl = (url: string) =>
 const commonHeaders = {
   authority: 'www.instagram.com',
   'accept-language': 'en',
-  // 'sec-ch-ua-mobile': '?0',
-  // 'sec-ch-ua-platform': '"macOS"',
-  // 'sec-ch-ua-platform-version': '"13.2.1"',
-  // 'sec-ch-ua':
-  //   '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-  // 'sec-fetch-site': 'same-origin',
-  // 'sec-ch-ua-full-version-list':
-  //   '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"macOS"',
+  'sec-ch-ua-platform-version': '"13.2.1"',
+  'sec-ch-ua':
+    '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+  'sec-fetch-site': 'same-origin',
+  'sec-ch-ua-full-version-list':
+    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
 } as const
 
 export default class InstagramAPI {
@@ -103,11 +103,11 @@ export default class InstagramAPI {
         accept:
           'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
         'cache-control': 'max-age=0',
-        // 'sec-ch-ua':
-        //   '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        // 'sec-fetch-dest': 'document',
-        // 'sec-fetch-mode': 'navigate',
-        // 'sec-fetch-user': '?1',
+        'sec-ch-ua':
+          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-user': '?1',
         'upgrade-insecure-requests': '1',
         'viewport-width': '1280',
       },
@@ -355,14 +355,14 @@ export default class InstagramAPI {
         'accept-language': 'en',
         origin: 'https://www.instagram.com',
         referer: `${INSTAGRAM_BASE_URL}direct/t/${threadID}/`,
-        // 'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        // 'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
-        // 'sec-ch-ua-mobile': '?0',
-        // 'sec-ch-ua-platform': '"macOS"',
-        // 'sec-ch-ua-platform-version': '"13.4.1"',
-        // 'sec-fetch-dest': 'empty',
-        // 'sec-fetch-mode': 'cors',
-        // 'sec-fetch-site': 'same-origin',
+        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.4.1"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
         'viewport-width': '1280',
         'x-asbd-id': '129477',
         'x-fb-lsd': this.papi.kv.get('lsd'),
