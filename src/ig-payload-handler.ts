@@ -995,6 +995,19 @@ export default class InstagramPayloadHandler {
       username,
       contact: JSON.stringify(contact),
     } as const).run()
+
+    this.__events.push({
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'participant',
+      objectIDs: { threadID: id },
+      mutationType: 'upsert',
+      entries: [{
+        id,
+        username,
+        fullName: name || username || DEFAULT_PARTICIPANT_NAME,
+        imgURL: profilePictureUrl,
+      }],
+    })
   }
 
   private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
