@@ -739,8 +739,8 @@ export default class InstagramPayloadHandler {
       maxTimestamp: a[2] as string,
       minMessageId: a[3] as string,
       maxMessageId: a[4] as string,
-      hasMoreBeforeFlag: a[7] as boolean,
-      hasMoreAfterFlag: a[8] as boolean,
+      hasMoreBeforeFlag: Boolean(a[7]),
+      hasMoreAfterFlag: Boolean(a[8]),
     }
     this.__logger.debug('insertNewMessageRange', a, msgRange)
     await this.__papi.api.setMessageRanges(msgRange)
