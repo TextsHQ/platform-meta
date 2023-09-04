@@ -183,7 +183,7 @@ export function mapThread(
   // logger.debug(`mutedUntil: ${mutedUntil}`)
   return {
     id: t.threadKey as string,
-    title: threadType === 'group' && thread?.threadName,
+    title: threadType === 'group' ? thread?.threadName : null,
     isUnread,
     folderName: t.parentThreadKey === ParentThreadKey.SPAM ? InboxName.REQUESTS : InboxName.NORMAL,
     // ...mutedUntil && { mutedUntil },

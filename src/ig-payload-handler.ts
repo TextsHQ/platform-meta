@@ -251,7 +251,7 @@ export default class InstagramPayloadHandler {
       // threadType: a[9][1] === '1' ? 'single' : 'group',
       threadType: a[9],
       folderName: a[10] as string,
-      parentThreadKey: a[35] as unknown as number,
+      parentThreadKey: Number(a[35]),
       lastActivityTimestampMs: getAsMS(a[0]),
       snippet: a[2],
       threadPictureUrl: a[4],
@@ -410,10 +410,10 @@ export default class InstagramPayloadHandler {
       timestampMs: getAsMS(a[5]),
       messageId: a[8] as string,
       offlineThreadingId: a[9] as string,
-      authorityLevel: a[2] as number,
+      authorityLevel: Number(a[2]),
       primarySortKey: a[6] as string,
       senderId: a[10] as string,
-      isAdminMessage: a[12] as boolean,
+      isAdminMessage: Boolean(a[12]),
       sendStatus: a[15] as string,
       sendStatusV2: a[16] as string,
       text: a[0] as string,
@@ -421,7 +421,7 @@ export default class InstagramPayloadHandler {
       secondarySortKey: a[7] as string,
       stickerId: a[11] as string,
       messageRenderingType: a[13] as string,
-      isUnsent: a[17] as boolean,
+      isUnsent: Boolean(a[17]),
       unsentTimestampMs: getAsMS(a[18]),
       mentionOffsets: a[19] as string,
       mentionLengths: a[20] as string,
@@ -446,14 +446,14 @@ export default class InstagramPayloadHandler {
       replyAttachmentId: a[40] as string,
       replyAttachmentExtra: a[41] as string,
       replyType: a[42] as string,
-      isForwarded: a[43] as boolean,
+      isForwarded: Boolean(a[43]),
       forwardScore: a[44] as string,
-      hasQuickReplies: a[45] as boolean,
+      hasQuickReplies: Boolean(a[45]),
       adminMsgCtaId: a[46] as string,
       adminMsgCtaTitle: a[47] as string,
       adminMsgCtaType: a[48] as string,
       cannotUnsendReason: a[49] as string,
-      textHasLinks: a[50] as number,
+      textHasLinks: Number(a[50]),
       viewFlags: a[51] as string,
       displayedContentTypes: a[52] as string,
       viewedPluginKey: a[53] as string,
@@ -465,7 +465,7 @@ export default class InstagramPayloadHandler {
       msUntilExpirationTs: getAsMS(a[59]),
       ephemeralExpirationTs: getAsMS(a[60]),
       takedownState: a[61] as string,
-      isCollapsed: a[62] as boolean,
+      isCollapsed: Boolean(a[62]),
       subthreadKey: a[63] as string,
     }
     const { messageId } = this.__papi.api.upsertMessage(m)
@@ -500,10 +500,10 @@ export default class InstagramPayloadHandler {
       timestampMs: getAsMS(a[5] as string),
       messageId: a[8] as string,
       offlineThreadingId: a[9] as string,
-      authorityLevel: a[2] as number,
+      authorityLevel: Number(a[2]),
       primarySortKey: a[6] as string,
       senderId: a[10] as string,
-      isAdminMessage: a[12] as boolean,
+      isAdminMessage: Boolean(a[12]),
       sendStatus: a[15] as string,
       sendStatusV2: a[16] as string,
       text: a[0] as string,
@@ -511,7 +511,7 @@ export default class InstagramPayloadHandler {
       secondarySortKey: a[7] as string,
       stickerId: a[11] as string,
       messageRenderingType: a[13] as string,
-      isUnsent: a[17] as boolean,
+      isUnsent: Boolean(a[17]),
       unsentTimestampMs: getAsMS(a[18]),
       mentionOffsets: a[19] as string,
       mentionLengths: a[20] as string,
@@ -535,14 +535,14 @@ export default class InstagramPayloadHandler {
       replyAttachmentType: a[39] as string,
       replyAttachmentId: a[40] as string,
       replyAttachmentExtra: a[41] as string,
-      isForwarded: a[42] as boolean,
+      isForwarded: Boolean(a[42]),
       forwardScore: a[43] as string,
-      hasQuickReplies: a[44] as boolean,
+      hasQuickReplies: Boolean(a[44]),
       adminMsgCtaId: a[45] as string,
       adminMsgCtaTitle: a[46] as string,
       adminMsgCtaType: a[47] as string,
       cannotUnsendReason: a[48] as string,
-      textHasLinks: a[49] as number,
+      textHasLinks: Number(a[49]),
       viewFlags: a[50] as string,
       displayedContentTypes: a[51] as string,
       viewedPluginKey: a[52] as string,
@@ -554,7 +554,7 @@ export default class InstagramPayloadHandler {
       msUntilExpirationTs: getAsMS(a[58] as string),
       ephemeralExpirationTs: getAsMS(a[59] as string),
       takedownState: a[60] as string,
-      isCollapsed: a[61] as boolean,
+      isCollapsed: Boolean(a[61]),
       subthreadKey: a[62] as string,
     })
   }
@@ -608,7 +608,7 @@ export default class InstagramPayloadHandler {
       adminMsgCtaTitle: a[46] as string,
       adminMsgCtaType: a[47] as string,
       cannotUnsendReason: a[48] as string,
-      textHasLinks: a[49] as number,
+      textHasLinks: Number(a[49]),
       viewFlags: a[50] as string,
       displayedContentTypes: a[51] as string,
       viewedPluginKey: a[52] as string,
@@ -748,7 +748,7 @@ export default class InstagramPayloadHandler {
   }
 
   private async updateExistingMessageRange(a: SimpleArgType[]) {
-    const isMaxTimestamp = a[2] as boolean
+    const isMaxTimestamp = Boolean(a[2])
     const timestamp = a[1] as string
     const msgRange = {
       threadKey: a[0] as string,
@@ -794,8 +794,8 @@ export default class InstagramPayloadHandler {
       syncGroup: a[0] as SyncGroup,
       parentThreadKey: a[1] as ParentThreadKey,
       minLastActivityTimestampMs: a[2] as string,
-      hasMoreBefore: a[3] as boolean,
-      isLoadingBefore: a[4] as boolean,
+      hasMoreBefore: Boolean(a[3]),
+      isLoadingBefore: Boolean(a[4]),
       minThreadKey: a[5] as string,
     }
     this.__logger.debug('upsertSyncGroupThreadsRange', a)
@@ -825,7 +825,7 @@ export default class InstagramPayloadHandler {
       deliveredWatermarkTimestampMs: getAsDate(a[4] as string),
       // lastDeliveredWatermarkTimestampMs: getAsDate(a[5][1])),
       lastDeliveredActionTimestampMs: a[5] ? getAsDate(a[5] as string) : null,
-      isAdmin: a[6] as boolean,
+      isAdmin: Boolean(a[6]),
     }
     this.__papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
       target: [schema.participants.threadKey, schema.participants.userId],
@@ -1194,13 +1194,13 @@ export default class InstagramPayloadHandler {
       previewUrlFallback: a[9] as string,
       previewUrlExpirationTimestampMs: getAsMS(a[10]),
       previewUrlMimeType: a[11] as string,
-      previewWidth: a[14] as number,
-      previewHeight: a[15] as number,
+      previewWidth: Number(a[14]),
+      previewHeight: Number(a[15]),
       timestampMs: getAsMS(a[31]),
       attachmentType: a[29] as string,
       attachmentFbid: a[34] as string,
-      filesize: a[1] as number,
-      hasMedia: a[2] as boolean,
+      filesize: Number(a[1]),
+      hasMedia: Boolean(a[2]),
       playableUrl: a[3] as string,
       playableUrlFallback: a[4] as string,
       playableUrlExpirationTimestampMs: getAsMS(a[5]),
@@ -1217,10 +1217,10 @@ export default class InstagramPayloadHandler {
       playableDurationMs: getAsMS(a[22]),
       attachmentIndex: a[23] as string,
       accessibilitySummaryText: a[24] as string,
-      isPreviewImage: a[25] as boolean,
+      isPreviewImage: Boolean(a[25]),
       originalFileHash: a[26] as string,
       offlineAttachmentId: a[33] as string, // @TODO: is integer/bigint?
-      hasXma: a[35] as boolean,
+      hasXma: Boolean(a[35]),
       xmaLayoutType: a[36] as string,
       xmasTemplateType: a[37] as string,
       titleText: a[38] as string,
@@ -1228,9 +1228,9 @@ export default class InstagramPayloadHandler {
       descriptionText: a[40] as string,
       sourceText: a[41] as string,
       faviconUrlExpirationTimestampMs: getAsMS(a[42]),
-      isBorderless: a[44] as boolean,
+      isBorderless: Boolean(a[44]),
       previewUrlLarge: a[45] as string,
-      samplingFrequencyHz: a[46] as number,
+      samplingFrequencyHz: Number(a[46]),
       waveformData: a[47] as string,
       authorityLevel: a[48] as string,
     }
@@ -1249,9 +1249,9 @@ export default class InstagramPayloadHandler {
       messageId: a[30] as string,
       attachmentFbid: a[32] as string,
       filename: a[1] as string,
-      filesize: a[2] as number,
+      filesize: Number(a[2]),
       hasMedia: !1,
-      isSharable: a[3] as boolean,
+      isSharable: Boolean(a[3]),
       playableUrl: a[4] as string,
       playableUrlFallback: a[5] as string,
       playableUrlExpirationTimestampMs: getAsMS(a[6]),
@@ -1260,8 +1260,8 @@ export default class InstagramPayloadHandler {
       previewUrlFallback: a[9] as string,
       previewUrlExpirationTimestampMs: getAsMS(a[10]),
       previewUrlMimeType: a[11] as string,
-      previewWidth: a[13] as number,
-      previewHeight: a[14] as number,
+      previewWidth: Number(a[13]),
+      previewHeight: Number(a[14]),
       attributionAppId: a[15] as string,
       attributionAppName: a[16] as string,
       attributionAppIcon: a[17] as string,
@@ -1269,9 +1269,9 @@ export default class InstagramPayloadHandler {
       attributionAppIconUrlExpirationTimestampMs: getAsMS(a[19]),
       attachmentIndex: a[20] as string,
       accessibilitySummaryText: a[21] as string,
-      shouldRespectServerPreviewSize: a[22] as boolean,
+      shouldRespectServerPreviewSize: Boolean(a[22]),
       subtitleIconUrl: a[23] as string,
-      shouldAutoplayVideo: a[24] as boolean,
+      shouldAutoplayVideo: Boolean(a[24]),
       attachmentType: a[27] as string,
       timestampMs: getAsMS(a[29]),
       offlineAttachmentId: a[31] as string,
@@ -1335,7 +1335,7 @@ export default class InstagramPayloadHandler {
       listItemContactUrlFallbackList3: a[93] as string,
       listItemAccessibilityText3: a[94] as string,
       listItemTotalCount3: a[95] as string,
-      isBorderless: a[99] as boolean,
+      isBorderless: Boolean(a[99]),
       headerImageUrlMimeType: a[100] as string,
       headerTitle: a[101] as string,
       headerSubtitleText: a[102] as string,
@@ -1386,7 +1386,7 @@ export default class InstagramPayloadHandler {
   private issueNewError(a: SimpleArgType[]) {
     this.__logger.debug('issueNewError', a)
     const _requestId = a[0] as string
-    const errorId = a[1] as number // @TODO: not sure what this value is
+    const errorId = Number(a[1]) // @TODO: not sure what this value is
     const errorTitle = a[2] as string
     const errorMessage = a[3] as string
     this.__errors.push(new MetaMessengerError(this.__papi.env, errorId, errorTitle, errorMessage, {
@@ -1536,7 +1536,7 @@ export default class InstagramPayloadHandler {
     const b = {
       threadKey: a[0] as string,
       participantId: a[1] as string,
-      isAdmin: a[2] as boolean,
+      isAdmin: Boolean(a[2]),
     }
     this.__logger.debug('updateThreadParticipantAdminStatus (ignored)', a, b)
   }
@@ -1695,7 +1695,7 @@ export default class InstagramPayloadHandler {
     const parsed: Partial<IGThread> = {
       threadPictureUrl: a[1] as string,
       threadPictureUrlFallback: a[2] as string,
-      threadPictureUrlExpirationTimestampMs: a[3] as number,
+      threadPictureUrlExpirationTimestampMs: Number(a[3]),
       nullstateDescriptionText1: a[4] as string,
       nullstateDescriptionType1: a[9] as string,
       nullstateDescriptionText2: a[5] as string,
