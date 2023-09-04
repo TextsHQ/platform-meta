@@ -2,6 +2,7 @@
   "name": "@textshq/platform-instagram",
   "version": "3.0.0",
   "main": "dist/index.js",
+  "files": ["dist"],
   "scripts": {
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
