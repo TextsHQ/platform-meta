@@ -164,7 +164,7 @@ export default class PlatformInstagram implements PlatformAPI {
 
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      // limit: 15,
+      limit: 15,
     })
 
     return {
