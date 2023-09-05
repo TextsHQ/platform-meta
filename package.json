@@ -1,6 +1,6 @@
 {
-  "name": "@textshq/platform-instagram",
-  "version": "3.0.0",
+  "name": "@textshq/platform-meta",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "files": [
     "dist"
