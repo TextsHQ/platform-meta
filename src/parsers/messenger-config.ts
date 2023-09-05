@@ -1,4 +1,4 @@
-import { EnvironmentKey } from '../ig-types'
+import { EnvironmentKey } from '../mm-types'
 
 type InnerObject = {
   __bbox: BboxEntry

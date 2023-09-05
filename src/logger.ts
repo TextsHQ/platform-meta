@@ -1,6 +1,6 @@
 import { texts } from '@textshq/platform-sdk'
 import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
-import { EnvironmentKey } from './ig-types'
+import { EnvironmentKey } from './mm-types'
 import { MetaMessengerError } from './errors'
 
 export type SentryExtra = Record<string, string | boolean | number>

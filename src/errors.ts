@@ -1,5 +1,5 @@
 import { texts } from '@textshq/platform-sdk'
-import type { EnvironmentKey } from './ig-types'
+import type { EnvironmentKey } from './mm-types'
 import type { SentryExtra } from './logger'
 
 export class MetaMessengerError extends Error {

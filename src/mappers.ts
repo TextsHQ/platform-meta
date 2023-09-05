@@ -9,7 +9,7 @@ import {
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
 import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { IGMessageRanges, ParentThreadKey } from './ig-types'
+import { IGMessageRanges, ParentThreadKey } from './mm-types'
 import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {

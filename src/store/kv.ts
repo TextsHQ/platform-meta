@@ -1,6 +1,6 @@
 import type Instagram from '../api'
 import { keyValues } from './schema'
-import { ParentThreadKey, SyncGroup } from '../ig-types'
+import { ParentThreadKey, SyncGroup } from '../mm-types'
 
 type DbId = number
 

@@ -1,7 +1,7 @@
 import mqtt from 'mqtt-packet'
 import type WebSocket from 'ws'
-import type { SimpleArgType } from './ig-payload-parser'
-import { EnvironmentKey, IGMessageRanges } from './ig-types'
+import type { SimpleArgType } from './payload-parser'
+import type { EnvironmentKey, IGMessageRanges } from './mm-types'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)

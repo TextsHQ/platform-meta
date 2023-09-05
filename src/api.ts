@@ -24,8 +24,8 @@ import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/p
 import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
-import InstagramAPI from './ig-api'
-import InstagramWebSocket from './ig-socket'
+import InstagramAPI from './mm-api'
+import InstagramWebSocket from './socket'
 import { getLogger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
@@ -34,7 +34,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME, META_MESSENGER_ENV } from './constants'
-import { ParentThreadKey, SyncGroup } from './ig-types'
+import { ParentThreadKey, SyncGroup } from './mm-types'
 
 export default class PlatformInstagram implements PlatformAPI {
   env = META_MESSENGER_ENV

@@ -1964,9 +1964,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@textshq/platform-instagram@workspace:.":
+"@textshq/platform-meta@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@textshq/platform-instagram@workspace:."
+  resolution: "@textshq/platform-meta@workspace:."
   dependencies:
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"

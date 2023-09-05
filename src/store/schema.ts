@@ -1,7 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm'
 import { relations } from 'drizzle-orm'
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import type { IGAttachment, IGMessage, IGThread } from '../ig-types'
+import type { IGAttachment, IGMessage, IGThread } from '../mm-types'
 
 export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
 

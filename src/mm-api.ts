@@ -12,13 +12,13 @@ import { getLogger } from './logger'
 import { INSTAGRAM_BASE_URL, META_MESSENGER_ENV, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGAttachment, IGMessage, IGMessageRanges } from './ig-types'
-import { IGThreadRanges, ParentThreadKey, SyncGroup } from './ig-types'
+import type { IGAttachment, IGMessage, IGMessageRanges } from './mm-types'
+import { IGThreadRanges, ParentThreadKey, SyncGroup } from './mm-types'
 import { createPromise, getEnvOptions, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
-import InstagramPayloadHandler from './ig-payload-handler'
+import InstagramPayloadHandler from './payload-handler'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))

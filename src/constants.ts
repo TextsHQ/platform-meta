@@ -1,4 +1,4 @@
-import type { EnvironmentKey } from './ig-types'
+import type { EnvironmentKey } from './mm-types'
 
 export const MAX_RETRY_ATTEMPTS = 12
 export const VERSION_ID = 6552526831451374

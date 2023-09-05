@@ -16,8 +16,8 @@ import {
 import { getLogger } from './logger'
 import { MAX_RETRY_ATTEMPTS, META_MESSENGER_ENV, VERSION_ID } from './constants'
 import type PlatformInstagram from './api'
-import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './ig-types'
-import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './ig-payload-handler'
+import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './mm-types'
+import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'
 
