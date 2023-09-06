@@ -9,7 +9,7 @@ import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './s
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
-import { INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
+import { SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
 import type { EnvironmentKey, IGAttachment, IGMessage, IGMessageRanges } from './mm-types'
@@ -18,7 +18,7 @@ import { createPromise, getEnvOptions, parseMessageRanges, parseUnicodeEscapeSeq
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
-import InstagramPayloadHandler from './payload-handler'
+import MetaMessengerPayloadHandler from './payload-handler'
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -144,7 +144,7 @@ export default class InstagramAPI {
     }
 
     for (const payload of config.initialPayloads) {
-      await new InstagramPayloadHandler(this.papi, payload, 'initial').__handle()
+      await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
 
     this._initPromise?.resolve()
@@ -152,14 +152,18 @@ export default class InstagramAPI {
     await this.papi.socket.connect()
   }
 
+  get envOpts() {
+    return getEnvOptions(this.papi.env)
+  }
+
   getCookies() {
-    return this.jar.getCookieStringSync(INSTAGRAM_BASE_URL)
+    return this.jar.getCookieStringSync(this.envOpts.baseURL)
   }
 
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
     if (this.papi.env !== 'IG') throw new Error('getUserByUsername is only supported on IG')
-    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
+    const { json } = await this.httpJSONRequest(this.envOpts.baseURL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
       // @TODO: refactor headers
       headers: {
         accept: '*/*',
@@ -259,7 +263,7 @@ export default class InstagramAPI {
 
   getCSRFToken() {
     return this.jar
-      .getCookiesSync(INSTAGRAM_BASE_URL)
+      .getCookiesSync(this.papi.api.envOpts.baseURL)
       .find(c => c.key === 'csrftoken')?.value
   }
 
@@ -276,7 +280,7 @@ export default class InstagramAPI {
       }),
       requestType: 1,
     })
-    await new InstagramPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
+    await new MetaMessengerPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {

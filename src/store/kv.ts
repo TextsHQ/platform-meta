@@ -1,4 +1,4 @@
-import type Instagram from '../api'
+import type PlatformAPI from '../api'
 import { keyValues } from './schema'
 import { ParentThreadKey, SyncGroup } from '../mm-types'
 
@@ -67,7 +67,7 @@ export function includesKey<T extends string>(array: readonly T[], item: string)
 }
 
 export default class KeyValueStore {
-  constructor(private readonly papi: Instagram) {}
+  constructor(private readonly papi: PlatformAPI) {}
 
   private cache = new Map<Key, ValueType<Key>>()
 

@@ -111,15 +111,19 @@ export function getEnvOptions(env: EnvironmentKey) {
       return {
         baseURL: 'https://www.instagram.com/',
         initialURL: 'https://www.instagram.com/direct/' as const,
+        defaultContactName: 'Instagram User' as const,
+        defaultVersionId: 6552526831451374,
       }
     case 'FB':
       return {
         baseURL: 'https://www.facebook.com/',
         initialURL: 'https://www.facebook.com/messages' as const,
+        defaultContactName: 'Facebook User' as const,
       }
     case 'MESSENGER':
       return {
         initialURL: 'https://www.messenger.com' as const,
+        defaultContactName: 'Facebook User' as const,
       }
     default:
       throw new Error(`Invalid environment: ${env}`)

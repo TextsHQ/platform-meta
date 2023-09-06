@@ -5,7 +5,7 @@ import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
-import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
+import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
 import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './mm-types'
 import { mapParticipants } from './mappers'
@@ -15,7 +15,7 @@ import { MetaMessengerError } from './errors'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
-export interface InstagramPayloadHandlerResponse {
+export interface MetaMessengerPayloadHandlerResponse {
   replaceOptimsiticMessage?: {
     offlineThreadingId: string
     messageId: string
@@ -33,7 +33,7 @@ export interface InstagramPayloadHandlerResponse {
   }[]
 }
 
-export default class InstagramPayloadHandler {
+export default class MetaMessengerPayloadHandler {
   private readonly __calls: CallList
 
   private readonly __logger: ReturnType<typeof getLogger>
@@ -100,7 +100,7 @@ export default class InstagramPayloadHandler {
 
   private __messagesToIgnore = new Set<string>()
 
-  private __responses: InstagramPayloadHandlerResponse = {}
+  private __responses: MetaMessengerPayloadHandlerResponse = {}
 
   private __errors: MetaMessengerError[] = []
 
@@ -1147,7 +1147,7 @@ export default class InstagramPayloadHandler {
           url: mediaLink,
           title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
         }]
-      } else if (mediaLink.startsWith(INSTAGRAM_BASE_URL)) {
+      } else if (mediaLink.startsWith(this.__papi.api.envOpts.baseURL)) {
         mparse.extra = {
           mediaLink,
         }

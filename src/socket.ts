@@ -15,9 +15,9 @@ import {
 } from './util'
 import { getLogger, Logger } from './logger'
 import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
-import type PlatformInstagram from './api'
+import type PlatformMetaMessenger from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './mm-types'
-import InstagramPayloadHandler, { InstagramPayloadHandlerResponse } from './payload-handler'
+import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'
 
@@ -57,8 +57,8 @@ export enum RequestResolverType {
   ADD_REACTION = 'ADD_REACTION',
 }
 
-export type RequestResolverResolver = (response?: InstagramPayloadHandlerResponse) => void
-export type RequestResolverRejector = (response?: InstagramPayloadHandlerResponse | MetaMessengerError) => void
+export type RequestResolverResolver = (response?: MetaMessengerPayloadHandlerResponse) => void
+export type RequestResolverRejector = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
 const lsAppSettings = {
   qos: 1,
@@ -69,7 +69,7 @@ const lsAppSettings = {
   }),
 } as const
 
-export default class InstagramWebSocket {
+export default class MetaMessengerWebSocket {
   private retryAttempt = 0
 
   private stop = false
@@ -78,7 +78,7 @@ export default class InstagramWebSocket {
 
   private logger: Logger
 
-  constructor(private readonly papi: PlatformInstagram) {
+  constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
   }
 
@@ -372,7 +372,7 @@ export default class InstagramWebSocket {
     // not sure exactly what the new cursor is for, but it's not needed. the request_id is null
     // 3. unknown response with a request_id of 6. has no information
     // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
-    await new InstagramPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
+    await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
   }
 
   async sendTypingIndicator(threadID: string, isTyping: boolean) {
@@ -545,15 +545,15 @@ export default class InstagramWebSocket {
 
   private createRequest(type: RequestResolverType) {
     const request_id = this.genRequestId()
-    const { promise, resolve, reject } = createPromise<InstagramPayloadHandlerResponse>()
+    const { promise, resolve, reject } = createPromise<MetaMessengerPayloadHandlerResponse>()
     const logPrefix = `[REQUEST #${request_id}][${type}]`
     this.logger.debug(logPrefix, 'sent')
-    const resolver = (response: InstagramPayloadHandlerResponse) => {
+    const resolver = (response: MetaMessengerPayloadHandlerResponse) => {
       this.logger.debug(logPrefix, 'got response', response)
       resolve(response)
       this.requestResolvers.delete(request_id)
     }
-    const _reject = (response: InstagramPayloadHandlerResponse | MetaMessengerError) => {
+    const _reject = (response: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => {
       if (!(response instanceof MetaMessengerError)) {
         this.logger.error(new MetaMessengerError(this.papi.env, -1, 'request resolver rejected', `payload: ${JSON.stringify(response)}`))
       }
