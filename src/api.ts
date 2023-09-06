@@ -24,8 +24,8 @@ import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/p
 import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
-import InstagramAPI from './mm-api'
-import InstagramWebSocket from './socket'
+import MetaMessengerAPI from './mm-api'
+import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
@@ -43,16 +43,25 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   logger: Logger
 
-  api = new InstagramAPI(this)
+  api: MetaMessengerAPI
 
-  kv = new KeyValueStore(this)
+  kv: KeyValueStore
 
-  pQueue = new PromiseQueue()
+  pQueue: PromiseQueue
 
-  socket = new InstagramWebSocket(this)
+  socket: MetaMessengerWebSocket
+
+  constructor(readonly accountID: string, env: EnvironmentKey) {
+    this.env = env
+    this.logger = getLogger(env)
+    this.api = new MetaMessengerAPI(this, env)
+    this.kv = new KeyValueStore(this)
+    this.pQueue = new PromiseQueue(env)
+    this.socket = new MetaMessengerWebSocket(this)
+  }
 
   onEvent: OnServerEventCallback = events => {
-    this.logger.debug('instagram got server event before ready', JSON.stringify(events, null, 2))
+    this.logger.debug(`${this.env} got server event before ready`, JSON.stringify(events, null, 2))
     this.pendingEvents.push(...events)
   }
 
@@ -60,19 +69,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   preparedQueries: ReturnType<typeof preparedQueries>
 
-  constructor(readonly accountID: string, env: EnvironmentKey) {
-    this.env = env
-    this.logger = getLogger(env)
-  }
-
   init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
     if (session && session._v !== 'v3') throw new ReAuthError() // upgrade from android-based session
 
     await fs.mkdir(dataDirPath, { recursive: true })
 
-    this.logger.info('starting ig', { dataDirPath, accountID })
+    this.logger.info('starting', { dataDirPath, accountID })
 
-    this.db = await getDB(accountID, dataDirPath)
+    this.db = await getDB(this.env, accountID, dataDirPath)
     this.preparedQueries = preparedQueries(this.db)
 
     this.logger.debug('loading keys', this.kv.getAll())
@@ -248,7 +252,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
     const username = 'username' in ids && ids.username
     const user: User = await this.api.getUserByUsername(username)
-    this.logger.debug('instagram got user', user)
+    this.logger.debug('got user', user)
     return user
   }
 

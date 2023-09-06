@@ -4,16 +4,16 @@ import Database from 'better-sqlite3'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 // import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from './schema'
-import { getLogger } from '../logger'
+import { getLogger, Logger } from '../logger'
 import { migrations } from './migrations'
-import { META_MESSENGER_ENV } from '../constants'
+import { EnvironmentKey } from '../mm-types'
 
-const logger = getLogger(META_MESSENGER_ENV, 'drizzle')
+// const logger = getLogger('meta', 'drizzle')
 const migrationsFolder = resolve(__dirname, '../drizzle')
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>
 
-async function createDirectoryIfNotExists(dataDirPath: string) {
+async function createDirectoryIfNotExists(dataDirPath: string, logger: Logger) {
   try {
     await access(dataDirPath)
   } catch (error) {
@@ -29,7 +29,7 @@ async function createDirectoryIfNotExists(dataDirPath: string) {
   }
 }
 
-async function removeDatabaseFile(sqlitePath: string) {
+async function removeDatabaseFile(sqlitePath: string, logger: Logger) {
   try {
     logger.warn('removing database file', { sqlitePath })
     await unlink(sqlitePath)
@@ -42,7 +42,7 @@ async function removeDatabaseFile(sqlitePath: string) {
   }
 }
 
-async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt = 0): Promise<void> {
+async function migrateDatabase(db: DrizzleDB, sqlitePath: string, logger: Logger, retryAttempt = 0): Promise<void> {
   try {
     logger.debug('migrating database', { sqlitePath, retryAttempt })
     for (const migration of migrations) {
@@ -54,17 +54,18 @@ async function migrateDatabase(db: DrizzleDB, sqlitePath: string, retryAttempt =
       retryAttempt,
     }, e)
     if (retryAttempt === 1) {
-      await removeDatabaseFile(sqlitePath)
+      await removeDatabaseFile(sqlitePath, logger)
     }
     if (retryAttempt > 1) {
       throw new Error(e)
     }
-    return migrateDatabase(db, sqlitePath, retryAttempt + 1)
+    return migrateDatabase(db, sqlitePath, logger, retryAttempt + 1)
   }
 }
 
-const getDB = async (accountID: string, dataDirPath: string) => {
-  await createDirectoryIfNotExists(dataDirPath)
+const getDB = async (env: EnvironmentKey, accountID: string, dataDirPath: string) => {
+  const logger = getLogger(env, 'drizzle')
+  await createDirectoryIfNotExists(dataDirPath, logger)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
 
   logger.info('initializing database at', {
@@ -73,7 +74,7 @@ const getDB = async (accountID: string, dataDirPath: string) => {
     sqlitePath,
   })
 
-  await removeDatabaseFile(sqlitePath)
+  await removeDatabaseFile(sqlitePath, logger)
 
   const sqlite = new Database(sqlitePath)
   const db = drizzle(sqlite, {
@@ -85,7 +86,7 @@ const getDB = async (accountID: string, dataDirPath: string) => {
     },
   })
 
-  await migrateDatabase(db, sqlitePath)
+  await migrateDatabase(db, sqlitePath, logger)
   return db
 }
 

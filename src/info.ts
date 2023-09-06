@@ -3,10 +3,6 @@ import { genClientContext } from './util'
 
 const infoDefaults = {
   loginMode: ['browser-extension', 'browser'] as PlatformInfo['loginMode'],
-  browserLogin: {
-    url: 'https://instagram.com',
-    authCookieName: 'sessionid',
-  },
   deletionMode: MessageDeletionMode.UNSEND,
   attributes: new Set([
     Attribute.SUPPORTS_REQUESTS_INBOX,

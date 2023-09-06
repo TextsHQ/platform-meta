@@ -3,6 +3,10 @@ import infoDefaults from '../info'
 
 const info: PlatformInfo = {
   ...infoDefaults,
+  browserLogin: {
+    url: 'https://messenger.com',
+    authCookieName: 'sessionid',
+  },
   name: 'fb-messenger',
   version: '0.3.0',
   displayName: 'Messenger',

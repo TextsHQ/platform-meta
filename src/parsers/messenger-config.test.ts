@@ -3,6 +3,7 @@ import { readFile } from 'fs/promises'
 import { describe, expect, test } from 'bun:test'
 import { getMessengerConfig, parseMessengerInitialPage } from './messenger-config'
 import { generateCallList } from '../payload-parser'
+import { EnvironmentKey } from '../mm-types'
 
 const instagramHtml = readFile('./fixtures/instagram.com.direct.html', 'utf-8')
 const messengerHtml = readFile('./fixtures/messenger.com.html', 'utf-8')
@@ -25,7 +26,7 @@ function makeTests(
     expect(config.env).toMatch(env)
     expect(String(config.appId)).toMatch(appId)
     config.initialPayloads?.forEach(fixture => {
-      const callList = generateCallList(fixture)
+      const callList = generateCallList(env as EnvironmentKey, fixture)
       expect(callList).toMatchSnapshot()
     })
   })

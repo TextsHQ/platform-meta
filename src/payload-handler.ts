@@ -1,11 +1,11 @@
 import { type ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
 import { pick } from 'lodash'
-import type PlatformInstagram from './api'
+import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
-import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL, META_MESSENGER_ENV } from './constants'
+import { DEFAULT_PARTICIPANT_NAME, INSTAGRAM_BASE_URL } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
 import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './mm-types'
 import { mapParticipants } from './mappers'
@@ -38,13 +38,16 @@ export default class InstagramPayloadHandler {
 
   private readonly __logger: ReturnType<typeof getLogger>
 
+  private readonly __pQueue: PromiseQueue
+
   constructor(
-    private readonly __papi: PlatformInstagram,
+    private readonly __papi: PlatformMetaMessenger,
     private readonly __data: IGSocketPayload,
     private readonly __requestId: number | 'initial' | 'snapshot',
   ) {
-    this.__logger = getLogger(META_MESSENGER_ENV, `payload:${this.__requestId}:${Date.now()}`)
-    this.__calls = generateCallList(__data)
+    this.__logger = getLogger(this.__papi.env, `payload:${this.__requestId}:${Date.now()}`)
+    this.__calls = generateCallList(this.__papi.env, __data)
+    this.__pQueue = new PromiseQueue(this.__papi.env)
   }
 
   async __handle() {
@@ -88,8 +91,6 @@ export default class InstagramPayloadHandler {
       resolve(this.__responses)
     }
   }
-
-  __pQueue = new PromiseQueue()
 
   private __afterCallbacks: (() => Promise<void> | void)[] = []
 

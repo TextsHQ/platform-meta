@@ -1,5 +1,5 @@
 import { MetaMessengerError } from './errors'
-import { META_MESSENGER_ENV } from './constants'
+import { EnvironmentKey } from './mm-types'
 
 type NumberString = `${number}`
 
@@ -159,9 +159,9 @@ export function safeNumberOrString(input: unknown): number | string {
   return stringValue
 }
 
-export function generateCallList(payload: string) {
+export function generateCallList(env: EnvironmentKey, payload: string) {
   if (!payload) {
-    throw new MetaMessengerError(META_MESSENGER_ENV, -1, 'failed to generate call list, invalid payload')
+    throw new MetaMessengerError(env, -1, 'failed to generate call list, invalid payload')
   }
 
   const calls: [OperationKey, SimpleArgType[]][] = []
@@ -224,7 +224,7 @@ export function generateCallList(payload: string) {
   const internalPayload = JSON.parse(payload) as Payload
   if (!internalPayload.step) {
     console.error('invalid payload step', internalPayload)
-    throw new MetaMessengerError(META_MESSENGER_ENV, -1, 'failed to parse payload step, invalid payload')
+    throw new MetaMessengerError(env, -1, 'failed to parse payload step, invalid payload')
   }
 
   processStep(internalPayload.step)
@@ -233,4 +233,4 @@ export function generateCallList(payload: string) {
 }
 
 export type CallList = ReturnType<typeof generateCallList>
-export type IGSocketPayload = Parameters<typeof generateCallList>[0]
+export type IGSocketPayload = Parameters<typeof generateCallList>[1]

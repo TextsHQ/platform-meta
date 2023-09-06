@@ -8,11 +8,11 @@ import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './s
 
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
-import { getLogger } from './logger'
-import { INSTAGRAM_BASE_URL, META_MESSENGER_ENV, SHARED_HEADERS } from './constants'
+import { getLogger, Logger } from './logger'
+import { INSTAGRAM_BASE_URL, SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession } from './types'
-import type { IGAttachment, IGMessage, IGMessageRanges } from './mm-types'
+import type { EnvironmentKey, IGAttachment, IGMessage, IGMessageRanges } from './mm-types'
 import { IGThreadRanges, ParentThreadKey, SyncGroup } from './mm-types'
 import { createPromise, getEnvOptions, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
@@ -43,9 +43,11 @@ export default class InstagramAPI {
     return this._initPromise.promise
   }
 
-  constructor(private readonly papi: Instagram) {}
+  private logger: Logger
 
-  private logger = getLogger(META_MESSENGER_ENV, 'mm-api')
+  constructor(private readonly papi: Instagram, env: EnvironmentKey) {
+    this.logger = getLogger(env, 'mm-api')
+  }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
 
@@ -156,6 +158,7 @@ export default class InstagramAPI {
 
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
+    if (this.papi.env !== 'IG') throw new Error('getUserByUsername is only supported on IG')
     const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
       // @TODO: refactor headers
       headers: {

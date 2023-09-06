@@ -109,10 +109,12 @@ export function getEnvOptions(env: EnvironmentKey) {
   switch (env) {
     case 'IG':
       return {
+        baseURL: 'https://www.instagram.com/',
         initialURL: 'https://www.instagram.com/direct/' as const,
       }
     case 'FB':
       return {
+        baseURL: 'https://www.facebook.com/',
         initialURL: 'https://www.facebook.com/messages' as const,
       }
     case 'MESSENGER':
