@@ -20,6 +20,7 @@ import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
 
+const INSTAGRAM_BASE_URL = 'https://www.instagram.com/'
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
 
@@ -97,6 +98,7 @@ export default class InstagramAPI {
 
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
+    this.logger.debug(`env is ${this.papi.env}`)
     const envOptions = getEnvOptions(this.papi.env)
 
     const { body } = await this.httpRequest(envOptions.initialURL, {
@@ -117,30 +119,50 @@ export default class InstagramAPI {
 
     const config = getMessengerConfig(body)
 
-    if (!config.igViewerConfig?.id) {
-      throw new Error('[IG] Failed to fetch: igViewerConfig')
-    }
+    if (this.papi.env === 'IG') {
+      if (!config.igViewerConfig?.id) {
+        throw new Error('[IG] Failed to fetch: igViewerConfig')
+      }
 
-    this.papi.kv.setMany({
-      'syncParams-1': JSON.stringify(config.syncParams),
-      _fullConfig: JSON.stringify(config),
-      appId: String(config.appId),
-      clientId: config.clientID,
-      fb_dtsg: config.fbDTSG,
-      fbid: config.fbid,
-      hasTabbedInbox: config.igViewerConfig.has_tabbed_inbox,
-      igUserId: config.igViewerConfig.id,
-      lsd: config.lsdToken,
-      mqttCapabilities: String(config.mqttCapabilities),
-      mqttClientCapabilities: String(config.mqttClientCapabilities),
-    })
+      this.papi.kv.setMany({
+        'syncParams-1': JSON.stringify(config.syncParams),
+        _fullConfig: JSON.stringify(config),
+        appId: String(config.appId),
+        clientId: config.clientID,
+        fb_dtsg: config.fbDTSG,
+        fbid: config.fbid,
+        hasTabbedInbox: config.igViewerConfig.has_tabbed_inbox,
+        igUserId: config.igViewerConfig.id,
+        lsd: config.lsdToken,
+        mqttCapabilities: String(config.mqttCapabilities),
+        mqttClientCapabilities: String(config.mqttClientCapabilities),
+      })
 
-    this.papi.currentUser = {
-      // id: config.id, // this is the instagram id but fbid is instead used for chat
-      id: config.fbid,
-      fullName: config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(config.igViewerConfig.full_name),
-      imgURL: fixUrl(config.igViewerConfig.profile_pic_url_hd),
-      username: config.igViewerConfig.username,
+      this.papi.currentUser = {
+        // id: config.id, // this is the instagram id but fbid is instead used for chat
+        id: config.fbid,
+        fullName: config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(config.igViewerConfig.full_name),
+        imgURL: fixUrl(config.igViewerConfig.profile_pic_url_hd),
+        username: config.igViewerConfig.username,
+      }
+    } else {
+      this.papi.kv.setMany({
+        'syncParams-1': JSON.stringify(config.syncParams),
+        _fullConfig: JSON.stringify(config),
+        appId: String(config.appId),
+        clientId: config.clientID,
+        fb_dtsg: config.fbDTSG,
+        fbid: config.fbid,
+        lsd: config.lsdToken,
+        mqttCapabilities: String(config.mqttCapabilities),
+        mqttClientCapabilities: String(config.mqttClientCapabilities),
+      })
+
+      this.papi.currentUser = {
+        // id: config.id, // this is the instagram id but fbid is instead used for chat
+        id: config.fbid,
+        fullName: config.name,
+      }
     }
 
     for (const payload of config.initialPayloads) {
@@ -148,7 +170,10 @@ export default class InstagramAPI {
     }
 
     this._initPromise?.resolve()
-    await this.getSnapshotPayload()
+
+    if (this.papi.env === 'IG') {
+      await this.getSnapshotPayload()
+    }
     await this.papi.socket.connect()
   }
 
@@ -294,7 +319,7 @@ export default class InstagramAPI {
 
   computeHasMoreThreads() {
     const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-    const general = this.papi.kv.get('hasTabbedInbox') ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
+    const general = this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
 
     if (primary?.hasMoreBefore || general?.hasMoreBefore || (!primary && !general)) {
       return true

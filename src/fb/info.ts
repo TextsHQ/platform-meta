@@ -5,7 +5,7 @@ const info: PlatformInfo = {
   ...infoDefaults,
   browserLogin: {
     url: 'https://messenger.com',
-    authCookieName: 'sessionid',
+    authCookieName: 'c_user',
   },
   name: 'fb-messenger',
   version: '0.3.0',

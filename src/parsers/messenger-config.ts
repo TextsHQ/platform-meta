@@ -296,7 +296,8 @@ export function getMessengerConfig(html: string) {
     appId: parsed.MessengerWebInitData?.appId,
     clientID: parsed.MqttWebDeviceID?.clientID,
     fbDTSG: parsed.DTSGInitialData?.token,
-    fbid: parsed.CurrentUserInitialData?.IG_USER_EIMU,
+    fbid: parsed.CurrentUserInitialData?.IG_USER_EIMU || parsed.CurrentUserInitialData?.ACCOUNT_ID, // if not instagram
+    name: parsed.CurrentUserInitialData?.NAME,
     igViewerConfig,
     lsdToken: parsed.LSD?.token,
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,

@@ -122,6 +122,7 @@ export function getEnvOptions(env: EnvironmentKey) {
       }
     case 'MESSENGER':
       return {
+        baseURL: 'https://www.messenger.com/',
         initialURL: 'https://www.messenger.com' as const,
         defaultContactName: 'Facebook User' as const,
       }

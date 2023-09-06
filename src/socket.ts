@@ -118,26 +118,47 @@ export default class MetaMessengerWebSocket {
     // just not resetting mirrors the ig web behavior
     // this.lastTaskId = 0
     // this.lastRequestId = 0
-
-    this.ws = new WebSocket(
-      `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}`,
-      {
-        origin: 'https://www.instagram.com',
-        headers: {
-          Host: 'edge-chat.instagram.com',
-          Connection: 'Upgrade',
-          Pragma: 'no-cache',
-          'Cache-Control': 'no-cache',
-          Upgrade: 'websocket',
-          Origin: 'https://www.instagram.com',
-          'Sec-WebSocket-Version': '13',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Accept-Language': 'en',
-          'User-Agent': this.papi.api.ua,
-          Cookie: this.papi.api.getCookies(),
+    if (this.papi.env === 'IG') {
+      this.ws = new WebSocket(
+        `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}`,
+        {
+          origin: 'https://www.instagram.com',
+          headers: {
+            Host: 'edge-chat.instagram.com',
+            Connection: 'Upgrade',
+            Pragma: 'no-cache',
+            'Cache-Control': 'no-cache',
+            Upgrade: 'websocket',
+            Origin: 'https://www.instagram.com',
+            'Sec-WebSocket-Version': '13',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en',
+            'User-Agent': this.papi.api.ua,
+            Cookie: this.papi.api.getCookies(),
+          },
         },
-      },
-    )
+      )
+    } else {
+      this.ws = new WebSocket(
+        `wss://edge-chat.messenger.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}&region=prn`,
+        {
+          origin: 'https://www.messenger.com',
+          headers: {
+            Host: 'edge-chat.messenger.com',
+            Connection: 'Upgrade',
+            Pragma: 'no-cache',
+            'Cache-Control': 'no-cache',
+            Upgrade: 'websocket',
+            Origin: 'https://www.messenger.com',
+            'Sec-WebSocket-Version': '13',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en',
+            'User-Agent': this.papi.api.ua,
+            Cookie: this.papi.api.getCookies(),
+          },
+        },
+      )
+    }
 
     this.ws.on('message', data => this.onMessage(data))
 
@@ -267,10 +288,10 @@ export default class MetaMessengerWebSocket {
         s: this.mqttSid,
         cp: Number(this.papi.kv.get('mqttClientCapabilities')),
         ecp: Number(this.papi.kv.get('mqttCapabilities')),
-        chat_on: true,
+        chat_on: this.papi.env === 'IG',
         fg: false,
         d: this.papi.kv.get('clientId'),
-        ct: 'cookie_auth',
+        ct: this.papi.env === 'IG' ? 'cookie_auth' : 'websocket',
         mqtt_sid: '', // @TODO: should we use the one from the cookie?
         aid: Number(this.papi.kv.get('appId')),
         st,
@@ -651,7 +672,7 @@ export default class MetaMessengerWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     },
-    this.papi.kv.get('hasTabbedInbox') && {
+    this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') && {
       label: '313',
       payload: JSON.stringify({
         cursor: this.papi.kv.get('cursor-1-1'),
@@ -671,7 +692,7 @@ export default class MetaMessengerWebSocket {
   ])
 
   fetchMoreThreads = async () => {
-    if (this.papi.kv.get('hasTabbedInbox')) {
+    if (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox')) {
       await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
       await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
     }

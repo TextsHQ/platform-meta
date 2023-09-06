@@ -1756,4 +1756,48 @@ export default class MetaMessengerPayloadHandler {
   private updateThreadInviteLinksInfo(a: SimpleArgType[]) {
     this.__logger.debug('updateThreadInviteLinksInfo (ignored)', a)
   }
+
+  private updateOrInsertThread(a: SimpleArgType[]) {
+    this.deleteThenInsertThread(a)
+  }
+
+  private setPinnedMessage(a: SimpleArgType[]) {
+    this.__logger.debug('setPinnedMessage (ignored)', a)
+  }
+
+  private truncateMetadataThreads(a: SimpleArgType[]) {
+    this.__logger.debug('truncateMetadataThreads (ignored)', a)
+  }
+
+  private truncateThreadRangeTablesForSyncGroup(a: SimpleArgType[]) {
+    this.__logger.debug('truncateThreadRangeTablesForSyncGroup (ignored)', a)
+  }
+
+  private updateThreadAuthorityAndMappingWithOTIDFromJID(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadAuthorityAndMappingWithOTIDFromJID (ignored)', a)
+  }
+
+  private transportHybridParticipantUpdateReceipts(a: SimpleArgType[]) {
+    this.__logger.debug('transportHybridParticipantUpdateReceipts (ignored)', a)
+  }
+
+  private shimCopyAllParticipantNicknamesForThread(a: SimpleArgType[]) {
+    this.__logger.debug('shimCopyAllParticipantNicknamesForThread (ignored)', a)
+  }
+
+  private hybridThreadDelete(a: SimpleArgType[]) {
+    this.__logger.debug('hybridThreadDelete (ignored)', a)
+  }
+
+  private upsertFolder(a: SimpleArgType[]) {
+    this.__logger.debug('upsertFolder (ignored)', a)
+  }
+
+  private verifyHybridThreadExists(a: SimpleArgType[]) {
+    this.__logger.debug('verifyHybridThreadExists (ignored)', a)
+  }
+
+  private insertStickerAttachment(a: SimpleArgType[]) {
+    this.__logger.debug('insertStickerAttachment (ignored)', a)
+  }
 }
