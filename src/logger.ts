@@ -53,3 +53,5 @@ export const getLogger = (env: EnvironmentKey, feature = '') => {
     },
   }
 }
+
+export type Logger = ReturnType<typeof getLogger>

@@ -26,22 +26,22 @@ import { CookieJar } from 'tough-cookie'
 
 import InstagramAPI from './mm-api'
 import InstagramWebSocket from './socket'
-import { getLogger } from './logger'
+import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
-import { DEFAULT_PARTICIPANT_NAME, META_MESSENGER_ENV } from './constants'
-import { ParentThreadKey, SyncGroup } from './mm-types'
+import { DEFAULT_PARTICIPANT_NAME } from './constants'
+import { EnvironmentKey, ParentThreadKey, SyncGroup } from './mm-types'
 
-export default class PLatformMetaMessenger implements PlatformAPI {
-  env = META_MESSENGER_ENV
+export default class PlatformMetaMessenger implements PlatformAPI {
+  env: EnvironmentKey
 
   db: DrizzleDB
 
-  logger = getLogger(META_MESSENGER_ENV)
+  logger: Logger
 
   api = new InstagramAPI(this)
 
@@ -60,7 +60,10 @@ export default class PLatformMetaMessenger implements PlatformAPI {
 
   preparedQueries: ReturnType<typeof preparedQueries>
 
-  constructor(readonly accountID: string) {}
+  constructor(readonly accountID: string, env: EnvironmentKey) {
+    this.env = env
+    this.logger = getLogger(env)
+  }
 
   init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
     if (session && session._v !== 'v3') throw new ReAuthError() // upgrade from android-based session

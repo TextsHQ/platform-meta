@@ -2,7 +2,7 @@ import { Attribute, MessageDeletionMode, type PlatformInfo } from '@textshq/plat
 import { genClientContext } from './util'
 
 const infoDefaults = {
-  loginMode: ['browser-extension', 'browser'],
+  loginMode: ['browser-extension', 'browser'] as PlatformInfo['loginMode'],
   browserLogin: {
     url: 'https://instagram.com',
     authCookieName: 'sessionid',
