@@ -36,7 +36,7 @@ import { PromiseQueue } from './p-queue'
 import { DEFAULT_PARTICIPANT_NAME, META_MESSENGER_ENV } from './constants'
 import { ParentThreadKey, SyncGroup } from './mm-types'
 
-export default class PlatformInstagram implements PlatformAPI {
+export default class PLatformMetaMessenger implements PlatformAPI {
   env = META_MESSENGER_ENV
 
   db: DrizzleDB

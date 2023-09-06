@@ -1,12 +1,7 @@
 import { Attribute, MessageDeletionMode, type PlatformInfo } from '@textshq/platform-sdk'
-import icon from './icon'
 import { genClientContext } from './util'
 
-const info: PlatformInfo = {
-  name: 'instagram',
-  version: '3.0.0',
-  displayName: 'Instagram',
-  icon,
+const infoDefaults = {
   loginMode: ['browser-extension', 'browser'],
   browserLogin: {
     url: 'https://instagram.com',
@@ -52,15 +47,8 @@ const info: PlatformInfo = {
       files: 25 * 1024 * 1024,
     },
   },
-  notifications: {
-    web: {
-      vapidKey: 'BIBn3E_rWTci8Xn6P9Xj3btShT85Wdtne0LtwNUyRQ5XjFNkuTq9j4MPAVLvAFhXrUU1A9UxyxBA7YIOjqDIDHI', // browser_push_pub_key
-    },
-  },
   typingDurationMs: 5000,
   generateUniqueMessageID: () => genClientContext().toString(),
-  getUserProfileLink: ({ username }) =>
-    `https://www.instagram.com/${username}/`,
 }
 
-export default info
+export default infoDefaults
