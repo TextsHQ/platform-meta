@@ -1,6 +1,6 @@
 import type PlatformAPI from '../api'
 import { keyValues } from './schema'
-import { ParentThreadKey, SyncGroup } from '../mm-types'
+import { ParentThreadKey, SyncGroup } from '../types'
 
 type DbId = number
 

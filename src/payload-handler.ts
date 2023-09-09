@@ -5,9 +5,8 @@ import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
-import { DEFAULT_PARTICIPANT_NAME } from './constants'
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
-import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './mm-types'
+import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './types'
 import { mapParticipants } from './mappers'
 import { PromiseQueue } from './p-queue'
 import { QueryWhereSpecial } from './store/helpers'
@@ -240,7 +239,7 @@ export default class MetaMessengerPayloadHandler {
         objectIDs: { threadID: p.threadKey },
         objectName: 'participant',
         mutationType: 'upsert',
-        entries: mapParticipants([p], fbid),
+        entries: mapParticipants([p], this.__papi.env, fbid),
       })
     })
   }
@@ -846,7 +845,7 @@ export default class MetaMessengerPayloadHandler {
           id: p.userId,
           isAdmin: Boolean(p.isAdmin),
           username: contact?.username,
-          fullName: contact?.name || contact?.username || DEFAULT_PARTICIPANT_NAME,
+          fullName: contact?.name || contact?.username || this.__papi.envOpts.defaultContactName,
           imgURL: contact?.profilePictureUrl,
         }],
       })
@@ -1005,7 +1004,7 @@ export default class MetaMessengerPayloadHandler {
       entries: [{
         id,
         username,
-        fullName: name || username || DEFAULT_PARTICIPANT_NAME,
+        fullName: name || username || this.__papi.envOpts.defaultContactName,
         imgURL: profilePictureUrl,
       }],
     })
@@ -1147,7 +1146,7 @@ export default class MetaMessengerPayloadHandler {
           url: mediaLink,
           title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
         }]
-      } else if (mediaLink.startsWith(this.__papi.api.envOpts.baseURL)) {
+      } else if (mediaLink.startsWith(`https://${this.__papi.envOpts.domain}/`)) {
         mparse.extra = {
           mediaLink,
         }

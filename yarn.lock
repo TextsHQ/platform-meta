@@ -1980,7 +1980,7 @@ __metadata:
     bufferutil: ^4.0.7
     copyfiles: ^2.4.1
     drizzle-kit: ^0.19.13
-    drizzle-orm: ^0.28.5
+    drizzle-orm: ^0.28.6
     eslint: ^8.36.0
     form-data: ^4.0.0
     http-cookie-agent: ^5.0.4
@@ -3167,9 +3167,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-orm@npm:^0.28.5":
-  version: 0.28.5
-  resolution: "drizzle-orm@npm:0.28.5"
+"drizzle-orm@npm:^0.28.6":
+  version: 0.28.6
+  resolution: "drizzle-orm@npm:0.28.6"
   peerDependencies:
     "@aws-sdk/client-rds-data": ">=3"
     "@cloudflare/workers-types": ">=3"
@@ -3229,7 +3229,7 @@ __metadata:
       optional: true
     sqlite3:
       optional: true
-  checksum: 8911c8fe6c8d4582451a51fb191c0190bb691aee34732c2f2b429c23827ce04b69832272958871c2b72de0b817de9daa704dc622d9b35baa880ac23cd597ae32
+  checksum: 1e079be9e969c1e9d325d68164006d976f093f296f6e058222a921debd047aa2369703b2142de03366e38baba3d8ef322f2e094bc0509d16f0577509b1f9bad7
   languageName: node
   linkType: hard
 

@@ -1,13 +1,13 @@
 import { getLogger, Logger } from './logger'
 import { MetaMessengerError } from './errors'
-import { EnvironmentKey } from './mm-types'
+import { EnvKey } from './env'
 
 export class PromiseQueue {
   private logger: Logger
 
-  private env: EnvironmentKey
+  private env: EnvKey
 
-  constructor(env: EnvironmentKey) {
+  constructor(env: EnvKey) {
     this.env = env
     this.logger = getLogger(env, 'p-queue')
   }

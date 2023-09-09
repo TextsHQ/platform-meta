@@ -1,4 +1,4 @@
-import { EnvironmentKey } from '../mm-types'
+import { EnvKey } from '../env'
 
 type InnerObject = {
   __bbox: BboxEntry
@@ -187,7 +187,7 @@ interface Config {
   }
 }
 
-function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvironmentKey {
+function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvKey {
   if (env.instagramdotcom) return 'IG'
   if (env.messengerdotcom) return 'MESSENGER'
   if (env.workdotmetadotcom) return 'WORKMETA'
@@ -273,17 +273,24 @@ export function parseMessengerInitialPage(html: string) {
     } : undefined,
   }
 
+  const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment') as Config['CurrentEnvironment'])
+  const MqttWebConfig = definesMap.get('MqttWebConfig') as Config['MqttWebConfig']
+
+  if (CurrentEnvironment === 'IG') {
+    MqttWebConfig.endpoint = MqttWebConfig.endpoint.replace('.facebook.com', '.instagram.com')
+  }
+
   return {
     CurrentUserInitialData: definesMap.get('CurrentUserInitialData') as Config['CurrentUserInitialData'],
     DTSGInitialData: definesMap.get('DTSGInitialData') as Config['DTSGInitialData'],
     LSD: definesMap.get('LSD') as Config['LSD'],
     LSPlatformMessengerSyncParams,
     MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
-    MqttWebConfig: definesMap.get('MqttWebConfig') as Config['MqttWebConfig'],
+    MqttWebConfig,
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults') as Config['RelayAPIConfigDefaults'],
     XIGSharedData,
-    CurrentEnvironment: pickMessengerEnv(definesMap.get('CurrentEnvironment') as Config['CurrentEnvironment']),
+    CurrentEnvironment,
     initialPayloads: initialPayloads.filter(Boolean),
   } as const
 }

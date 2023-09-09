@@ -1,5 +1,5 @@
 import { MetaMessengerError } from './errors'
-import { EnvironmentKey } from './mm-types'
+import { EnvKey } from './env'
 
 type NumberString = `${number}`
 
@@ -159,7 +159,7 @@ export function safeNumberOrString(input: unknown): number | string {
   return stringValue
 }
 
-export function generateCallList(env: EnvironmentKey, payload: string) {
+export function generateCallList(env: EnvKey, payload: string) {
   if (!payload) {
     throw new MetaMessengerError(env, -1, 'failed to generate call list, invalid payload')
   }

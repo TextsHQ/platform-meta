@@ -29,15 +29,15 @@ import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
+import { ParentThreadKey, SyncGroup } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
-import { DEFAULT_PARTICIPANT_NAME } from './constants'
-import { EnvironmentKey, ParentThreadKey, SyncGroup } from './mm-types'
+import EnvOptions, { type EnvKey, type EnvOptionsValue } from './env'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
-  env: EnvironmentKey
+  env: EnvKey
 
   db: DrizzleDB
 
@@ -51,8 +51,11 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   socket: MetaMessengerWebSocket
 
-  constructor(readonly accountID: string, env: EnvironmentKey) {
+  envOpts: EnvOptionsValue
+
+  constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
+    this.envOpts = EnvOptions[env]
     this.logger = getLogger(env)
     this.api = new MetaMessengerAPI(this, env)
     this.kv = new KeyValueStore(this)
@@ -269,7 +272,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
       const participants: Participant[] = [{
         id: userID,
-        fullName: user?.name || user?.username || DEFAULT_PARTICIPANT_NAME,
+        fullName: user?.name || user?.username || this.envOpts.defaultContactName,
         imgURL: user?.profilePictureUrl,
         username: user?.username,
       }]
@@ -307,7 +310,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const participants = [
       ...users.map(user => ({
         id: user.id,
-        fullName: user.name || user.username || DEFAULT_PARTICIPANT_NAME,
+        fullName: user?.name || user?.username || this.envOpts.defaultContactName,
         imgURL: user.profilePictureUrl,
         username: user.username,
         isSelf: user.id === fbid,

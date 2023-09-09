@@ -1,5 +1,4 @@
 export const MAX_RETRY_ATTEMPTS = 12
-export const VERSION_ID = 6552526831451374
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -14,5 +13,3 @@ export const SHARED_HEADERS = {
   'sec-fetch-site': 'same-origin',
   'viewport-width': '1280',
 } as const
-
-export const DEFAULT_PARTICIPANT_NAME = 'Instagram User'

@@ -13,13 +13,14 @@ import {
   parseMqttPacket,
   sleep,
 } from './util'
-import { getLogger, Logger } from './logger'
-import { MAX_RETRY_ATTEMPTS, VERSION_ID } from './constants'
+import { getLogger, type Logger } from './logger'
+import { MAX_RETRY_ATTEMPTS } from './constants'
 import type PlatformMetaMessenger from './api'
-import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './mm-types'
+import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'
+import EnvOptions from './env'
 
 type IGSocketTask = {
   label: string
@@ -57,17 +58,8 @@ export enum RequestResolverType {
   ADD_REACTION = 'ADD_REACTION',
 }
 
-export type RequestResolverResolver = (response?: MetaMessengerPayloadHandlerResponse) => void
-export type RequestResolverRejector = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
-
-const lsAppSettings = {
-  qos: 1,
-  topic: '/ls_app_settings',
-  payload: JSON.stringify({
-    ls_fdid: '',
-    ls_sv: VERSION_ID, // version id
-  }),
-} as const
+export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResponse) => void
+export type RequestResolverReject = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
 export default class MetaMessengerWebSocket {
   private retryAttempt = 0
@@ -78,8 +70,22 @@ export default class MetaMessengerWebSocket {
 
   private logger: Logger
 
+  private readonly lsAppSettings: {
+    qos: 1
+    topic: '/ls_app_settings'
+    payload: string
+  }
+
   constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
+    this.lsAppSettings = {
+      qos: 1,
+      topic: '/ls_app_settings',
+      payload: JSON.stringify({
+        ls_fdid: '',
+        ls_sv: EnvOptions[this.papi.env].defaultVersionId,
+      }),
+    } as const
   }
 
   private mqttSid: number
@@ -271,7 +277,7 @@ export default class MetaMessengerWebSocket {
 
     const pm = this.isInitialConnection ? [] as const : [
       {
-        ...lsAppSettings,
+        ...this.lsAppSettings,
         messageId: 65536,
       } as const,
     ]
@@ -331,7 +337,7 @@ export default class MetaMessengerWebSocket {
     return this.send({
       cmd: 'publish',
       messageId: 1,
-      ...lsAppSettings,
+      ...this.lsAppSettings,
     } as any)
   }
 
@@ -556,12 +562,12 @@ export default class MetaMessengerWebSocket {
     return ++this.lastRequestId
   }
 
-  requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolver, RequestResolverRejector]>()
+  requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolve, RequestResolverReject]>()
 
   messageRangesResolver = new Map<`messageRanges-${string}`, {
     promise: Promise<unknown>
     resolve:((r: IGMessageRanges) => void)
-    reject: RequestResolverRejector
+    reject: RequestResolverReject
   }[]>()
 
   private createRequest(type: RequestResolverType) {
@@ -603,7 +609,7 @@ export default class MetaMessengerWebSocket {
         payload: JSON.stringify({
           tasks,
           epoch_id,
-          version_id: VERSION_ID,
+          version_id: EnvOptions[this.papi.env].defaultVersionId,
         }),
         request_id,
         type: 3,
@@ -999,7 +1005,7 @@ export default class MetaMessengerWebSocket {
           failure_count: null,
           last_applied_cursor: this.papi.kv.get(cursor),
           sync_params: syncParams,
-          version: VERSION_ID,
+          version: EnvOptions[this.papi.env].defaultVersionId,
         }),
         request_id,
         type: 1,
@@ -1024,7 +1030,7 @@ export default class MetaMessengerWebSocket {
           failure_count: null,
           last_applied_cursor: this.papi.kv.get('cursor-1-1'),
           sync_params: null,
-          version: VERSION_ID,
+          version: EnvOptions[this.papi.env].defaultVersionId,
         }),
         request_id: this.genRequestId(),
         type: 2,

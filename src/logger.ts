@@ -1,7 +1,7 @@
 import { texts } from '@textshq/platform-sdk'
 import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
-import { EnvironmentKey } from './mm-types'
 import { MetaMessengerError } from './errors'
+import { EnvKey } from './env'
 
 export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
@@ -27,7 +27,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   })
 }
 
-export const getLogger = (env: EnvironmentKey, feature = '') => {
+export const getLogger = (env: EnvKey, feature = '') => {
   const prefix = `[${env}]${feature ? `[${feature}]` : ''}`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>

@@ -1,9 +1,9 @@
 import { texts } from '@textshq/platform-sdk'
-import type { EnvironmentKey } from './mm-types'
+import type { EnvKey } from './env'
 import type { SentryExtra } from './logger'
 
 export class MetaMessengerError extends Error {
-  private readonly metaMessengerEnv: EnvironmentKey
+  private readonly metaMessengerEnv: EnvKey
 
   private readonly id: -1 | number // -1 is internal error, not coming from meta
 
@@ -15,7 +15,7 @@ export class MetaMessengerError extends Error {
 
   private readonly context?: SentryExtra
 
-  constructor(metaMessengerEnv: EnvironmentKey, id: -1 | number, title: string, details?: string, context?: SentryExtra, disableToast = false) {
+  constructor(metaMessengerEnv: EnvKey, id: -1 | number, title: string, details?: string, context?: SentryExtra, disableToast = false) {
     super([
       `[${metaMessengerEnv}] Error${id === -1 ? '' : ` (${id})`}: `,
       title,

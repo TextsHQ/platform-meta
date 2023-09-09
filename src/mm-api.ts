@@ -11,16 +11,15 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import { SHARED_HEADERS } from './constants'
 import type Instagram from './api'
-import type { SerializedSession } from './types'
-import type { EnvironmentKey, IGAttachment, IGMessage, IGMessageRanges } from './mm-types'
-import { IGThreadRanges, ParentThreadKey, SyncGroup } from './mm-types'
-import { createPromise, getEnvOptions, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
+import type { SerializedSession, IGAttachment, IGMessage, IGMessageRanges } from './types'
+import { IGThreadRanges, ParentThreadKey, SyncGroup } from './types'
+import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
+import EnvOptions, { EnvKey } from './env'
 
-const INSTAGRAM_BASE_URL = 'https://www.instagram.com/'
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
 
@@ -37,7 +36,7 @@ const commonHeaders = {
     '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
 } as const
 
-export default class InstagramAPI {
+export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
 
   get initPromise() {
@@ -46,7 +45,7 @@ export default class InstagramAPI {
 
   private logger: Logger
 
-  constructor(private readonly papi: Instagram, env: EnvironmentKey) {
+  constructor(private readonly papi: Instagram, env: EnvKey) {
     this.logger = getLogger(env, 'mm-api')
   }
 
@@ -55,6 +54,8 @@ export default class InstagramAPI {
   jar: CookieJar
 
   ua: SerializedSession['ua'] = texts.constants.USER_AGENT
+
+  config: ReturnType<typeof getMessengerConfig>
 
   private readonly http = texts.createHttpClient()
 
@@ -99,9 +100,8 @@ export default class InstagramAPI {
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
     this.logger.debug(`env is ${this.papi.env}`)
-    const envOptions = getEnvOptions(this.papi.env)
 
-    const { body } = await this.httpRequest(envOptions.initialURL, {
+    const { body } = await this.httpRequest(this.papi.envOpts.initialURL, {
       // todo: refactor headers
       headers: {
         accept:
@@ -117,55 +117,55 @@ export default class InstagramAPI {
       },
     })
 
-    const config = getMessengerConfig(body)
+    this.config = getMessengerConfig(body)
 
     if (this.papi.env === 'IG') {
-      if (!config.igViewerConfig?.id) {
+      if (!this.config.igViewerConfig?.id) {
         throw new Error('[IG] Failed to fetch: igViewerConfig')
       }
 
       this.papi.kv.setMany({
-        'syncParams-1': JSON.stringify(config.syncParams),
-        _fullConfig: JSON.stringify(config),
-        appId: String(config.appId),
-        clientId: config.clientID,
-        fb_dtsg: config.fbDTSG,
-        fbid: config.fbid,
-        hasTabbedInbox: config.igViewerConfig.has_tabbed_inbox,
-        igUserId: config.igViewerConfig.id,
-        lsd: config.lsdToken,
-        mqttCapabilities: String(config.mqttCapabilities),
-        mqttClientCapabilities: String(config.mqttClientCapabilities),
+        'syncParams-1': JSON.stringify(this.config.syncParams),
+        _fullConfig: JSON.stringify(this.config),
+        appId: String(this.config.appId),
+        clientId: this.config.clientID,
+        fb_dtsg: this.config.fbDTSG,
+        fbid: this.config.fbid,
+        hasTabbedInbox: this.config.igViewerConfig.has_tabbed_inbox,
+        igUserId: this.config.igViewerConfig.id,
+        lsd: this.config.lsdToken,
+        mqttCapabilities: String(this.config.mqttCapabilities),
+        mqttClientCapabilities: String(this.config.mqttClientCapabilities),
       })
 
       this.papi.currentUser = {
         // id: config.id, // this is the instagram id but fbid is instead used for chat
-        id: config.fbid,
-        fullName: config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(config.igViewerConfig.full_name),
-        imgURL: fixUrl(config.igViewerConfig.profile_pic_url_hd),
-        username: config.igViewerConfig.username,
+        id: this.config.fbid,
+        fullName: this.config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name),
+        imgURL: fixUrl(this.config.igViewerConfig.profile_pic_url_hd),
+        username: this.config.igViewerConfig.username,
       }
     } else {
       this.papi.kv.setMany({
-        'syncParams-1': JSON.stringify(config.syncParams),
-        _fullConfig: JSON.stringify(config),
-        appId: String(config.appId),
-        clientId: config.clientID,
-        fb_dtsg: config.fbDTSG,
-        fbid: config.fbid,
-        lsd: config.lsdToken,
-        mqttCapabilities: String(config.mqttCapabilities),
-        mqttClientCapabilities: String(config.mqttClientCapabilities),
+        'syncParams-1': JSON.stringify(this.config.syncParams),
+        _fullConfig: JSON.stringify(this.config),
+        appId: String(this.config.appId),
+        clientId: this.config.clientID,
+        fb_dtsg: this.config.fbDTSG,
+        fbid: this.config.fbid,
+        lsd: this.config.lsdToken,
+        mqttCapabilities: String(this.config.mqttCapabilities),
+        mqttClientCapabilities: String(this.config.mqttClientCapabilities),
       })
 
       this.papi.currentUser = {
         // id: config.id, // this is the instagram id but fbid is instead used for chat
-        id: config.fbid,
-        fullName: config.name,
+        id: this.config.fbid,
+        fullName: this.config.name,
       }
     }
 
-    for (const payload of config.initialPayloads) {
+    for (const payload of this.config.initialPayloads) {
       await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
 
@@ -177,18 +177,15 @@ export default class InstagramAPI {
     await this.papi.socket.connect()
   }
 
-  get envOpts() {
-    return getEnvOptions(this.papi.env)
-  }
-
   getCookies() {
-    return this.jar.getCookieStringSync(this.envOpts.baseURL)
+    return this.jar.getCookieStringSync(`https://${this.papi.envOpts.domain}/`)
   }
 
   // they have different gql endpoints will merge these later
   async getUserByUsername(username: string) {
     if (this.papi.env !== 'IG') throw new Error('getUserByUsername is only supported on IG')
-    const { json } = await this.httpJSONRequest(this.envOpts.baseURL + 'api/v1/users/web_profile_info/?' + new URLSearchParams({ username }).toString(), {
+    const { domain } = EnvOptions.IG
+    const { json } = await this.httpJSONRequest(`https://${domain}/api/v1/users/web_profile_info/?` + new URLSearchParams({ username }).toString(), {
       // @TODO: refactor headers
       headers: {
         accept: '*/*',
@@ -198,7 +195,7 @@ export default class InstagramAPI {
         'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
-        Referer: `${INSTAGRAM_BASE_URL}${username}/`,
+        Referer: `https://${domain}/${username}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     })
@@ -216,7 +213,7 @@ export default class InstagramAPI {
   }
 
   async graphqlCall<T extends {}>(doc_id: string, variables: T) {
-    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/graphql/', {
+    const { json } = await this.httpJSONRequest(`https://${this.papi.envOpts.domain}/api/graphql/`, {
       method: 'POST',
       headers: {
         'content-type': 'application/x-www-form-urlencoded',
@@ -229,7 +226,9 @@ export default class InstagramAPI {
   }
 
   async logout() {
-    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/web/accounts/logout/ajax/', {
+    if (this.papi.env !== 'IG') throw new Error('logout is only supported on IG')
+    const baseURL = `https://${this.papi.envOpts.domain}/`
+    const { json } = await this.httpJSONRequest(baseURL + 'api/v1/web/accounts/logout/ajax/', {
       // todo: refactor headers
       method: 'POST',
       body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
@@ -241,7 +240,7 @@ export default class InstagramAPI {
         'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
-        Referer: INSTAGRAM_BASE_URL,
+        Referer: baseURL,
         'x-instagram-ajax': '1007993177',
         'content-type': 'application/x-www-form-urlencoded',
       },
@@ -288,11 +287,12 @@ export default class InstagramAPI {
 
   getCSRFToken() {
     return this.jar
-      .getCookiesSync(this.papi.api.envOpts.baseURL)
+      .getCookiesSync(`https://${this.papi.envOpts.domain}`)
       .find(c => c.key === 'csrftoken')?.value
   }
 
   async getSnapshotPayload() {
+    if (this.papi.env !== 'IG') throw new Error('getSnapshotPayload is only supported on IG')
     const response = await this.graphqlCall('6195354443842040', {
       deviceId: this.papi.kv.get('clientId'),
       requestId: 0,
@@ -371,10 +371,12 @@ export default class InstagramAPI {
   }
 
   private async uploadFile(threadID: string, filePath: string, fileName?: string) {
+    if (this.papi.env !== 'IG') throw new Error('uploadFile is only supported on IG')
+    const { domain, initialURL } = this.papi.envOpts
     const file = await fs.readFile(filePath)
     const formData = new FormData()
     formData.append('farr', file, { filename: fileName })
-    const res = await this.httpRequest(INSTAGRAM_BASE_URL + 'ajax/mercury/upload.php?' + new URLSearchParams({
+    const res = await this.httpRequest(`https://${domain}/ajax/mercury/upload.php?` + new URLSearchParams({
       __a: '1',
       fb_dtsg: this.papi.kv.get('fb_dtsg'),
     }).toString(), {
@@ -382,11 +384,11 @@ export default class InstagramAPI {
       body: formData,
       // todo: refactor headers
       headers: {
-        authority: 'www.instagram.com',
+        authority: domain,
         accept: '*/*',
         'accept-language': 'en',
-        origin: 'https://www.instagram.com',
-        referer: `${INSTAGRAM_BASE_URL}direct/t/${threadID}/`,
+        origin: `https://${domain}`,
+        referer: `${initialURL}t/${threadID}/`,
         'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
         'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
         'sec-ch-ua-mobile': '?0',
@@ -420,12 +422,14 @@ export default class InstagramAPI {
   }
 
   async webPushRegister(endpoint: string, p256dh: string, auth: string) {
+    if (this.papi.env !== 'IG') throw new Error('webPushRegister is only supported on IG')
+    const { domain } = EnvOptions.IG
     const formData = new FormData()
     formData.append('device_token', endpoint)
     formData.append('device_type', 'web_vapid')
-    formData.append('mid', crypto.randomUUID()) // should be someting that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
+    formData.append('mid', crypto.randomUUID()) // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
     formData.append('subscription_keys', JSON.stringify({ auth, p256dh }))
-    const { json } = await this.httpJSONRequest(INSTAGRAM_BASE_URL + 'api/v1/web/push/register/', {
+    const { json } = await this.httpJSONRequest(`https://${domain}/api/v1/web/push/register/`, {
       method: 'POST',
       body: formData,
       // todo: refactor headers
@@ -437,7 +441,7 @@ export default class InstagramAPI {
         'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
-        Referer: INSTAGRAM_BASE_URL,
+        Referer: `https://${this.papi.envOpts.domain}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     })
@@ -474,7 +478,7 @@ export default class InstagramAPI {
     if (limit) args.limit = limit
     if (orderBy) args.orderBy = orderBy
 
-    const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.kv.get('fbid'), parseMessageRanges(t.ranges)))
+    const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.env, this.papi.kv.get('fbid'), parseMessageRanges(t.ranges)))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
     await this.fetchContactsIfNotExist(participantIDs)
@@ -510,7 +514,7 @@ export default class InstagramAPI {
     if (limit) args.limit = limit
     if (orderBy) args.orderBy = orderBy
 
-    return mapMessages(await queryMessages(this.papi.db, args), this.papi.kv.get('fbid'))
+    return mapMessages(await queryMessages(this.papi.db, args), this.papi.env, this.papi.kv.get('fbid'))
   }
 
   async getMessageRanges(threadKey: string, _ranges?: string) {

@@ -6,7 +6,7 @@ import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
 import { getLogger, Logger } from '../logger'
 import { migrations } from './migrations'
-import { EnvironmentKey } from '../mm-types'
+import type { EnvKey } from '../env'
 
 // const logger = getLogger('meta', 'drizzle')
 const migrationsFolder = resolve(__dirname, '../drizzle')
@@ -63,7 +63,7 @@ async function migrateDatabase(db: DrizzleDB, sqlitePath: string, logger: Logger
   }
 }
 
-const getDB = async (env: EnvironmentKey, accountID: string, dataDirPath: string) => {
+const getDB = async (env: EnvKey, accountID: string, dataDirPath: string) => {
   const logger = getLogger(env, 'drizzle')
   await createDirectoryIfNotExists(dataDirPath, logger)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
