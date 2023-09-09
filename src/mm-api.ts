@@ -287,7 +287,7 @@ export default class MetaMessengerAPI {
 
   getCSRFToken() {
     return this.jar
-      .getCookiesSync(`https://${this.papi.envOpts.domain}`)
+      .getCookiesSync(`https://${this.papi.envOpts.domain}/`)
       .find(c => c.key === 'csrftoken')?.value
   }
 
