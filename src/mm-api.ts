@@ -9,7 +9,6 @@ import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './s
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
-import { SHARED_HEADERS } from './constants'
 import type Instagram from './api'
 import type { SerializedSession, IGAttachment, IGMessage, IGMessageRanges } from './types'
 import { IGThreadRanges, ParentThreadKey, SyncGroup } from './types'
@@ -19,6 +18,20 @@ import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
 import EnvOptions, { EnvKey } from './env'
+
+// @TODO: needs to be updated
+export const SHARED_HEADERS = {
+  'accept-language': 'en-US,en;q=0.9',
+  'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
+  'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
+  'sec-ch-ua-mobile': '?0',
+  'sec-ch-ua-platform': '"macOS"',
+  'sec-ch-ua-platform-version': '"13.5.0"',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin',
+  'viewport-width': '1280',
+} as const
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))

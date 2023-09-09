@@ -14,13 +14,14 @@ import {
   sleep,
 } from './util'
 import { getLogger, type Logger } from './logger'
-import { MAX_RETRY_ATTEMPTS } from './constants'
 import type PlatformMetaMessenger from './api'
 import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
+
+const MAX_RETRY_ATTEMPTS = 12
 
 type IGSocketTask = {
   label: string

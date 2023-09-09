@@ -5,7 +5,7 @@ import { EnvKey } from './env'
 export class PromiseQueue {
   private logger: Logger
 
-  private env: EnvKey
+  private readonly env: EnvKey
 
   constructor(env: EnvKey) {
     this.env = env
