@@ -2,6 +2,7 @@ import { Attribute, MessageDeletionMode, type PlatformInfo } from '@textshq/plat
 import { genClientContext } from './util'
 
 const infoDefaults = {
+  version: '3.0.0',
   loginMode: ['browser-extension', 'browser'] as PlatformInfo['loginMode'],
   deletionMode: MessageDeletionMode.UNSEND,
   attributes: new Set([

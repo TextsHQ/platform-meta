@@ -6,11 +6,10 @@ import icon from './icon'
 const info: PlatformInfo = {
   ...infoDefaults,
   name: 'instagram',
-  version: '3.0.0',
   displayName: 'Instagram',
   icon,
   browserLogin: {
-    url: 'https://instagram.com',
+    url: 'https://www.instagram.com',
     authCookieName: 'sessionid',
   },
   notifications: {

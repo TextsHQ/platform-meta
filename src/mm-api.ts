@@ -381,7 +381,6 @@ export default class MetaMessengerAPI {
   }
 
   private async uploadFile(threadID: string, filePath: string, fileName?: string) {
-    if (this.papi.env !== 'IG') throw new Error('uploadFile is only supported on IG')
     const { domain, initialURL } = this.papi.envOpts
     const file = await fs.readFile(filePath)
     const formData = new FormData()
