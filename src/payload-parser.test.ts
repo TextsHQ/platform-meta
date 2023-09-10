@@ -1,8 +1,8 @@
 // @ts-expect-error
 import { expect, test } from 'bun:test'
-import { generateCallList, type IGResponse, safeNumberOrString } from './payload-parser'
+import { generateCallList, type MMResponse, safeNumberOrString } from './payload-parser'
 
-const fixtures: IGResponse[] = require('../fixtures/ig-socket-responses.json')
+const fixtures: MMResponse[] = require('../fixtures/ig-socket-responses.json')
 
 test('parse payloads to calls', () => {
   fixtures.forEach(fixture => {

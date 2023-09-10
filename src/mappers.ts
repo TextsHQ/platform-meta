@@ -45,7 +45,7 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
     isGif: type === AttachmentType.VIDEO && (attachment.shouldAutoplayVideo || mimeType === 'image/gif'),
     extra: {
       text: attachment.descriptionText || attachment.titleText,
-      igType: attachment.attachmentType,
+      mmType: attachment.attachmentType,
     },
   }
 }

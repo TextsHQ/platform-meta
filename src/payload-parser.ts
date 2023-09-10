@@ -126,7 +126,7 @@ interface Payload {
   step: Step[]
 }
 
-export interface IGResponse {
+export interface MMResponse {
   request_id: number | null
   payload: string
   sp: string[]

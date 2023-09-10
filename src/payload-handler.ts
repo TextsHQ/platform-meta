@@ -1134,30 +1134,37 @@ export default class MetaMessengerPayloadHandler {
       //   where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
       // })
       // const attachment = JSON.parse(a.attachment) as IGAttachment
-      const mparse = JSON.parse(messages.message) as IGMessage
+      const parsedMessage = JSON.parse(messages.message) as IGMessage
+      if (this.__papi.env !== 'IG') {
+        this.__logger.error('insertAttachmentCta NON IG PLATFORM ', {}, JSON.stringify({
+          parsedMessage,
+          actionUrl: r.actionUrl,
+          r,
+        }))
+      }
 
-      const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl)
+      const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl) // @TODO: add env support
 
       this.__logger.debug('insertAttachmentCta mediaLink', mediaLink)
-      const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/'
+      const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/' // @TODO: add env support
       if (mediaLink.startsWith(INSTAGRAM_PROFILE_BASE_URL)) {
-        mparse.extra = {}
-        mparse.links = [{
+        parsedMessage.extra = {}
+        parsedMessage.links = [{
           url: mediaLink,
           title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
         }]
       } else if (mediaLink.startsWith(`https://${this.__papi.envOpts.domain}/`)) {
-        mparse.extra = {
+        parsedMessage.extra = {
           mediaLink,
         }
       } else {
-        mparse.links = [{
+        parsedMessage.links = [{
           url: mediaLink,
-          title: mparse.replySnippet,
+          title: parsedMessage.replySnippet,
         }]
       }
 
-      const newMessage = JSON.stringify(mparse)
+      const newMessage = JSON.stringify(parsedMessage)
       this.__logger.debug('insertAttachmentCta newMessage', newMessage)
 
       this.__papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()

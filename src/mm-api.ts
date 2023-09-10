@@ -17,7 +17,8 @@ import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
-import EnvOptions, { EnvKey } from './env'
+import EnvOptions, { type EnvKey } from './env'
+import { MetaMessengerError } from './errors'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -35,19 +36,6 @@ export const SHARED_HEADERS = {
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
-
-const commonHeaders = {
-  authority: 'www.instagram.com',
-  'accept-language': 'en',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"macOS"',
-  'sec-ch-ua-platform-version': '"13.2.1"',
-  'sec-ch-ua':
-    '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-  'sec-fetch-site': 'same-origin',
-  'sec-ch-ua-full-version-list':
-    '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
-} as const
 
 export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
@@ -79,7 +67,16 @@ export default class MetaMessengerAPI {
       followRedirect: false,
       headers: {
         'user-agent': this.ua,
-        ...commonHeaders,
+        authority: this.papi.envOpts.domain,
+        'accept-language': 'en',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"13.2.1"',
+        'sec-ch-ua':
+          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+        'sec-fetch-site': 'same-origin',
+        'sec-ch-ua-full-version-list':
+          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
         ...opts.headers,
       },
     })
@@ -134,7 +131,7 @@ export default class MetaMessengerAPI {
 
     if (this.papi.env === 'IG') {
       if (!this.config.igViewerConfig?.id) {
-        throw new Error('[IG] Failed to fetch: igViewerConfig')
+        throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
       }
 
       this.papi.kv.setMany({

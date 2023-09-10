@@ -8,7 +8,7 @@ type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error'
 export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError
 
-const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
+const onError = (env: EnvKey, err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const message = feature ? `${feature} ${err.message}` : err.message
   const stack = (err instanceof Error) ? err.stack : err.type
   texts.error(message, err, extra, stack)
@@ -22,7 +22,7 @@ const onError = (err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
       ...{
         socketStatus: isWSError ? err.target.readyState : undefined,
       },
-      metaMessengerType: 'instagram',
+      metaMessengerType: env === 'IG' ? 'instagram' : env,
     },
   })
 }
@@ -48,7 +48,7 @@ export const getLogger = (env: EnvKey, feature = '') => {
       warn('log', 'warn')
     },
     error: (err: ErrorAlt | string, extra: SentryExtra = {}, ...args: any[]) => {
-      onError(typeof err === 'string' ? new Error(err) : err, feature, extra)
+      onError(env, typeof err === 'string' ? new Error(err) : err, feature, extra)
       texts.error(formatMessage('error', ...args, typeof err === 'string' ? err : err.message))
     },
   }
