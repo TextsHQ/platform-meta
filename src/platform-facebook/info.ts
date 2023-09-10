@@ -9,7 +9,7 @@ const info: PlatformInfo = {
     authCookieName: 'c_user',
   },
   name: 'facebookdotcom',
-  displayName: 'Facebook Messenger',
+  displayName: 'Messenger',
   icon,
   autofillHostnames: ['messenger.com', 'facebook.com'],
   deletionMode: MessageDeletionMode.DELETE_FOR_EVERYONE,
