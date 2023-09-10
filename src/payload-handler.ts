@@ -308,8 +308,41 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('applyAdminMessageCTA (ignored)', a)
   }
 
+  private applyNewGroupThread(a: SimpleArgType[]) {
+    const parsed = {
+      threadKey: a[1],
+      // mailboxType: b.i64.cast([0, 0]),
+      threadType: a[2],
+      folderName: a[3],
+      parentThreadKey: a[4],
+      threadPictureUrlFallback: a[5],
+      lastActivityTimestampMs: a[6],
+      lastReadWatermarkTimestampMs: a[6],
+      // ongoingCallState: b.i64.cast([0, 0]),
+      nullstateDescriptionText1: a[8],
+      nullstateDescriptionType1: a[9],
+      nullstateDescriptionText2: a[10],
+      nullstateDescriptionType2: a[11],
+      cannotUnsendReason: a[12],
+      capabilities: a[13],
+      // capabilities2: b.i64.cast([0, 0]),
+      // capabilities3: b.i64.cast([0, 0]),
+      otidOfFirstMessage: a[0],
+      // authorityLevel: b.i64.cast([0, 80]),
+      // unsendLimitMs: b.i64.cast([-1, 4294967295]),
+      inviterId: a[14],
+      igFolder: a[15],
+      threadSubtype: a[16]
+    }
+    this.__logger.debug('applyNewGroupThread (ignored)', a, parsed)
+  }
+
   private bumpThread(a: SimpleArgType[]) {
     this.__logger.debug('bumpThread (ignored)', a)
+  }
+
+  private changeViewerStatus(a: SimpleArgType[]) {
+    this.__logger.debug('changeViewerStatus (ignored)', a)
   }
 
   private checkAuthoritativeMessageExists(a: SimpleArgType[]) {
@@ -1213,6 +1246,14 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('moveThreadToInboxAndUpdateParent (ignored)', a)
   }
 
+  private overwriteAllThreadParticipantsAdminStatus(a: SimpleArgType[]) {
+    this.__logger.debug('overwriteAllThreadParticipantsAdminStatus (ignored)', a)
+  }
+
+  private removeAllParticipantsForThread(a: SimpleArgType[]) {
+    this.__logger.debug('removeAllParticipantsForThread (ignored)', a)
+  }
+
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
     const offlineThreadingId = a[0] as string
     this.__logger.debug('removeOptimisticGroupThread', a, { offlineThreadingId })
@@ -1446,6 +1487,10 @@ export default class MetaMessengerPayloadHandler {
 
   private updateParticipantLastMessageSendTimestamp(a: SimpleArgType[]) {
     this.__logger.debug('updateParticipantLastMessageSendTimestamp (ignored)', a)
+  }
+
+  private updateParticipantSubscribeSourceText(a: SimpleArgType[]) {
+    this.__logger.debug('updateParticipantSubscribeSourceText (ignored)', a)
   }
 
   private updatePreviewUrl(a: SimpleArgType[]) {
