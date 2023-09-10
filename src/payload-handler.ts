@@ -39,6 +39,20 @@ export default class MetaMessengerPayloadHandler {
 
   private readonly __pQueue: PromiseQueue
 
+  private __afterCallbacks: (() => Promise<void> | void)[] = []
+
+  private __threadsToSync = new Set<string>()
+
+  private __messagesToSync = new Set<string>()
+
+  private __messagesToIgnore = new Set<string>()
+
+  private __responses: MetaMessengerPayloadHandlerResponse = {}
+
+  private __errors: MetaMessengerError[] = []
+
+  private __events: ServerEvent[] = []
+
   constructor(
     private readonly __papi: PlatformMetaMessenger,
     private readonly __data: IGSocketPayload,
@@ -90,20 +104,6 @@ export default class MetaMessengerPayloadHandler {
       resolve(this.__responses)
     }
   }
-
-  private __afterCallbacks: (() => Promise<void> | void)[] = []
-
-  private __threadsToSync = new Set<string>()
-
-  private __messagesToSync = new Set<string>()
-
-  private __messagesToIgnore = new Set<string>()
-
-  private __responses: MetaMessengerPayloadHandlerResponse = {}
-
-  private __errors: MetaMessengerError[] = []
-
-  private __events: ServerEvent[] = []
 
   private __run = async () => {
     this.__logger.debug('loaded calls', { calls: this.__calls })
@@ -242,6 +242,343 @@ export default class MetaMessengerPayloadHandler {
         entries: mapParticipants([p], this.__papi.env, fbid),
       })
     })
+  }
+
+  private __upsertMessageAndSync(m: IGMessage) {
+    this.__logger.debug('__upsertMessageAndSync', m.threadKey, m.messageId, m.timestampMs, m.text)
+    const { messageId } = this.__papi.api.upsertMessage(m)
+    this.__messagesToSync.add(messageId)
+    return async () => {
+      if (this.__threadsToSync.has(m.threadKey) || this.__messagesToIgnore.has(messageId)) return
+      const [message] = await this.__papi.api.queryMessages(m.threadKey, [messageId])
+      if (!message) return
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID: message.threadID },
+        mutationType: 'upsert',
+        entries: [message],
+      })
+    }
+  }
+
+  private addParticipantIdToGroupThread(a: SimpleArgType[]) {
+    this.__logger.debug('addParticipantIdToGroupThread', a)
+    const p = {
+      raw: JSON.stringify(a),
+      threadKey: a[0] as string,
+      userId: a[1] as string,
+      readWatermarkTimestampMs: getAsDate(a[2] as string),
+      readActionTimestampMs: getAsDate(a[3] as string),
+      deliveredWatermarkTimestampMs: getAsDate(a[4] as string),
+      // lastDeliveredWatermarkTimestampMs: getAsDate(a[5][1])),
+      lastDeliveredActionTimestampMs: a[5] ? getAsDate(a[5] as string) : null,
+      isAdmin: Boolean(a[6]),
+    }
+    this.__papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
+      target: [schema.participants.threadKey, schema.participants.userId],
+      set: { ...p },
+    }).run()
+    const contact = this.__papi.api.getContact(p.userId)
+
+    return () => {
+      if (this.__threadsToSync.has(p.threadKey)) return
+
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectIDs: { threadID: p.threadKey },
+        objectName: 'participant',
+        mutationType: 'upsert',
+        entries: [{
+          id: p.userId,
+          isAdmin: Boolean(p.isAdmin),
+          username: contact?.username,
+          fullName: contact?.name || contact?.username || this.__papi.envOpts.defaultContactName,
+          imgURL: contact?.profilePictureUrl,
+        }],
+      })
+    }
+  }
+
+  private appendDataTraceAddon(a: SimpleArgType[]) {
+    this.__logger.debug('appendDataTraceAddon (ignored)', a)
+  }
+
+  private applyAdminMessageCTA(a: SimpleArgType[]) {
+    this.__logger.debug('applyAdminMessageCTA (ignored)', a)
+  }
+
+  private bumpThread(a: SimpleArgType[]) {
+    this.__logger.debug('bumpThread (ignored)', a)
+  }
+
+  private checkAuthoritativeMessageExists(a: SimpleArgType[]) {
+    this.__logger.debug('checkAuthoritativeMessageExists (ignored)', a)
+  }
+
+  private clearPinnedMessages(a: SimpleArgType[]) {
+    this.__logger.debug('clearPinnedMessages (ignored)', a)
+  }
+
+  private computeDelayForTask(a: SimpleArgType[]) {
+    this.__logger.debug('computeDelayForTask (ignored)', a)
+  }
+
+  private async deleteExistingMessageRanges(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    this.__logger.debug('deleteExistingMessageRanges', threadKey)
+    const threadExists = await this.__papi.db.query.threads.findFirst({
+      where: eq(schema.threads.threadKey, a[0] as string),
+      columns: {
+        threadKey: true,
+        ranges: true,
+      },
+    })
+    if (!threadExists || (threadExists && !threadExists.ranges)) return
+    this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+  }
+
+  private deleteMessage(a: SimpleArgType[]) {
+    const threadID = a[0] as string
+    const messageID = a[1] as string
+    this.__logger.debug('deleteMessage', a, { threadID, messageID })
+    this.__papi.db.delete(schema.messages).where(and(
+      eq(schema.messages.threadKey, threadID),
+      eq(schema.messages.messageId, messageID),
+    )).run()
+
+    return () => {
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message',
+        objectIDs: { threadID, messageID },
+        mutationType: 'delete',
+        entries: [messageID],
+      })
+    }
+  }
+
+  private deleteReaction(a: SimpleArgType[]) {
+    const threadID = a[0] as string
+    const messageID = a[1] as string
+    const actorID = a[2] as string
+
+    this.__logger.debug('deleteReaction', a, {
+      threadID,
+      messageID,
+      actorID,
+    })
+
+    this.__papi.db.delete(schema.reactions).where(and(
+      eq(schema.reactions.threadKey, threadID),
+      eq(schema.reactions.messageId, messageID),
+      eq(schema.reactions.actorId, actorID),
+    )).run()
+
+    return () => {
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message_reaction',
+        objectIDs: { threadID, messageID },
+        mutationType: 'delete',
+        entries: [actorID],
+      })
+    }
+  }
+
+  private deleteRtcOngoingCallData(a: SimpleArgType[]) {
+    this.__logger.debug('deleteRtcOngoingCallData (ignored)', a)
+  }
+
+  private deleteThenInsertContact(a: SimpleArgType[]) {
+    const parsed = {
+      id: a[0] as string,
+      profilePictureUrl: a[2] as string,
+      profilePictureFallbackUrl: a[3] as string,
+      profilePictureUrlExpirationTimestampMs: a[4] as string,
+      profilePictureLargeUrl: a[5] as string,
+      profilePictureLargeFallbackUrl: a[6] as string,
+      profilePictureLargeUrlExpirationTimestampMs: a[7] as string,
+      name: a[9] as string,
+      secondaryName: a[41] as string,
+      normalizedNameForSearch: a[10] as string,
+      normalizedSearchTerms: a[33] as string,
+      isMessengerUser: a[11] as string,
+      isMemorialized: a[12] as string,
+      isManagedByViewer: a[35] as string,
+      blockedByViewerStatus: a[14] as string,
+      rank: a[17] as string,
+      firstName: a[18] as string,
+      contactType: a[19] as string,
+      contactTypeExact: a[20] as string,
+      authorityLevel: a[21] as string,
+      messengerCallLogThirdPartyId: a[22] as string,
+      profileRingColor: a[23] as string,
+      requiresMultiway: a[24] as string,
+      blockedSinceTimestampMs: a[25] as string,
+      fbUnblockedSinceTimestampMs: a[46] as string,
+      canViewerMessage: a[26] as string,
+      profileRingColorExpirationTimestampMs: a[27] as string,
+      phoneNumber: a[28] as string,
+      emailAddress: a[29] as string,
+      workCompanyId: a[30] as string,
+      workCompanyName: a[31] as string,
+      workJobTitle: a[32] as string,
+      deviceContactId: a[34] as string,
+      workForeignEntityType: a[36] as string,
+      capabilities: a[37] as string,
+      capabilities2: a[38] as string,
+      // profileRingState: d[0],
+      contactViewerRelationship: a[39] as string,
+      gender: a[40] as string,
+      contactReachabilityStatusType: a[43] as string,
+      restrictionType: a[44] as string,
+      waConnectStatus: a[45] as string,
+      // isEmployee: !1
+    }
+    const { id, name, profilePictureUrl, secondaryName: username, ...contact } = parsed
+
+    this.__logger.debug('deleteThenInsertContact', a, parsed)
+
+    this.__papi.db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
+    this.__papi.db.insert(schema.contacts).values({
+      raw: JSON.stringify(a),
+      id,
+      name,
+      profilePictureUrl,
+      username,
+      contact: JSON.stringify(contact),
+    } as const).run()
+
+    this.__events.push({
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'participant',
+      objectIDs: { threadID: id },
+      mutationType: 'upsert',
+      entries: [{
+        id,
+        username,
+        fullName: name || username || this.__papi.envOpts.defaultContactName,
+        imgURL: profilePictureUrl,
+      }],
+    })
+  }
+
+  private deleteThenInsertContactPresence(a: SimpleArgType[]) {
+    const p = {
+      contactId: a[0] as string,
+      status: a[1] as string,
+      expirationTimestampMs: getAsMS(a[3]),
+      lastActiveTimestampMs: getAsMS(a[2]),
+      capabilities: a[4] as string,
+      publishId: a[5] as string,
+    }
+    this.__logger.debug('deleteThenInsertContactPresence (ignored)', a, p)
+  }
+
+  private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
+    const contactId = a[0] as string
+
+    const igContact = JSON.stringify({
+      igId: a[1] as string,
+      igFollowStatus: a[4] as string,
+      verificationStatus: a[5] as string,
+      linkedFbid: a[2] as string,
+      e2eeEligibility: a[6] as string,
+      supportsE2eeSpamdStorage: a[7] as string,
+    })
+
+    this.__logger.debug('deleteThenInsertIGContactInfo', a)
+
+    // we don't keep it in a separate table, just in the contacts table
+    // since we overwrite the profile, no need to delete first
+    this.__papi.db.insert(schema.contacts).values({
+      id: contactId,
+      igContact,
+    }).onConflictDoUpdate({
+      target: schema.contacts.id,
+      set: { igContact },
+    }).run()
+  }
+
+  private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    const igThreadId = a[1] as string
+    this.__papi.db.update(schema.threads).set({
+      threadKey,
+      igThread: JSON.stringify({ igThreadId }),
+    }).where(eq(schema.threads.threadKey, threadKey)).run()
+    this.__logger.debug('deleteThenInsertIgThreadInfo', { threadKey, igThreadId })
+  }
+
+  private deleteThenInsertMessage(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertMessage', a)
+    return this.__upsertMessageAndSync({
+      threadKey: a[3] as string,
+      timestampMs: getAsMS(a[5]),
+      messageId: a[8] as string,
+      offlineThreadingId: a[9] as string,
+      authorityLevel: Number(a[2]),
+      primarySortKey: a[6] as string,
+      senderId: a[10] as string,
+      isAdminMessage: Boolean(a[12]),
+      sendStatus: a[15] as string,
+      sendStatusV2: a[16] as string,
+      text: a[0] as string,
+      subscriptErrorMessage: a[1] as string,
+      secondarySortKey: a[7] as string,
+      stickerId: a[11] as string,
+      messageRenderingType: a[13] as string,
+      isUnsent: Boolean(a[17]),
+      unsentTimestampMs: getAsMS(a[18]),
+      mentionOffsets: a[19] as string,
+      mentionLengths: a[20] as string,
+      mentionIds: a[21] as string,
+      mentionTypes: a[22] as string,
+      replySourceId: a[23] as string,
+      replySourceType: a[24] as string,
+      replySourceTypeV2: a[25] as string,
+      replyStatus: a[26] as string,
+      replySnippet: a[27] as string,
+      replyMessageText: a[28] as string,
+      replyToUserId: a[29] as string,
+      replyMediaExpirationTimestampMs: getAsMS(a[30]),
+      replyMediaUrl: a[31] as string,
+      replyMediaPreviewWidth: a[33] as string,
+      replyMediaPreviewHeight: a[34] as string,
+      replyMediaUrlMimeType: a[35] as string,
+      replyMediaUrlFallback: a[36] as string,
+      replyCtaId: a[37] as string,
+      replyCtaTitle: a[38] as string,
+      replyAttachmentType: a[39] as string,
+      replyAttachmentId: a[40] as string,
+      replyAttachmentExtra: a[41] as string,
+      isForwarded: Boolean(a[42]),
+      forwardScore: a[43] as string,
+      hasQuickReplies: Boolean(a[44]),
+      adminMsgCtaId: a[45] as string,
+      adminMsgCtaTitle: a[46] as string,
+      adminMsgCtaType: a[47] as string,
+      cannotUnsendReason: a[48] as string,
+      textHasLinks: Number(a[49]),
+      viewFlags: a[50] as string,
+      displayedContentTypes: a[51] as string,
+      viewedPluginKey: a[52] as string,
+      viewedPluginContext: a[53] as string,
+      quickReplyType: a[54] as string,
+      hotEmojiSize: a[55] as string,
+      replySourceTimestampMs: getAsMS(a[56]),
+      ephemeralDurationInSec: a[57] as string,
+      msUntilExpirationTs: getAsMS(a[58]),
+      ephemeralExpirationTs: getAsMS(a[59]),
+      takedownState: a[60] as string,
+      isCollapsed: Boolean(a[61]),
+      subthreadKey: a[62] as string,
+    })
+  }
+
+  private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertMessageRequest (ignored)', a)
   }
 
   private deleteThenInsertThread(a: SimpleArgType[]) {
@@ -383,298 +720,8 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
-  private updateThreadMuteSetting(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadMuteSetting', a)
-    const threadKey = a[0] as string
-    const muteExpireTimeMs = getAsMS(a[1])
-
-    return () => {
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'thread',
-        objectIDs: {},
-        mutationType: 'update',
-        entries: [{
-          id: threadKey,
-          mutedUntil: muteExpireTimeMs === -1 ? 'forever' : new Date(muteExpireTimeMs),
-        }],
-      })
-    }
-  }
-
-  private upsertMessage(a: SimpleArgType[]) {
-    const m: IGMessage = {
-      links: null,
-      raw: JSON.stringify(a),
-      threadKey: a[3] as string,
-      timestampMs: getAsMS(a[5]),
-      messageId: a[8] as string,
-      offlineThreadingId: a[9] as string,
-      authorityLevel: Number(a[2]),
-      primarySortKey: a[6] as string,
-      senderId: a[10] as string,
-      isAdminMessage: Boolean(a[12]),
-      sendStatus: a[15] as string,
-      sendStatusV2: a[16] as string,
-      text: a[0] as string,
-      subscriptErrorMessage: a[1] as string,
-      secondarySortKey: a[7] as string,
-      stickerId: a[11] as string,
-      messageRenderingType: a[13] as string,
-      isUnsent: Boolean(a[17]),
-      unsentTimestampMs: getAsMS(a[18]),
-      mentionOffsets: a[19] as string,
-      mentionLengths: a[20] as string,
-      mentionIds: a[21] as string,
-      mentionTypes: a[22] as string,
-      replySourceId: a[23] as string,
-      replySourceType: a[24] as string,
-      replySourceTypeV2: a[25] as string,
-      replyStatus: a[26] as string,
-      replySnippet: a[27] as string,
-      replyMessageText: a[28] as string,
-      replyToUserId: a[29] as string,
-      replyMediaExpirationTimestampMs: getAsMS(a[30]),
-      replyMediaUrl: a[31] as string,
-      replyMediaPreviewWidth: a[33] as string,
-      replyMediaPreviewHeight: a[34] as string,
-      replyMediaUrlMimeType: a[35] as string,
-      replyMediaUrlFallback: a[36] as string,
-      replyCtaId: a[37] as string,
-      replyCtaTitle: a[38] as string,
-      replyAttachmentType: a[39] as string,
-      replyAttachmentId: a[40] as string,
-      replyAttachmentExtra: a[41] as string,
-      replyType: a[42] as string,
-      isForwarded: Boolean(a[43]),
-      forwardScore: a[44] as string,
-      hasQuickReplies: Boolean(a[45]),
-      adminMsgCtaId: a[46] as string,
-      adminMsgCtaTitle: a[47] as string,
-      adminMsgCtaType: a[48] as string,
-      cannotUnsendReason: a[49] as string,
-      textHasLinks: Number(a[50]),
-      viewFlags: a[51] as string,
-      displayedContentTypes: a[52] as string,
-      viewedPluginKey: a[53] as string,
-      viewedPluginContext: a[54] as string,
-      quickReplyType: a[55] as string,
-      hotEmojiSize: a[56] as string,
-      replySourceTimestampMs: getAsMS(a[57]),
-      ephemeralDurationInSec: a[58] as string,
-      msUntilExpirationTs: getAsMS(a[59]),
-      ephemeralExpirationTs: getAsMS(a[60]),
-      takedownState: a[61] as string,
-      isCollapsed: Boolean(a[62]),
-      subthreadKey: a[63] as string,
-    }
-    const { messageId } = this.__papi.api.upsertMessage(m)
-    this.__messagesToSync.add(messageId)
-    this.__logger.debug('upsertMessage', m.threadKey, messageId, m.timestampMs, m.text)
-  }
-
-  private __upsertMessageAndSync(m: IGMessage) {
-    this.__logger.debug('__upsertMessageAndSync', m.threadKey, m.messageId, m.timestampMs, m.text)
-    const { messageId } = this.__papi.api.upsertMessage(m)
-    this.__messagesToSync.add(messageId)
-    return async () => {
-      if (this.__threadsToSync.has(m.threadKey) || this.__messagesToIgnore.has(messageId)) return
-      const [message] = await this.__papi.api.queryMessages(m.threadKey, [messageId])
-      if (!message) return
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID: message.threadID },
-        mutationType: 'upsert',
-        entries: [message],
-      })
-    }
-  }
-
-  private insertMessage(a: SimpleArgType[]) {
-    this.__logger.debug('insertMessage', a)
-    return this.__upsertMessageAndSync({
-      raw: JSON.stringify(a),
-      links: null,
-      threadKey: a[3] as string,
-      timestampMs: getAsMS(a[5] as string),
-      messageId: a[8] as string,
-      offlineThreadingId: a[9] as string,
-      authorityLevel: Number(a[2]),
-      primarySortKey: a[6] as string,
-      senderId: a[10] as string,
-      isAdminMessage: Boolean(a[12]),
-      sendStatus: a[15] as string,
-      sendStatusV2: a[16] as string,
-      text: a[0] as string,
-      subscriptErrorMessage: a[1] as string,
-      secondarySortKey: a[7] as string,
-      stickerId: a[11] as string,
-      messageRenderingType: a[13] as string,
-      isUnsent: Boolean(a[17]),
-      unsentTimestampMs: getAsMS(a[18]),
-      mentionOffsets: a[19] as string,
-      mentionLengths: a[20] as string,
-      mentionIds: a[21] as string,
-      mentionTypes: a[22] as string,
-      replySourceId: a[23] as string,
-      replySourceType: a[24] as string,
-      replySourceTypeV2: a[25] as string,
-      replyStatus: a[26] as string,
-      replySnippet: a[27] as string,
-      replyMessageText: a[28] as string,
-      replyToUserId: a[29] as string,
-      replyMediaExpirationTimestampMs: getAsMS(a[30]),
-      replyMediaUrl: a[31] as string,
-      replyMediaPreviewWidth: a[33] as string,
-      replyMediaPreviewHeight: a[34] as string,
-      replyMediaUrlMimeType: a[35] as string,
-      replyMediaUrlFallback: a[36] as string,
-      replyCtaId: a[37] as string,
-      replyCtaTitle: a[38] as string,
-      replyAttachmentType: a[39] as string,
-      replyAttachmentId: a[40] as string,
-      replyAttachmentExtra: a[41] as string,
-      isForwarded: Boolean(a[42]),
-      forwardScore: a[43] as string,
-      hasQuickReplies: Boolean(a[44]),
-      adminMsgCtaId: a[45] as string,
-      adminMsgCtaTitle: a[46] as string,
-      adminMsgCtaType: a[47] as string,
-      cannotUnsendReason: a[48] as string,
-      textHasLinks: Number(a[49]),
-      viewFlags: a[50] as string,
-      displayedContentTypes: a[51] as string,
-      viewedPluginKey: a[52] as string,
-      viewedPluginContext: a[53] as string,
-      quickReplyType: a[54] as string,
-      hotEmojiSize: a[55] as string,
-      replySourceTimestampMs: getAsMS(a[56] as string),
-      ephemeralDurationInSec: a[57] as string,
-      msUntilExpirationTs: getAsMS(a[58] as string),
-      ephemeralExpirationTs: getAsMS(a[59] as string),
-      takedownState: a[60] as string,
-      isCollapsed: Boolean(a[61]),
-      subthreadKey: a[62] as string,
-    })
-  }
-
-  private deleteThenInsertMessage(a: SimpleArgType[]) {
-    this.__logger.debug('deleteThenInsertMessage', a)
-    return this.__upsertMessageAndSync({
-      threadKey: a[3] as string,
-      timestampMs: getAsMS(a[5]),
-      messageId: a[8] as string,
-      offlineThreadingId: a[9] as string,
-      authorityLevel: Number(a[2]),
-      primarySortKey: a[6] as string,
-      senderId: a[10] as string,
-      isAdminMessage: Boolean(a[12]),
-      sendStatus: a[15] as string,
-      sendStatusV2: a[16] as string,
-      text: a[0] as string,
-      subscriptErrorMessage: a[1] as string,
-      secondarySortKey: a[7] as string,
-      stickerId: a[11] as string,
-      messageRenderingType: a[13] as string,
-      isUnsent: Boolean(a[17]),
-      unsentTimestampMs: getAsMS(a[18]),
-      mentionOffsets: a[19] as string,
-      mentionLengths: a[20] as string,
-      mentionIds: a[21] as string,
-      mentionTypes: a[22] as string,
-      replySourceId: a[23] as string,
-      replySourceType: a[24] as string,
-      replySourceTypeV2: a[25] as string,
-      replyStatus: a[26] as string,
-      replySnippet: a[27] as string,
-      replyMessageText: a[28] as string,
-      replyToUserId: a[29] as string,
-      replyMediaExpirationTimestampMs: getAsMS(a[30]),
-      replyMediaUrl: a[31] as string,
-      replyMediaPreviewWidth: a[33] as string,
-      replyMediaPreviewHeight: a[34] as string,
-      replyMediaUrlMimeType: a[35] as string,
-      replyMediaUrlFallback: a[36] as string,
-      replyCtaId: a[37] as string,
-      replyCtaTitle: a[38] as string,
-      replyAttachmentType: a[39] as string,
-      replyAttachmentId: a[40] as string,
-      replyAttachmentExtra: a[41] as string,
-      isForwarded: Boolean(a[42]),
-      forwardScore: a[43] as string,
-      hasQuickReplies: Boolean(a[44]),
-      adminMsgCtaId: a[45] as string,
-      adminMsgCtaTitle: a[46] as string,
-      adminMsgCtaType: a[47] as string,
-      cannotUnsendReason: a[48] as string,
-      textHasLinks: Number(a[49]),
-      viewFlags: a[50] as string,
-      displayedContentTypes: a[51] as string,
-      viewedPluginKey: a[52] as string,
-      viewedPluginContext: a[53] as string,
-      quickReplyType: a[54] as string,
-      hotEmojiSize: a[55] as string,
-      replySourceTimestampMs: getAsMS(a[56]),
-      ephemeralDurationInSec: a[57] as string,
-      msUntilExpirationTs: getAsMS(a[58]),
-      ephemeralExpirationTs: getAsMS(a[59]),
-      takedownState: a[60] as string,
-      isCollapsed: Boolean(a[61]),
-      subthreadKey: a[62] as string,
-    })
-  }
-
-  private updateReadReceipt(a: SimpleArgType[]) {
-    const r: IGReadReceipt = {
-      readWatermarkTimestampMs: getAsDate(a[0] as string), // last message logged in user has read from
-      threadKey: a[1] as string,
-      contactId: a[2] as string,
-      readActionTimestampMs: getAsDate(a[3] as string),
-    }
-
-    this.__logger.debug('updateReadReceipt', a, r)
-
-    this.__papi.db.update(schema.participants).set({
-      readActionTimestampMs: r.readActionTimestampMs,
-      readWatermarkTimestampMs: r.readWatermarkTimestampMs,
-    })
-      .where(and(
-        eq(schema.participants.threadKey, r.threadKey),
-        eq(schema.participants.userId, r.contactId),
-      )).run()
-    if (!r.readActionTimestampMs) return
-
-    return async () => {
-      if (this.__threadsToSync.has(r.threadKey)) return
-      const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
-      if (!newestMessage) return
-      if (this.__messagesToSync.has(newestMessage.id)) return
-
-      const readOn = r.readActionTimestampMs || UNKNOWN_DATE
-
-      if (newestMessage.seen === true) return
-      if (typeof newestMessage.seen !== 'boolean') {
-        if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
-        if (!(newestMessage.seen instanceof Date) && r.contactId in newestMessage.seen) {
-          const contactSeen = newestMessage.seen[r.contactId]
-          if (contactSeen === true) return
-          if (
-            typeof contactSeen !== 'boolean'
-            && contactSeen instanceof Date
-            && contactSeen.getTime?.() >= readOn.getTime()
-          ) return
-        }
-      }
-
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message_seen',
-        mutationType: 'upsert',
-        objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
-        entries: [{ [r.contactId]: r.readActionTimestampMs || UNKNOWN_DATE }],
-      })
-    }
+  private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
+    this.__logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
   }
 
   private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
@@ -710,405 +757,43 @@ export default class MetaMessengerPayloadHandler {
     }))
   }
 
-  private truncateTablesForSyncGroup(a: SimpleArgType[]) {
-    this.__logger.debug('truncateTablesForSyncGroup (ignored)', a)
+  private getFirstAvailableAttachmentCTAID(a: SimpleArgType[]) {
+    this.__logger.debug('getFirstAvailableAttachmentCTAID (ignored)', a)
   }
 
-  private mciTraceLog(a: SimpleArgType[]) {
-    this.__logger.debug('mciTraceLog (ignored)', a)
-  }
-
-  private setForwardScore(a: SimpleArgType[]) {
-    const forwardScore = {
-      threadKey: a[0] as string,
-      messageId: a[1] as string,
-      timestampMs: a[2] as string,
-      forwardScore: a[3] as string,
-    }
-    this.__logger.debug('setForwardScore (ignored)', a, forwardScore)
-  }
-
-  private setMessageDisplayedContentTypes(a: SimpleArgType[]) {
-    this.__logger.debug('setMessageDisplayedContentTypes (ignored)', a)
-  }
-
-  private async insertNewMessageRange(a: SimpleArgType[]) {
-    const msgRange = {
-      threadKey: a[0] as string,
-      minTimestamp: a[1] as string,
-      maxTimestamp: a[2] as string,
-      minMessageId: a[3] as string,
-      maxMessageId: a[4] as string,
-      hasMoreBeforeFlag: Boolean(a[7]),
-      hasMoreAfterFlag: Boolean(a[8]),
-    }
-    this.__logger.debug('insertNewMessageRange', a, msgRange)
-    await this.__papi.api.setMessageRanges(msgRange)
-    await this.__papi.api.resolveMessageRanges(msgRange)
-  }
-
-  private async updateExistingMessageRange(a: SimpleArgType[]) {
-    const isMaxTimestamp = Boolean(a[2])
-    const timestamp = a[1] as string
-    const msgRange = {
-      threadKey: a[0] as string,
-      hasMoreBeforeFlag: a[2] && !a[3],
-      hasMoreAfterFlag: !a[2] && !a[3],
-      maxTimestamp: isMaxTimestamp ? timestamp : undefined,
-      minTimestamp: !isMaxTimestamp ? timestamp : undefined,
-    }
-
-    this.__logger.debug('updateExistingMessageRange', a, msgRange)
-    await this.__papi.api.setMessageRanges(msgRange)
-    await this.__papi.api.resolveMessageRanges(msgRange)
-  }
-
-  private upsertSequenceId(a: SimpleArgType[]) {
-    this.__logger.debug('upsertSequenceId (ignored)', a)
-  }
-
-  private taskExists(a: SimpleArgType[]) {
+  private handleFailedTask(a: SimpleArgType[]) {
     const taskId = a[0] as string
-    this.__logger.debug('taskExists (ignored)', a, { taskId })
+    const queueName = a[1] as string
+    const errorMessage = a[2] as string
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to handle task', `${errorMessage} (task #${this.__requestId}/${taskId} in ${queueName})`, {
+      taskId,
+      queueName,
+      args: JSON.stringify(a),
+      issuedByMethod: 'handleFailedTask',
+    }))
   }
 
-  private removeTask(a: SimpleArgType[]) {
-    const taskId = a[0] as string
-    this.__logger.debug('removeTask (ignored)', a, { taskId })
+  private handleRepliesOnUnsend(a: SimpleArgType[]) {
+    this.__logger.debug('handleRepliesOnUnsend (ignored)', a)
   }
 
-  private deleteThenInsertContactPresence(a: SimpleArgType[]) {
-    const p = {
-      contactId: a[0] as string,
-      status: a[1] as string,
-      expirationTimestampMs: getAsMS(a[3]),
-      lastActiveTimestampMs: getAsMS(a[2]),
-      capabilities: a[4] as string,
-      publishId: a[5] as string,
-    }
-    this.__logger.debug('deleteThenInsertContactPresence (ignored)', a, p)
+  private handleSyncFailure(a: SimpleArgType[]) {
+    // @TODO: we don't know how to parse this error yet
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
+      issuedByMethod: 'handleSyncFailure',
+    }))
   }
 
-  private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
-    const range = {
-      syncGroup: a[0] as SyncGroup,
-      parentThreadKey: a[1] as ParentThreadKey,
-      minLastActivityTimestampMs: a[2] as string,
-      hasMoreBefore: Boolean(a[3]),
-      isLoadingBefore: Boolean(a[4]),
-      minThreadKey: a[5] as string,
-    }
-    this.__logger.debug('upsertSyncGroupThreadsRange', a)
-    this.__papi.api.setSyncGroupThreadsRange(range)
+  private hasMatchingAttachmentCTA(a: SimpleArgType[]) {
+    this.__logger.debug('hasMatchingAttachmentCTA (ignored)', a)
   }
 
-  private upsertInboxThreadsRange(a: SimpleArgType[]) {
-    this.__logger.debug('upsertInboxThreadsRange (ignored)', a)
+  private hybridThreadDelete(a: SimpleArgType[]) {
+    this.__logger.debug('hybridThreadDelete (ignored)', a)
   }
 
-  private updateThreadsRangesV2(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadsRangesV2 (ignored)', a)
-  }
-
-  private threadsRangesQuery(a: SimpleArgType[]) {
-    this.__logger.debug('threadsRangesQuery (ignored)', a)
-  }
-
-  private addParticipantIdToGroupThread(a: SimpleArgType[]) {
-    this.__logger.debug('addParticipantIdToGroupThread', a)
-    const p = {
-      raw: JSON.stringify(a),
-      threadKey: a[0] as string,
-      userId: a[1] as string,
-      readWatermarkTimestampMs: getAsDate(a[2] as string),
-      readActionTimestampMs: getAsDate(a[3] as string),
-      deliveredWatermarkTimestampMs: getAsDate(a[4] as string),
-      // lastDeliveredWatermarkTimestampMs: getAsDate(a[5][1])),
-      lastDeliveredActionTimestampMs: a[5] ? getAsDate(a[5] as string) : null,
-      isAdmin: Boolean(a[6]),
-    }
-    this.__papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
-      target: [schema.participants.threadKey, schema.participants.userId],
-      set: { ...p },
-    }).run()
-    const contact = this.__papi.api.getContact(p.userId)
-
-    return () => {
-      if (this.__threadsToSync.has(p.threadKey)) return
-
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectIDs: { threadID: p.threadKey },
-        objectName: 'participant',
-        mutationType: 'upsert',
-        entries: [{
-          id: p.userId,
-          isAdmin: Boolean(p.isAdmin),
-          username: contact?.username,
-          fullName: contact?.name || contact?.username || this.__papi.envOpts.defaultContactName,
-          imgURL: contact?.profilePictureUrl,
-        }],
-      })
-    }
-  }
-
-  private verifyContactRowExists(a: SimpleArgType[]) {
-    this.__logger.debug('verifyContactRowExists', a)
-    const parsed = {
-      raw: JSON.stringify(a),
-      id: a[0],
-      profilePictureUrl: a[2] == null ? '' : a[2],
-      name: a[3],
-      username: a[20],
-      profilePictureFallbackUrl: a[5],
-      // name: d[0],
-      secondaryName: a[20],
-      // normalizedNameForSearch: d[0],
-      isMemorialized: a[9],
-      blockedByViewerStatus: a[11],
-      canViewerMessage: a[12],
-      // profilePictureLargeUrl: '',
-      // isMessengerUser: !0,
-      // rank: 0,
-      contactType: a[4],
-      // contactTypeExact: c.i64.cast([0, 0]),
-      // requiresMultiway: !1,
-      authorityLevel: a[14],
-      // workForeignEntityType: c.i64.cast([0, 0]),
-      capabilities: a[15],
-      capabilities2: a[16],
-      contactViewerRelationship: a[19],
-      gender: a[18],
-    }
-    const { id, raw, name, profilePictureUrl, username, ...contact } = parsed
-    const c = {
-      id: id as string,
-      raw: raw as string,
-      name: name as string,
-      profilePictureUrl: profilePictureUrl as string,
-      username: username as string,
-      contact: JSON.stringify(contact),
-    } as const
-
-    this.__papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
-      target: schema.contacts.id,
-      set: { ...c },
-    }).run()
-
-    return () => {
-      // this._syncContact(contactId)
-    }
-  }
-
-  private setHMPSStatus(a: SimpleArgType[]) {
-    this.__logger.debug('setHMPSStatus (ignored)', a)
-  }
-
-  private upsertFolderSeenTimestamp(a: SimpleArgType[]) {
-    this.__logger.debug('upsertFolderSeenTimestamp (ignored)', a)
-  }
-
-  private async deleteExistingMessageRanges(a: SimpleArgType[]) {
-    const threadKey = a[0] as string
-    this.__logger.debug('deleteExistingMessageRanges', threadKey)
-    const threadExists = await this.__papi.db.query.threads.findFirst({
-      where: eq(schema.threads.threadKey, a[0] as string),
-      columns: {
-        threadKey: true,
-        ranges: true,
-      },
-    })
-    if (!threadExists || (threadExists && !threadExists.ranges)) return
-    this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
-  }
-
-  private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
-    const threadKey = a[0] as string
-    const igThreadId = a[1] as string
-    this.__papi.db.update(schema.threads).set({
-      threadKey,
-      igThread: JSON.stringify({ igThreadId }),
-    }).where(eq(schema.threads.threadKey, threadKey)).run()
-    this.__logger.debug('deleteThenInsertIgThreadInfo', { threadKey, igThreadId })
-  }
-
-  private deleteThenInsertMessageRequest(a: SimpleArgType[]) {
-    this.__logger.debug('deleteThenInsertMessageRequest (ignored)', a)
-  }
-
-  private deleteThenInsertContact(a: SimpleArgType[]) {
-    const parsed = {
-      id: a[0] as string,
-      profilePictureUrl: a[2] as string,
-      profilePictureFallbackUrl: a[3] as string,
-      profilePictureUrlExpirationTimestampMs: a[4] as string,
-      profilePictureLargeUrl: a[5] as string,
-      profilePictureLargeFallbackUrl: a[6] as string,
-      profilePictureLargeUrlExpirationTimestampMs: a[7] as string,
-      name: a[9] as string,
-      secondaryName: a[41] as string,
-      normalizedNameForSearch: a[10] as string,
-      normalizedSearchTerms: a[33] as string,
-      isMessengerUser: a[11] as string,
-      isMemorialized: a[12] as string,
-      isManagedByViewer: a[35] as string,
-      blockedByViewerStatus: a[14] as string,
-      rank: a[17] as string,
-      firstName: a[18] as string,
-      contactType: a[19] as string,
-      contactTypeExact: a[20] as string,
-      authorityLevel: a[21] as string,
-      messengerCallLogThirdPartyId: a[22] as string,
-      profileRingColor: a[23] as string,
-      requiresMultiway: a[24] as string,
-      blockedSinceTimestampMs: a[25] as string,
-      fbUnblockedSinceTimestampMs: a[46] as string,
-      canViewerMessage: a[26] as string,
-      profileRingColorExpirationTimestampMs: a[27] as string,
-      phoneNumber: a[28] as string,
-      emailAddress: a[29] as string,
-      workCompanyId: a[30] as string,
-      workCompanyName: a[31] as string,
-      workJobTitle: a[32] as string,
-      deviceContactId: a[34] as string,
-      workForeignEntityType: a[36] as string,
-      capabilities: a[37] as string,
-      capabilities2: a[38] as string,
-      // profileRingState: d[0],
-      contactViewerRelationship: a[39] as string,
-      gender: a[40] as string,
-      contactReachabilityStatusType: a[43] as string,
-      restrictionType: a[44] as string,
-      waConnectStatus: a[45] as string,
-      // isEmployee: !1
-    }
-    const { id, name, profilePictureUrl, secondaryName: username, ...contact } = parsed
-
-    this.__logger.debug('deleteThenInsertContact', a, parsed)
-
-    this.__papi.db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
-    this.__papi.db.insert(schema.contacts).values({
-      raw: JSON.stringify(a),
-      id,
-      name,
-      profilePictureUrl,
-      username,
-      contact: JSON.stringify(contact),
-    } as const).run()
-
-    this.__events.push({
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'participant',
-      objectIDs: { threadID: id },
-      mutationType: 'upsert',
-      entries: [{
-        id,
-        username,
-        fullName: name || username || this.__papi.envOpts.defaultContactName,
-        imgURL: profilePictureUrl,
-      }],
-    })
-  }
-
-  private deleteThenInsertIGContactInfo(a: SimpleArgType[]) {
-    const contactId = a[0] as string
-
-    const igContact = JSON.stringify({
-      igId: a[1] as string,
-      igFollowStatus: a[4] as string,
-      verificationStatus: a[5] as string,
-      linkedFbid: a[2] as string,
-      e2eeEligibility: a[6] as string,
-      supportsE2eeSpamdStorage: a[7] as string,
-    })
-
-    this.__logger.debug('deleteThenInsertIGContactInfo', a)
-
-    // we don't keep it in a separate table, just in the contacts table
-    // since we overwrite the profile, no need to delete first
-    this.__papi.db.insert(schema.contacts).values({
-      id: contactId,
-      igContact,
-    }).onConflictDoUpdate({
-      target: schema.contacts.id,
-      set: { igContact },
-    }).run()
-  }
-
-  private writeThreadCapabilities(a: SimpleArgType[]) {
-    this.__logger.debug('writeThreadCapabilities (ignored)', a)
-  }
-
-  private clearPinnedMessages(a: SimpleArgType[]) {
-    this.__logger.debug('clearPinnedMessages (ignored)', a)
-  }
-
-  private updateLastSyncCompletedTimestampMsToNow(a: SimpleArgType[]) {
-    this.__logger.debug('updateLastSyncCompletedTimestampMsToNow (ignored)', a)
-  }
-
-  private setMessageTextHasLinks(a: SimpleArgType[]) {
-    this.__logger.debug('setMessageTextHasLinks (ignored)', a)
-  }
-
-  private updateAttachmentCtaAtIndexIgnoringAuthority(a: SimpleArgType[]) {
-    this.__logger.debug('updateAttachmentCtaAtIndexIgnoringAuthority (ignored)', a)
-  }
-
-  private updateAttachmentItemCtaAtIndex(a: SimpleArgType[]) {
-    this.__logger.debug('updateAttachmentItemCtaAtIndex (ignored)', a)
-  }
-
-  private deleteMessage(a: SimpleArgType[]) {
-    const threadID = a[0] as string
-    const messageID = a[1] as string
-    this.__logger.debug('deleteMessage', a, { threadID, messageID })
-    this.__papi.db.delete(schema.messages).where(and(
-      eq(schema.messages.threadKey, threadID),
-      eq(schema.messages.messageId, messageID),
-    )).run()
-
-    return () => {
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message',
-        objectIDs: { threadID, messageID },
-        mutationType: 'delete',
-        entries: [messageID],
-      })
-    }
-  }
-
-  private deleteReaction(a: SimpleArgType[]) {
-    const threadID = a[0] as string
-    const messageID = a[1] as string
-    const actorID = a[2] as string
-
-    this.__logger.debug('deleteReaction', a, {
-      threadID,
-      messageID,
-      actorID,
-    })
-
-    this.__papi.db.delete(schema.reactions).where(and(
-      eq(schema.reactions.threadKey, threadID),
-      eq(schema.reactions.messageId, messageID),
-      eq(schema.reactions.actorId, actorID),
-    )).run()
-
-    return () => {
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message_reaction',
-        objectIDs: { threadID, messageID },
-        mutationType: 'delete',
-        entries: [actorID],
-      })
-    }
-  }
-
-  private executeFinallyBlockForSyncTransaction(a: SimpleArgType[]) {
-    this.__logger.debug('executeFinallyBlockForSyncTransaction (ignored)', a)
+  private insertAttachment(a: SimpleArgType[]) {
+    this.__logger.debug('insertAttachment (ignored)', a)
   }
 
   private async insertAttachmentCta(a: SimpleArgType[]) {
@@ -1187,10 +872,6 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('insertAttachmentItem (ignored)', a, i)
   }
 
-  private insertAttachment(a: SimpleArgType[]) {
-    this.__logger.debug('insertAttachment (ignored)', a)
-  }
-
   private insertBlobAttachment(a: SimpleArgType[]) {
     const ba: IGAttachment = {
       raw: JSON.stringify(a),
@@ -1247,6 +928,120 @@ export default class MetaMessengerPayloadHandler {
     return async () => {
       await this.__syncAttachment(ba.threadKey, messageId)
     }
+  }
+
+  private insertIcebreakerData(a: SimpleArgType[]) {
+    this.__logger.debug('insertIcebreakerData (ignored)', a)
+  }
+
+  private insertMessage(a: SimpleArgType[]) {
+    this.__logger.debug('insertMessage', a)
+    return this.__upsertMessageAndSync({
+      raw: JSON.stringify(a),
+      links: null,
+      threadKey: a[3] as string,
+      timestampMs: getAsMS(a[5] as string),
+      messageId: a[8] as string,
+      offlineThreadingId: a[9] as string,
+      authorityLevel: Number(a[2]),
+      primarySortKey: a[6] as string,
+      senderId: a[10] as string,
+      isAdminMessage: Boolean(a[12]),
+      sendStatus: a[15] as string,
+      sendStatusV2: a[16] as string,
+      text: a[0] as string,
+      subscriptErrorMessage: a[1] as string,
+      secondarySortKey: a[7] as string,
+      stickerId: a[11] as string,
+      messageRenderingType: a[13] as string,
+      isUnsent: Boolean(a[17]),
+      unsentTimestampMs: getAsMS(a[18]),
+      mentionOffsets: a[19] as string,
+      mentionLengths: a[20] as string,
+      mentionIds: a[21] as string,
+      mentionTypes: a[22] as string,
+      replySourceId: a[23] as string,
+      replySourceType: a[24] as string,
+      replySourceTypeV2: a[25] as string,
+      replyStatus: a[26] as string,
+      replySnippet: a[27] as string,
+      replyMessageText: a[28] as string,
+      replyToUserId: a[29] as string,
+      replyMediaExpirationTimestampMs: getAsMS(a[30]),
+      replyMediaUrl: a[31] as string,
+      replyMediaPreviewWidth: a[33] as string,
+      replyMediaPreviewHeight: a[34] as string,
+      replyMediaUrlMimeType: a[35] as string,
+      replyMediaUrlFallback: a[36] as string,
+      replyCtaId: a[37] as string,
+      replyCtaTitle: a[38] as string,
+      replyAttachmentType: a[39] as string,
+      replyAttachmentId: a[40] as string,
+      replyAttachmentExtra: a[41] as string,
+      isForwarded: Boolean(a[42]),
+      forwardScore: a[43] as string,
+      hasQuickReplies: Boolean(a[44]),
+      adminMsgCtaId: a[45] as string,
+      adminMsgCtaTitle: a[46] as string,
+      adminMsgCtaType: a[47] as string,
+      cannotUnsendReason: a[48] as string,
+      textHasLinks: Number(a[49]),
+      viewFlags: a[50] as string,
+      displayedContentTypes: a[51] as string,
+      viewedPluginKey: a[52] as string,
+      viewedPluginContext: a[53] as string,
+      quickReplyType: a[54] as string,
+      hotEmojiSize: a[55] as string,
+      replySourceTimestampMs: getAsMS(a[56] as string),
+      ephemeralDurationInSec: a[57] as string,
+      msUntilExpirationTs: getAsMS(a[58] as string),
+      ephemeralExpirationTs: getAsMS(a[59] as string),
+      takedownState: a[60] as string,
+      isCollapsed: Boolean(a[61]),
+      subthreadKey: a[62] as string,
+    })
+  }
+
+  private async insertNewMessageRange(a: SimpleArgType[]) {
+    const msgRange = {
+      threadKey: a[0] as string,
+      minTimestamp: a[1] as string,
+      maxTimestamp: a[2] as string,
+      minMessageId: a[3] as string,
+      maxMessageId: a[4] as string,
+      hasMoreBeforeFlag: Boolean(a[7]),
+      hasMoreAfterFlag: Boolean(a[8]),
+    }
+    this.__logger.debug('insertNewMessageRange', a, msgRange)
+    await this.__papi.api.setMessageRanges(msgRange)
+    await this.__papi.api.resolveMessageRanges(msgRange)
+  }
+
+  private insertSearchResult(a: SimpleArgType[]) {
+    const r = {
+      // query: a[0],
+      id: a[1] as string,
+      // type of [1] is user
+      // type of [2] is group chat
+      type: (String(a[4]) === '1' ? 'user' : String(a[4]) === '2' ? 'group' : 'unknown_user') as SearchArgumentType,
+      fullName: a[5] as string,
+      imgURL: a[6] as string,
+      username: a[8] as string,
+      // messageId: a[9],
+      // messageTimestampMs: new Date(Number(a[10])),
+      // isVerified: Boolean(a[12]),
+    }
+    this.__logger.debug('insertSearchResult', a, r)
+    if (!this.__responses.insertSearchResult || !this.__responses.insertSearchResult.length) this.__responses.insertSearchResult = []
+    this.__responses.insertSearchResult.push(r)
+  }
+
+  private insertSearchSection(a: SimpleArgType[]) {
+    this.__logger.debug('insertSearchSection (ignored)', a)
+  }
+
+  private insertStickerAttachment(a: SimpleArgType[]) {
+    this.__logger.debug('insertStickerAttachment (ignored)', a)
   }
 
   private insertXmaAttachment(a: SimpleArgType[]) {
@@ -1371,23 +1166,11 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
-  private insertSearchResult(a: SimpleArgType[]) {
-    const r = {
-      // query: a[0],
-      id: a[1] as string,
-      // type of [1] is user
-      // type of [2] is group chat
-      type: (String(a[4]) === '1' ? 'user' : String(a[4]) === '2' ? 'group' : 'unknown_user') as SearchArgumentType,
-      fullName: a[5] as string,
-      imgURL: a[6] as string,
-      username: a[8] as string,
-      // messageId: a[9],
-      // messageTimestampMs: new Date(Number(a[10])),
-      // isVerified: Boolean(a[12]),
-    }
-    this.__logger.debug('insertSearchResult', a, r)
-    if (!this.__responses.insertSearchResult || !this.__responses.insertSearchResult.length) this.__responses.insertSearchResult = []
-    this.__responses.insertSearchResult.push(r)
+  private issueError(a: SimpleArgType[]) {
+    // @TODO: we don't know how to parse this error yet
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
+      issuedByMethod: 'issueError',
+    }))
   }
 
   private issueNewError(a: SimpleArgType[]) {
@@ -1402,11 +1185,12 @@ export default class MetaMessengerPayloadHandler {
     }))
   }
 
-  private issueError(a: SimpleArgType[]) {
-    // @TODO: we don't know how to parse this error yet
-    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
-      issuedByMethod: 'issueError',
-    }))
+  private issueNewTask(a: SimpleArgType[]) {
+    this.__logger.debug('issueNewTask (ignored)', a)
+  }
+
+  private mailboxTaskCompletionApiOnTaskCompletion(a: SimpleArgType[]) {
+    this.__logger.debug('mailboxTaskCompletionApiOnTaskCompletion (ignored)', a)
   }
 
   private markOptimisticMessageFailed(a: SimpleArgType[]) {
@@ -1417,27 +1201,16 @@ export default class MetaMessengerPayloadHandler {
     }))
   }
 
-  private handleSyncFailure(a: SimpleArgType[]) {
-    // @TODO: we don't know how to parse this error yet
-    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
-      issuedByMethod: 'handleSyncFailure',
-    }))
+  private markThreadRead(a: SimpleArgType[]) {
+    this.__logger.debug('markThreadRead (ignored)', a)
   }
 
-  private handleFailedTask(a: SimpleArgType[]) {
-    const taskId = a[0] as string
-    const queueName = a[1] as string
-    const errorMessage = a[2] as string
-    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to handle task', `${errorMessage} (task #${this.__requestId}/${taskId} in ${queueName})`, {
-      taskId,
-      queueName,
-      args: JSON.stringify(a),
-      issuedByMethod: 'handleFailedTask',
-    }))
+  private mciTraceLog(a: SimpleArgType[]) {
+    this.__logger.debug('mciTraceLog (ignored)', a)
   }
 
-  private updateTypingIndicator(a: SimpleArgType[]) {
-    this.__logger.debug('updateTypingIndicator (ignored)', a)
+  private moveThreadToInboxAndUpdateParent(a: SimpleArgType[]) {
+    this.__logger.debug('moveThreadToInboxAndUpdateParent (ignored)', a)
   }
 
   private removeOptimisticGroupThread(a: SimpleArgType[]) {
@@ -1477,6 +1250,15 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
+  private removeTask(a: SimpleArgType[]) {
+    const taskId = a[0] as string
+    this.__logger.debug('removeTask (ignored)', a, { taskId })
+  }
+
+  private replaceOptimisticReaction(a: SimpleArgType[]) {
+    this.__logger.debug('replaceOptimisticReaction (ignored)', a)
+  }
+
   private replaceOptimisticThread(a: SimpleArgType[]) {
     const offlineThreadingId = a[0] as string
     const threadId = a[1] as string
@@ -1514,6 +1296,40 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
+  private setForwardScore(a: SimpleArgType[]) {
+    const forwardScore = {
+      threadKey: a[0] as string,
+      messageId: a[1] as string,
+      timestampMs: a[2] as string,
+      forwardScore: a[3] as string,
+    }
+    this.__logger.debug('setForwardScore (ignored)', a, forwardScore)
+  }
+
+  private setHMPSStatus(a: SimpleArgType[]) {
+    this.__logger.debug('setHMPSStatus (ignored)', a)
+  }
+
+  private setMessageDisplayedContentTypes(a: SimpleArgType[]) {
+    this.__logger.debug('setMessageDisplayedContentTypes (ignored)', a)
+  }
+
+  private setMessageTextHasLinks(a: SimpleArgType[]) {
+    this.__logger.debug('setMessageTextHasLinks (ignored)', a)
+  }
+
+  private setPinnedMessage(a: SimpleArgType[]) {
+    this.__logger.debug('setPinnedMessage (ignored)', a)
+  }
+
+  private setRegionHint(a: SimpleArgType[]) {
+    this.__logger.debug('setRegionHint (ignored)', a)
+  }
+
+  private shimCopyAllParticipantNicknamesForThread(a: SimpleArgType[]) {
+    this.__logger.debug('shimCopyAllParticipantNicknamesForThread (ignored)', a)
+  }
+
   private syncUpdateThreadName(a: SimpleArgType[]) {
     const t = {
       threadName: a[0] as string,
@@ -1522,8 +1338,69 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('syncUpdateThreadName (ignored)', a, t)
   }
 
+  private taskExists(a: SimpleArgType[]) {
+    const taskId = a[0] as string
+    this.__logger.debug('taskExists (ignored)', a, { taskId })
+  }
+
+  private threadsRangesQuery(a: SimpleArgType[]) {
+    this.__logger.debug('threadsRangesQuery (ignored)', a)
+  }
+
+  private transportHybridParticipantUpdateReceipts(a: SimpleArgType[]) {
+    this.__logger.debug('transportHybridParticipantUpdateReceipts (ignored)', a)
+  }
+
+  private truncateMetadataThreads(a: SimpleArgType[]) {
+    this.__logger.debug('truncateMetadataThreads (ignored)', a)
+  }
+
+  private truncatePresenceDatabase(a: SimpleArgType[]) {
+    this.__logger.debug('truncatePresenceDatabase (ignored)', a)
+  }
+
+  private truncateTablesForSyncGroup(a: SimpleArgType[]) {
+    this.__logger.debug('truncateTablesForSyncGroup (ignored)', a)
+  }
+
+  private truncateThreadRangeTablesForSyncGroup(a: SimpleArgType[]) {
+    this.__logger.debug('truncateThreadRangeTablesForSyncGroup (ignored)', a)
+  }
+
+  private updateAttachmentCtaAtIndexIgnoringAuthority(a: SimpleArgType[]) {
+    this.__logger.debug('updateAttachmentCtaAtIndexIgnoringAuthority (ignored)', a)
+  }
+
+  private updateAttachmentItemCtaAtIndex(a: SimpleArgType[]) {
+    this.__logger.debug('updateAttachmentItemCtaAtIndex (ignored)', a)
+  }
+
+  private updateCommunityThreadStaleState(a: SimpleArgType[]) {
+    this.__logger.debug('updateCommunityThreadStaleState (ignored)', a)
+  }
+
   private updateDeliveryReceipt(a: SimpleArgType[]) {
     this.__logger.debug('updateDeliveryReceipt (ignored)', a)
+  }
+
+  private async updateExistingMessageRange(a: SimpleArgType[]) {
+    const isMaxTimestamp = Boolean(a[2])
+    const timestamp = a[1] as string
+    const msgRange = {
+      threadKey: a[0] as string,
+      hasMoreBeforeFlag: a[2] && !a[3],
+      hasMoreAfterFlag: !a[2] && !a[3],
+      maxTimestamp: isMaxTimestamp ? timestamp : undefined,
+      minTimestamp: !isMaxTimestamp ? timestamp : undefined,
+    }
+
+    this.__logger.debug('updateExistingMessageRange', a, msgRange)
+    await this.__papi.api.setMessageRanges(msgRange)
+    await this.__papi.api.resolveMessageRanges(msgRange)
+  }
+
+  private updateExtraAttachmentColumns(a: SimpleArgType[]) {
+    this.__logger.debug('updateExtraAttachmentColumns (ignored)', a)
   }
 
   private updateFilteredThreadsRanges(a: SimpleArgType[]) {
@@ -1539,6 +1416,159 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('updateFilteredThreadsRanges (ignored)', a, b)
   }
 
+  private updateForRollCallMessageDeleted(a: SimpleArgType[]) {
+    this.__logger.debug('updateForRollCallMessageDeleted (ignored)', a)
+  }
+
+  private updateLastSyncCompletedTimestampMsToNow(a: SimpleArgType[]) {
+    this.__logger.debug('updateLastSyncCompletedTimestampMsToNow (ignored)', a)
+  }
+
+  private updateMessagesOptimisticContext(a: SimpleArgType[]) {
+    this.__logger.debug('updateMessagesOptimisticContext (ignored)', a)
+  }
+
+  private updateOptimisticEphemeralMediaState(a: SimpleArgType[]) {
+    this.__logger.debug('updateOptimisticEphemeralMediaState (ignored)', a)
+  }
+
+  private updateOrInsertThread(a: SimpleArgType[]) {
+    this.deleteThenInsertThread(a)
+  }
+
+  private updateParentFolderReadWatermark(a: SimpleArgType[]) {
+    this.__logger.debug('updateParentFolderReadWatermark (ignored)', a)
+  }
+
+  private updateParticipantCapabilities(a: SimpleArgType[]) {
+    this.__logger.debug('updateParticipantCapabilities (ignored)', a)
+  }
+
+  private updateParticipantLastMessageSendTimestamp(a: SimpleArgType[]) {
+    this.__logger.debug('updateParticipantLastMessageSendTimestamp (ignored)', a)
+  }
+
+  private updatePreviewUrl(a: SimpleArgType[]) {
+    this.__logger.debug('updatePreviewUrl (ignored)', a)
+  }
+
+  private updateReadReceipt(a: SimpleArgType[]) {
+    const r: IGReadReceipt = {
+      readWatermarkTimestampMs: getAsDate(a[0] as string), // last message logged in user has read from
+      threadKey: a[1] as string,
+      contactId: a[2] as string,
+      readActionTimestampMs: getAsDate(a[3] as string),
+    }
+
+    this.__logger.debug('updateReadReceipt', a, r)
+
+    this.__papi.db.update(schema.participants).set({
+      readActionTimestampMs: r.readActionTimestampMs,
+      readWatermarkTimestampMs: r.readWatermarkTimestampMs,
+    })
+      .where(and(
+        eq(schema.participants.threadKey, r.threadKey),
+        eq(schema.participants.userId, r.contactId),
+      )).run()
+    if (!r.readActionTimestampMs) return
+
+    return async () => {
+      if (this.__threadsToSync.has(r.threadKey)) return
+      const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
+      if (!newestMessage) return
+      if (this.__messagesToSync.has(newestMessage.id)) return
+
+      const readOn = r.readActionTimestampMs || UNKNOWN_DATE
+
+      if (newestMessage.seen === true) return
+      if (typeof newestMessage.seen !== 'boolean') {
+        if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
+        if (!(newestMessage.seen instanceof Date) && r.contactId in newestMessage.seen) {
+          const contactSeen = newestMessage.seen[r.contactId]
+          if (contactSeen === true) return
+          if (
+            typeof contactSeen !== 'boolean'
+            && contactSeen instanceof Date
+            && contactSeen.getTime?.() >= readOn.getTime()
+          ) return
+        }
+      }
+
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'message_seen',
+        mutationType: 'upsert',
+        objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
+        entries: [{ [r.contactId]: r.readActionTimestampMs || UNKNOWN_DATE }],
+      })
+    }
+  }
+
+  private updateSearchQueryStatus(a: SimpleArgType[]) {
+    const s = { statusPrimary: a[2] as string, endTimeMs: a[3] as string, resultCount: a[4] as string }
+    this.__logger.debug('updateSearchQueryStatus (ignored)', s, a)
+  }
+
+  private updateSelectiveSyncState(a: SimpleArgType[]) {
+    this.__logger.debug('updateSelectiveSyncState (ignored)', a)
+  }
+
+  private updateSubscriptErrorMessage(a: SimpleArgType[]) {
+    const parsed = {
+      threadKey: a[0] as string,
+      offlineThreadingID: a[1] as string,
+      errorMessage: a[2] as string,
+    }
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, parsed.errorMessage))
+  }
+
+  private updateThreadApprovalMode(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadApprovalMode (ignored)', a)
+  }
+
+  private updateThreadAuthorityAndMappingWithOTIDFromJID(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadAuthorityAndMappingWithOTIDFromJID (ignored)', a)
+  }
+
+  private updateThreadInviteLinksInfo(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadInviteLinksInfo (ignored)', a)
+  }
+
+  private updateThreadMuteSetting(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadMuteSetting', a)
+    const threadKey = a[0] as string
+    const muteExpireTimeMs = getAsMS(a[1])
+
+    return () => {
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'thread',
+        objectIDs: {},
+        mutationType: 'update',
+        entries: [{
+          id: threadKey,
+          mutedUntil: muteExpireTimeMs === -1 ? 'forever' : new Date(muteExpireTimeMs),
+        }],
+      })
+    }
+  }
+
+  private updateThreadNullState(a: SimpleArgType[]) {
+    const parsed: Partial<IGThread> = {
+      threadPictureUrl: a[1] as string,
+      threadPictureUrlFallback: a[2] as string,
+      threadPictureUrlExpirationTimestampMs: Number(a[3]),
+      nullstateDescriptionText1: a[4] as string,
+      nullstateDescriptionType1: a[9] as string,
+      nullstateDescriptionText2: a[5] as string,
+      nullstateDescriptionType2: a[10] as string,
+      nullstateDescriptionText3: a[6] as string,
+      nullstateDescriptionType3: a[11] as string,
+      capabilities: a[14] as string,
+    }
+    this.__logger.debug('updateThreadNullState (ignored)', a, parsed)
+  }
+
   private updateThreadParticipantAdminStatus(a: SimpleArgType[]) {
     const b = {
       threadKey: a[0] as string,
@@ -1546,6 +1576,117 @@ export default class MetaMessengerPayloadHandler {
       isAdmin: Boolean(a[2]),
     }
     this.__logger.debug('updateThreadParticipantAdminStatus (ignored)', a, b)
+  }
+
+  private updateThreadSnippet(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadSnippet (ignored)', a)
+  }
+
+  private updateThreadSnippetFromLastMessage(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadSnippetFromLastMessage (ignored)', a)
+  }
+
+  private updateThreadsRangesV2(a: SimpleArgType[]) {
+    this.__logger.debug('updateThreadsRangesV2 (ignored)', a)
+  }
+
+  private updateTypingIndicator(a: SimpleArgType[]) {
+    this.__logger.debug('updateTypingIndicator (ignored)', a)
+  }
+
+  private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {
+    this.__logger.debug('updateUnsentMessageCollapsedStatus (ignored)', a)
+  }
+
+  private upsertFolder(a: SimpleArgType[]) {
+    this.__logger.debug('upsertFolder (ignored)', a)
+  }
+
+  private upsertFolderSeenTimestamp(a: SimpleArgType[]) {
+    this.__logger.debug('upsertFolderSeenTimestamp (ignored)', a)
+  }
+
+  private upsertGradientColor(a: SimpleArgType[]) {
+    this.__logger.debug('upsertGradientColor (ignored)', a)
+  }
+
+  private upsertInboxThreadsRange(a: SimpleArgType[]) {
+    this.__logger.debug('upsertInboxThreadsRange (ignored)', a)
+  }
+
+  private upsertMessage(a: SimpleArgType[]) {
+    const m: IGMessage = {
+      links: null,
+      raw: JSON.stringify(a),
+      threadKey: a[3] as string,
+      timestampMs: getAsMS(a[5]),
+      messageId: a[8] as string,
+      offlineThreadingId: a[9] as string,
+      authorityLevel: Number(a[2]),
+      primarySortKey: a[6] as string,
+      senderId: a[10] as string,
+      isAdminMessage: Boolean(a[12]),
+      sendStatus: a[15] as string,
+      sendStatusV2: a[16] as string,
+      text: a[0] as string,
+      subscriptErrorMessage: a[1] as string,
+      secondarySortKey: a[7] as string,
+      stickerId: a[11] as string,
+      messageRenderingType: a[13] as string,
+      isUnsent: Boolean(a[17]),
+      unsentTimestampMs: getAsMS(a[18]),
+      mentionOffsets: a[19] as string,
+      mentionLengths: a[20] as string,
+      mentionIds: a[21] as string,
+      mentionTypes: a[22] as string,
+      replySourceId: a[23] as string,
+      replySourceType: a[24] as string,
+      replySourceTypeV2: a[25] as string,
+      replyStatus: a[26] as string,
+      replySnippet: a[27] as string,
+      replyMessageText: a[28] as string,
+      replyToUserId: a[29] as string,
+      replyMediaExpirationTimestampMs: getAsMS(a[30]),
+      replyMediaUrl: a[31] as string,
+      replyMediaPreviewWidth: a[33] as string,
+      replyMediaPreviewHeight: a[34] as string,
+      replyMediaUrlMimeType: a[35] as string,
+      replyMediaUrlFallback: a[36] as string,
+      replyCtaId: a[37] as string,
+      replyCtaTitle: a[38] as string,
+      replyAttachmentType: a[39] as string,
+      replyAttachmentId: a[40] as string,
+      replyAttachmentExtra: a[41] as string,
+      replyType: a[42] as string,
+      isForwarded: Boolean(a[43]),
+      forwardScore: a[44] as string,
+      hasQuickReplies: Boolean(a[45]),
+      adminMsgCtaId: a[46] as string,
+      adminMsgCtaTitle: a[47] as string,
+      adminMsgCtaType: a[48] as string,
+      cannotUnsendReason: a[49] as string,
+      textHasLinks: Number(a[50]),
+      viewFlags: a[51] as string,
+      displayedContentTypes: a[52] as string,
+      viewedPluginKey: a[53] as string,
+      viewedPluginContext: a[54] as string,
+      quickReplyType: a[55] as string,
+      hotEmojiSize: a[56] as string,
+      replySourceTimestampMs: getAsMS(a[57]),
+      ephemeralDurationInSec: a[58] as string,
+      msUntilExpirationTs: getAsMS(a[59]),
+      ephemeralExpirationTs: getAsMS(a[60]),
+      takedownState: a[61] as string,
+      isCollapsed: Boolean(a[62]),
+      subthreadKey: a[63] as string,
+    }
+    const { messageId } = this.__papi.api.upsertMessage(m)
+    this.__messagesToSync.add(messageId)
+    this.__logger.debug('upsertMessage', m.threadKey, messageId, m.timestampMs, m.text)
+  }
+
+  private upsertProfileBadge(a: SimpleArgType[]) {
+    this.__logger.debug('upsertProfileBadge (ignored)', a)
   }
 
   private upsertReaction(a: SimpleArgType[]) {
@@ -1588,6 +1729,89 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
+  private upsertSequenceId(a: SimpleArgType[]) {
+    this.__logger.debug('upsertSequenceId (ignored)', a)
+  }
+
+  private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
+    const range = {
+      syncGroup: a[0] as SyncGroup,
+      parentThreadKey: a[1] as ParentThreadKey,
+      minLastActivityTimestampMs: a[2] as string,
+      hasMoreBefore: Boolean(a[3]),
+      isLoadingBefore: Boolean(a[4]),
+      minThreadKey: a[5] as string,
+    }
+    this.__logger.debug('upsertSyncGroupThreadsRange', a)
+    this.__papi.api.setSyncGroupThreadsRange(range)
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  private upsertTheme(_a: SimpleArgType[]) {
+    // don't care about themes, spams the logs
+    // this.__logger.debug('upsertTheme (ignored)', a)
+  }
+
+  private verifyCommunityMemberContextualProfileExists(a: SimpleArgType[]) {
+    this.__logger.debug('verifyCommunityMemberContextualProfileExists (ignored)', a)
+  }
+
+  private verifyContactParticipantExist(a: SimpleArgType[]) {
+    this.__logger.debug('verifyContactParticipantExist (ignored)', a)
+  }
+
+  private verifyContactRowExists(a: SimpleArgType[]) {
+    this.__logger.debug('verifyContactRowExists', a)
+    const parsed = {
+      raw: JSON.stringify(a),
+      id: a[0],
+      profilePictureUrl: a[2] == null ? '' : a[2],
+      name: a[3],
+      username: a[20],
+      profilePictureFallbackUrl: a[5],
+      // name: d[0],
+      secondaryName: a[20],
+      // normalizedNameForSearch: d[0],
+      isMemorialized: a[9],
+      blockedByViewerStatus: a[11],
+      canViewerMessage: a[12],
+      // profilePictureLargeUrl: '',
+      // isMessengerUser: !0,
+      // rank: 0,
+      contactType: a[4],
+      // contactTypeExact: c.i64.cast([0, 0]),
+      // requiresMultiway: !1,
+      authorityLevel: a[14],
+      // workForeignEntityType: c.i64.cast([0, 0]),
+      capabilities: a[15],
+      capabilities2: a[16],
+      contactViewerRelationship: a[19],
+      gender: a[18],
+    }
+    const { id, raw, name, profilePictureUrl, username, ...contact } = parsed
+    const c = {
+      id: id as string,
+      raw: raw as string,
+      name: name as string,
+      profilePictureUrl: profilePictureUrl as string,
+      username: username as string,
+      contact: JSON.stringify(contact),
+    } as const
+
+    this.__papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
+      target: schema.contacts.id,
+      set: { ...c },
+    }).run()
+
+    return () => {
+      // this._syncContact(contactId)
+    }
+  }
+
+  private verifyHybridThreadExists(a: SimpleArgType[]) {
+    this.__logger.debug('verifyHybridThreadExists (ignored)', a)
+  }
+
   private verifyThreadExists(a: SimpleArgType[]) {
     this.__logger.debug('verifyThreadExists', a)
     const threadId = a[0] as string
@@ -1602,208 +1826,12 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
-  private getFirstAvailableAttachmentCTAID(a: SimpleArgType[]) {
-    this.__logger.debug('getFirstAvailableAttachmentCTAID (ignored)', a)
-  }
-
-  private hasMatchingAttachmentCTA(a: SimpleArgType[]) {
-    this.__logger.debug('hasMatchingAttachmentCTA (ignored)', a)
-  }
-
-  private computeDelayForTask(a: SimpleArgType[]) {
-    this.__logger.debug('computeDelayForTask (ignored)', a)
-  }
-
-  private checkAuthoritativeMessageExists(a: SimpleArgType[]) {
-    this.__logger.debug('checkAuthoritativeMessageExists (ignored)', a)
-  }
-
-  private markThreadRead(a: SimpleArgType[]) {
-    this.__logger.debug('markThreadRead (ignored)', a)
-  }
-
-  private moveThreadToInboxAndUpdateParent(a: SimpleArgType[]) {
-    this.__logger.debug('moveThreadToInboxAndUpdateParent (ignored)', a)
-  }
-
-  private setRegionHint(a: SimpleArgType[]) {
-    this.__logger.debug('setRegionHint (ignored)', a)
-  }
-
-  private updateMessagesOptimisticContext(a: SimpleArgType[]) {
-    this.__logger.debug('updateMessagesOptimisticContext (ignored)', a)
-  }
-
-  private updateParentFolderReadWatermark(a: SimpleArgType[]) {
-    this.__logger.debug('updateParentFolderReadWatermark (ignored)', a)
-  }
-
-  private updateParticipantLastMessageSendTimestamp(a: SimpleArgType[]) {
-    this.__logger.debug('updateParticipantLastMessageSendTimestamp (ignored)', a)
-  }
-
-  private updateThreadSnippet(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadSnippet (ignored)', a)
-  }
-
   private writeCTAIdToThreadsTable(a: SimpleArgType[]) {
     const i = { lastMessageCtaType: a[1], lastMessageCtaTimestampMs: a[2] }
     this.__logger.debug('writeCTAIdToThreadsTable (ignored)', a, i)
   }
 
-  private bumpThread(a: SimpleArgType[]) {
-    this.__logger.debug('bumpThread (ignored)', a)
-  }
-
-  private insertSearchSection(a: SimpleArgType[]) {
-    this.__logger.debug('insertSearchSection (ignored)', a)
-  }
-
-  private updateSearchQueryStatus(a: SimpleArgType[]) {
-    const s = { statusPrimary: a[2] as string, endTimeMs: a[3] as string, resultCount: a[4] as string }
-    this.__logger.debug('updateSearchQueryStatus (ignored)', s, a)
-  }
-
-  private upsertGradientColor(a: SimpleArgType[]) {
-    this.__logger.debug('upsertGradientColor (ignored)', a)
-  }
-
-  private mailboxTaskCompletionApiOnTaskCompletion(a: SimpleArgType[]) {
-    this.__logger.debug('mailboxTaskCompletionApiOnTaskCompletion (ignored)', a)
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  private upsertTheme(_a: SimpleArgType[]) {
-    // don't care about themes, spams the logs
-    // this.__logger.debug('upsertTheme (ignored)', a)
-  }
-
-  private truncatePresenceDatabase(a: SimpleArgType[]) {
-    this.__logger.debug('truncatePresenceDatabase (ignored)', a)
-  }
-
-  private appendDataTraceAddon(a: SimpleArgType[]) {
-    this.__logger.debug('appendDataTraceAddon (ignored)', a)
-  }
-
-  private replaceOptimisticReaction(a: SimpleArgType[]) {
-    this.__logger.debug('replaceOptimisticReaction (ignored)', a)
-  }
-
-  private issueNewTask(a: SimpleArgType[]) {
-    this.__logger.debug('issueNewTask (ignored)', a)
-  }
-
-  private updateCommunityThreadStaleState(a: SimpleArgType[]) {
-    this.__logger.debug('updateCommunityThreadStaleState (ignored)', a)
-  }
-
-  private updateThreadNullState(a: SimpleArgType[]) {
-    const parsed: Partial<IGThread> = {
-      threadPictureUrl: a[1] as string,
-      threadPictureUrlFallback: a[2] as string,
-      threadPictureUrlExpirationTimestampMs: Number(a[3]),
-      nullstateDescriptionText1: a[4] as string,
-      nullstateDescriptionType1: a[9] as string,
-      nullstateDescriptionText2: a[5] as string,
-      nullstateDescriptionType2: a[10] as string,
-      nullstateDescriptionText3: a[6] as string,
-      nullstateDescriptionType3: a[11] as string,
-      capabilities: a[14] as string,
-    }
-    this.__logger.debug('updateThreadNullState (ignored)', a, parsed)
-  }
-
-  private updateSelectiveSyncState(a: SimpleArgType[]) {
-    this.__logger.debug('updateSelectiveSyncState (ignored)', a)
-  }
-
-  private updateExtraAttachmentColumns(a: SimpleArgType[]) {
-    this.__logger.debug('updateExtraAttachmentColumns (ignored)', a)
-  }
-
-  private updateSubscriptErrorMessage(a: SimpleArgType[]) {
-    const parsed = {
-      threadKey: a[0] as string,
-      offlineThreadingID: a[1] as string,
-      errorMessage: a[2] as string,
-    }
-    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, parsed.errorMessage))
-  }
-
-  private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {
-    this.__logger.debug('updateUnsentMessageCollapsedStatus (ignored)', a)
-  }
-
-  private handleRepliesOnUnsend(a: SimpleArgType[]) {
-    this.__logger.debug('handleRepliesOnUnsend (ignored)', a)
-  }
-
-  private updateForRollCallMessageDeleted(a: SimpleArgType[]) {
-    this.__logger.debug('updateForRollCallMessageDeleted (ignored)', a)
-  }
-
-  private updateOptimisticEphemeralMediaState(a: SimpleArgType[]) {
-    this.__logger.debug('updateOptimisticEphemeralMediaState (ignored)', a)
-  }
-
-  private updateThreadSnippetFromLastMessage(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadSnippetFromLastMessage (ignored)', a)
-  }
-
-  private updateThreadApprovalMode(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadApprovalMode (ignored)', a)
-  }
-
-  private updateParticipantCapabilities(a: SimpleArgType[]) {
-    this.__logger.debug('updateParticipantCapabilities (ignored)', a)
-  }
-
-  private updateThreadInviteLinksInfo(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadInviteLinksInfo (ignored)', a)
-  }
-
-  private updateOrInsertThread(a: SimpleArgType[]) {
-    this.deleteThenInsertThread(a)
-  }
-
-  private setPinnedMessage(a: SimpleArgType[]) {
-    this.__logger.debug('setPinnedMessage (ignored)', a)
-  }
-
-  private truncateMetadataThreads(a: SimpleArgType[]) {
-    this.__logger.debug('truncateMetadataThreads (ignored)', a)
-  }
-
-  private truncateThreadRangeTablesForSyncGroup(a: SimpleArgType[]) {
-    this.__logger.debug('truncateThreadRangeTablesForSyncGroup (ignored)', a)
-  }
-
-  private updateThreadAuthorityAndMappingWithOTIDFromJID(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadAuthorityAndMappingWithOTIDFromJID (ignored)', a)
-  }
-
-  private transportHybridParticipantUpdateReceipts(a: SimpleArgType[]) {
-    this.__logger.debug('transportHybridParticipantUpdateReceipts (ignored)', a)
-  }
-
-  private shimCopyAllParticipantNicknamesForThread(a: SimpleArgType[]) {
-    this.__logger.debug('shimCopyAllParticipantNicknamesForThread (ignored)', a)
-  }
-
-  private hybridThreadDelete(a: SimpleArgType[]) {
-    this.__logger.debug('hybridThreadDelete (ignored)', a)
-  }
-
-  private upsertFolder(a: SimpleArgType[]) {
-    this.__logger.debug('upsertFolder (ignored)', a)
-  }
-
-  private verifyHybridThreadExists(a: SimpleArgType[]) {
-    this.__logger.debug('verifyHybridThreadExists (ignored)', a)
-  }
-
-  private insertStickerAttachment(a: SimpleArgType[]) {
-    this.__logger.debug('insertStickerAttachment (ignored)', a)
+  private writeThreadCapabilities(a: SimpleArgType[]) {
+    this.__logger.debug('writeThreadCapabilities (ignored)', a)
   }
 }
