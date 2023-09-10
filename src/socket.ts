@@ -23,7 +23,7 @@ import EnvOptions from './env'
 
 const MAX_RETRY_ATTEMPTS = 12
 
-type IGSocketTask = {
+type MMSocketTask = {
   label: string
   payload: string
   queue_name: string
@@ -495,7 +495,7 @@ export default class MetaMessengerWebSocket {
       .get()
 
     // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
-    await this.publishTask(RequestResolverType.ADD_REACTION, {
+    await this.publishTask(RequestResolverType.ADD_REACTION, [{
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -512,7 +512,7 @@ export default class MetaMessengerWebSocket {
       ]),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   // async createThread(userId: string) {
@@ -532,7 +532,7 @@ export default class MetaMessengerWebSocket {
   async createGroupThread(participants: string[]) {
     const { otid, now } = getTimeValues()
     const thread_id = genClientContext()
-    const response = await this.publishTask(RequestResolverType.CREATE_GROUP_THREAD, {
+    const response = await this.publishTask(RequestResolverType.CREATE_GROUP_THREAD, [{
       label: '130',
       payload: JSON.stringify({
         participants,
@@ -546,7 +546,7 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_id.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
     this.logger.debug('create group thread response', response)
     return { now, offlineThreadingId: response?.replaceOptimisticThread?.offlineThreadingId, threadId: response?.replaceOptimisticThread?.threadId }
   }
@@ -593,8 +593,7 @@ export default class MetaMessengerWebSocket {
   }
 
   // used for get messages and get threads
-  async publishTask(type: RequestResolverType, _tasks: IGSocketTask | IGSocketTask[]) {
-    const tasks = Array.isArray(_tasks) ? _tasks.filter(Boolean) : [_tasks]
+  async publishTask(type: RequestResolverType, tasks: MMSocketTask[]) {
     const { epoch_id } = getTimeValues()
     const { promise, request_id } = this.createRequest(type)
 
@@ -630,7 +629,7 @@ export default class MetaMessengerWebSocket {
 
     if (!ranges) return
 
-    return this.publishTask(RequestResolverType.FETCH_MESSAGES, {
+    return this.publishTask(RequestResolverType.FETCH_MESSAGES, [{
       label: '228',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -643,7 +642,7 @@ export default class MetaMessengerWebSocket {
       queue_name: `mrq.${threadID}`,
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   fetchInitialThreads = () => this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
@@ -822,7 +821,7 @@ export default class MetaMessengerWebSocket {
   }
 
   async muteThread(thread_key: string, mute_expiration_time_ms: -1 | 0) {
-    await this.publishTask(RequestResolverType.MUTE_THREAD, {
+    await this.publishTask(RequestResolverType.MUTE_THREAD, [{
       label: '144',
       payload: JSON.stringify({
         thread_key: Number(thread_key),
@@ -833,12 +832,12 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
     // listen for the response updateThreadMuteSetting
   }
 
   async setThreadName(thread_key: string, thread_name: string) {
-    await this.publishTask(RequestResolverType.SET_THREAD_NAME, {
+    await this.publishTask(RequestResolverType.SET_THREAD_NAME, [{
       label: '32',
       payload: JSON.stringify({
         thread_key,
@@ -847,12 +846,12 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
     // listen for the response syncUpdateThreadName
   }
 
   async changeAdminStatus(thread_key: string, contact_id: string, is_admin: boolean) {
-    await this.publishTask(RequestResolverType.SET_ADMIN_STATUS, {
+    await this.publishTask(RequestResolverType.SET_ADMIN_STATUS, [{
       label: '25',
       payload: JSON.stringify({
         thread_key,
@@ -862,13 +861,13 @@ export default class MetaMessengerWebSocket {
       queue_name: 'admin_status',
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
 
     // listen for the response updateThreadParticipantAdminStatus
   }
 
   async addParticipants(thread_key: string, contact_ids: string[]) {
-    await this.publishTask(RequestResolverType.ADD_PARTICIPANTS, {
+    await this.publishTask(RequestResolverType.ADD_PARTICIPANTS, [{
       label: '23',
       payload: JSON.stringify({
         thread_key,
@@ -878,12 +877,12 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
     // listen for the response addParticipantIdToGroupThread
   }
 
   async removeParticipant(threadID: string, userID: string) {
-    await this.publishTask(RequestResolverType.REMOVE_PARTICIPANT, {
+    await this.publishTask(RequestResolverType.REMOVE_PARTICIPANT, [{
       label: '140',
       payload: JSON.stringify({
         thread_id: threadID,
@@ -892,12 +891,12 @@ export default class MetaMessengerWebSocket {
       queue_name: 'remove_participant_v2',
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
     // listen for the response removeParticipantFromThread
   }
 
   async unsendMessage(messageId: string) {
-    await this.publishTask(RequestResolverType.UNSEND_MESSAGE, {
+    await this.publishTask(RequestResolverType.UNSEND_MESSAGE, [{
       label: '33',
       payload: JSON.stringify({
         message_id: messageId,
@@ -905,11 +904,11 @@ export default class MetaMessengerWebSocket {
       queue_name: 'unsend_message',
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   async getThread(threadKey: string) {
-    return this.publishTask(RequestResolverType.GET_NEW_THREAD, {
+    return this.publishTask(RequestResolverType.GET_NEW_THREAD, [{
       label: '209',
       payload: JSON.stringify({
         thread_fbid: threadKey,
@@ -922,11 +921,11 @@ export default class MetaMessengerWebSocket {
       queue_name: threadKey.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   async deleteThread(thread_key: string) {
-    return this.publishTask(RequestResolverType.DELETE_THREAD, {
+    return this.publishTask(RequestResolverType.DELETE_THREAD, [{
       label: '146',
       payload: JSON.stringify({
         thread_key,
@@ -936,7 +935,7 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_key.toString(),
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   async searchUsers(query: string) {
@@ -951,20 +950,21 @@ export default class MetaMessengerWebSocket {
     })
 
     const [primary, secondary] = await Promise.all([
-      this.publishTask(RequestResolverType.SEARCH_USERS_PRIMARY, {
+      this.publishTask(RequestResolverType.SEARCH_USERS_PRIMARY, [{
         label: '30',
         payload,
         queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
         task_id: this.genTaskId(),
         failure_count: null,
-      }),
-      this.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, {
+      }]),
+      this.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, [{
         label: '31',
         payload,
         queue_name: JSON.stringify(['search_secondary']),
         task_id: this.genTaskId(),
         failure_count: null,
-      })])
+      }]),
+    ])
 
     return [
       ...(primary?.insertSearchResult ?? []),
@@ -973,7 +973,7 @@ export default class MetaMessengerWebSocket {
   }
 
   async sendReadReceipt(thread_id: string, last_read_watermark_ts: number) {
-    await this.publishTask(RequestResolverType.SEND_READ_RECEIPT, {
+    await this.publishTask(RequestResolverType.SEND_READ_RECEIPT, [{
       label: '21',
       payload: JSON.stringify({
         thread_id,
@@ -983,7 +983,7 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_id,
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   // not sure exactly what this does, but it's required.
@@ -1053,7 +1053,7 @@ export default class MetaMessengerWebSocket {
   // prefer this.approveThread
   // since we pretend General and Primary are the same, this method is unused
   async changeThreadFolder(thread_key: string, old_ig_folder: number, new_ig_folder: number) {
-    await this.publishTask(RequestResolverType.SET_THREAD_FOLDER, {
+    await this.publishTask(RequestResolverType.SET_THREAD_FOLDER, [{
       label: '511',
       payload: JSON.stringify({
         thread_key,
@@ -1064,11 +1064,11 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_key,
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   async approveThread(thread_key: string) {
-    await this.publishTask(RequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, {
+    await this.publishTask(RequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, [{
       label: '66',
       payload: JSON.stringify({
         thread_key,
@@ -1078,7 +1078,7 @@ export default class MetaMessengerWebSocket {
       queue_name: 'message_request',
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   /**
@@ -1090,7 +1090,7 @@ export default class MetaMessengerWebSocket {
     if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('messageID is required')
 
     const { otid } = getTimeValues()
-    await this.publishTask(RequestResolverType.FORWARD_MESSAGE, {
+    await this.publishTask(RequestResolverType.FORWARD_MESSAGE, [{
       label: '46',
       payload: JSON.stringify({
         thread_id,
@@ -1105,7 +1105,7 @@ export default class MetaMessengerWebSocket {
       queue_name: thread_id,
       task_id: this.genTaskId(),
       failure_count: null,
-    })
+    }])
   }
 
   waitForMessageRange(threadKey: string) {
