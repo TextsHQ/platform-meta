@@ -140,14 +140,20 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('getThreads', { folderName, _folderName, pagination })
 
     const isSpam = folderName === InboxName.REQUESTS
-    if (this.env === 'IG') {
+    try {
+      let promise: Promise<unknown>
       if (isSpam) {
-        await this.socket.fetchSpamThreads()
+        promise = this.socket.fetchSpamThreads()
       } else if (pagination) {
-        await this.socket.fetchMoreThreads()
+        promise = this.socket.fetchMoreThreads()
       } else {
-        await this.socket.fetchInitialThreads()
+        promise = this.socket.fetchInitialThreads()
       }
+      if (this.env === 'IG') {
+        await promise
+      }
+    } catch (err) {
+      this.logger.error(err)
     }
 
     const sg1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)

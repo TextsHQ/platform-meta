@@ -9,7 +9,7 @@ const info: PlatformInfo = {
   displayName: 'Instagram',
   icon,
   browserLogin: {
-    url: 'https://www.instagram.com',
+    url: 'https://instagram.com',
     authCookieName: 'sessionid',
   },
   notifications: {

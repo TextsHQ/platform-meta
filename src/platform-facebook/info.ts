@@ -5,7 +5,7 @@ import icon from './icon'
 const info: PlatformInfo = {
   ...infoDefaults,
   browserLogin: {
-    url: 'https://www.facebook.com',
+    url: 'https://facebook.com',
     authCookieName: 'c_user',
   },
   name: 'facebookdotcom',

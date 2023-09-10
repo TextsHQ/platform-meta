@@ -4,7 +4,7 @@ import infoDefaults from '../info'
 const info: PlatformInfo = {
   ...infoDefaults,
   browserLogin: {
-    url: 'https://www.messenger.com',
+    url: 'https://messenger.com',
     authCookieName: 'c_user',
   },
   name: 'fb-messenger',
