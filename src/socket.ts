@@ -125,47 +125,33 @@ export default class MetaMessengerWebSocket {
     // just not resetting mirrors the ig web behavior
     // this.lastTaskId = 0
     // this.lastRequestId = 0
-    if (this.papi.env === 'IG') {
-      this.ws = new WebSocket(
-        `wss://edge-chat.instagram.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}`,
-        {
-          origin: 'https://www.instagram.com',
-          headers: {
-            Host: 'edge-chat.instagram.com',
-            Connection: 'Upgrade',
-            Pragma: 'no-cache',
-            'Cache-Control': 'no-cache',
-            Upgrade: 'websocket',
-            Origin: 'https://www.instagram.com',
-            'Sec-WebSocket-Version': '13',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'en',
-            'User-Agent': this.papi.api.ua,
-            Cookie: this.papi.api.getCookies(),
-          },
+
+    const endpoint = new URL(this.papi.api.config.mqttEndpoint)
+    const endpointParams = new URLSearchParams(endpoint.searchParams)
+    endpointParams.append('sid', this.mqttSid.toString())
+    endpointParams.append('cid', this.papi.kv.get('clientId'))
+    endpoint.search = endpointParams.toString()
+    const { domain } = this.papi.envOpts
+    const origin = `https://${domain}`
+    this.ws = new WebSocket(
+      endpoint.toString(),
+      {
+        origin,
+        headers: {
+          Host: endpoint.host,
+          Connection: 'Upgrade',
+          Pragma: 'no-cache',
+          'Cache-Control': 'no-cache',
+          Upgrade: 'websocket',
+          Origin: origin,
+          'Sec-WebSocket-Version': '13',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept-Language': 'en', // @TODO: fix this
+          'User-Agent': this.papi.api.ua,
+          Cookie: this.papi.api.getCookies(),
         },
-      )
-    } else {
-      this.ws = new WebSocket(
-        `wss://edge-chat.messenger.com/chat?sid=${this.mqttSid}&cid=${this.papi.kv.get('clientId')}&region=prn`,
-        {
-          origin: 'https://www.messenger.com',
-          headers: {
-            Host: 'edge-chat.messenger.com',
-            Connection: 'Upgrade',
-            Pragma: 'no-cache',
-            'Cache-Control': 'no-cache',
-            Upgrade: 'websocket',
-            Origin: 'https://www.messenger.com',
-            'Sec-WebSocket-Version': '13',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'en',
-            'User-Agent': this.papi.api.ua,
-            Cookie: this.papi.api.getCookies(),
-          },
-        },
-      )
-    }
+      },
+    )
 
     this.ws.on('message', data => this.onMessage(data))
 

@@ -277,6 +277,8 @@ export function parseMessengerInitialPage(html: string) {
   const MqttWebConfig = definesMap.get('MqttWebConfig') as Config['MqttWebConfig']
 
   if (CurrentEnvironment === 'IG') {
+    // MqttWebConfig.endpoint is wrong for IG
+    // there is MqttWebConfig.hostNameOverride, but it's unclear how it's implemented
     MqttWebConfig.endpoint = MqttWebConfig.endpoint.replace('.facebook.com', '.instagram.com')
   }
 
@@ -307,6 +309,7 @@ export function getMessengerConfig(html: string) {
     name: parsed.CurrentUserInitialData?.NAME,
     igViewerConfig,
     lsdToken: parsed.LSD?.token,
+    mqttEndpoint: parsed.MqttWebConfig?.endpoint,
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,
     mqttClientCapabilities: parsed.MqttWebConfig?.clientCapabilities,
     syncParams: parsed.LSPlatformMessengerSyncParams?.contact,
