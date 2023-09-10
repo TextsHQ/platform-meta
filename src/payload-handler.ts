@@ -332,7 +332,7 @@ export default class MetaMessengerPayloadHandler {
       // unsendLimitMs: b.i64.cast([-1, 4294967295]),
       inviterId: a[14],
       igFolder: a[15],
-      threadSubtype: a[16]
+      threadSubtype: a[16],
     }
     this.__logger.debug('applyNewGroupThread (ignored)', a, parsed)
   }
