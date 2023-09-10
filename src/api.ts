@@ -140,12 +140,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('getThreads', { folderName, _folderName, pagination })
 
     const isSpam = folderName === InboxName.REQUESTS
-    if (isSpam) {
-      await this.socket.fetchSpamThreads()
-    } else if (pagination) {
-      await this.socket.fetchMoreThreads()
-    } else {
-      await this.socket.fetchInitialThreads()
+    if (this.env === 'IG') {
+      if (isSpam) {
+        await this.socket.fetchSpamThreads()
+      } else if (pagination) {
+        await this.socket.fetchMoreThreads()
+      } else {
+        await this.socket.fetchInitialThreads()
+      }
     }
 
     const sg1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
@@ -153,6 +155,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
+    this.logger.debug('getThreads sg1', { sg1 })
 
     let whereArgs: SQLWrapper[] = [
       isSpam ? inArray(schema.threads.parentThreadKey, [
@@ -172,10 +175,13 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     const where = whereArgs.length > 0 ? and(...whereArgs) : eq(schema.threads.parentThreadKey, ParentThreadKey.PRIMARY)
 
+    this.logger.debug('getThreads where', whereArgs.length)
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
       limit: 15,
     })
+
+    this.logger.debug('getThreads items', items)
 
     return {
       items,
