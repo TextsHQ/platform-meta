@@ -804,6 +804,8 @@ export default class MetaMessengerWebSocket {
       task_id: this.genTaskId(),
       failure_count: null,
     })))
+    // @TODO: code above seems to work for messenger (it was made for ig)
+    // but messenger.com uses `/send_additional_contacts`
   }
 
   async muteThread(thread_key: string, mute_expiration_time_ms: -1 | 0) {
