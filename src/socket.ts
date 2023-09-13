@@ -933,8 +933,9 @@ export default class MetaMessengerWebSocket {
       query,
       supported_types: [1, 3, 4, 2, 6, 7, 8, 9, 14],
       session_id: null,
-      surface_type: 15,
+      surface_type: this.papi.env === 'IG' ? 15 : 1,
       group_id: null,
+      community_id: this.papi.env !== 'IG' ? null : undefined,
       thread_id: null,
     })
 
