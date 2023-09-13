@@ -63,9 +63,11 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
     })
 
     logger.debug('migrating database', { sqlitePath, retryAttempt })
-    for (const migration of migrations) {
-      await db.run(migration)
-    }
+    await db.transaction(async tx => {
+      for (const migration of migrations) {
+        await tx.run(migration)
+      }
+    })
 
     return db
   } catch (err) {
