@@ -109,7 +109,6 @@ export default class MetaMessengerAPI {
 
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
-    this.logger.debug(`env is ${this.papi.env}`)
 
     const { body } = await this.httpRequest(this.papi.envOpts.initialURL, {
       // todo: refactor headers
@@ -129,23 +128,26 @@ export default class MetaMessengerAPI {
 
     this.config = getMessengerConfig(body)
 
+    this.papi.kv.setMany({
+      'syncParams-1': JSON.stringify(this.config.syncParams),
+      _fullConfig: JSON.stringify(this.config),
+      appId: String(this.config.appId),
+      clientId: this.config.clientID,
+      fb_dtsg: this.config.fbDTSG,
+      fbid: this.config.fbid,
+      lsd: this.config.lsdToken,
+      mqttCapabilities: String(this.config.mqttCapabilities),
+      mqttClientCapabilities: String(this.config.mqttClientCapabilities),
+    })
+
     if (this.papi.env === 'IG') {
       if (!this.config.igViewerConfig?.id) {
         throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
       }
 
       this.papi.kv.setMany({
-        'syncParams-1': JSON.stringify(this.config.syncParams),
-        _fullConfig: JSON.stringify(this.config),
-        appId: String(this.config.appId),
-        clientId: this.config.clientID,
-        fb_dtsg: this.config.fbDTSG,
-        fbid: this.config.fbid,
         hasTabbedInbox: this.config.igViewerConfig.has_tabbed_inbox,
         igUserId: this.config.igViewerConfig.id,
-        lsd: this.config.lsdToken,
-        mqttCapabilities: String(this.config.mqttCapabilities),
-        mqttClientCapabilities: String(this.config.mqttClientCapabilities),
       })
 
       this.papi.currentUser = {
@@ -156,18 +158,6 @@ export default class MetaMessengerAPI {
         username: this.config.igViewerConfig.username,
       }
     } else {
-      this.papi.kv.setMany({
-        'syncParams-1': JSON.stringify(this.config.syncParams),
-        _fullConfig: JSON.stringify(this.config),
-        appId: String(this.config.appId),
-        clientId: this.config.clientID,
-        fb_dtsg: this.config.fbDTSG,
-        fbid: this.config.fbid,
-        lsd: this.config.lsdToken,
-        mqttCapabilities: String(this.config.mqttCapabilities),
-        mqttClientCapabilities: String(this.config.mqttClientCapabilities),
-      })
-
       this.papi.currentUser = {
         // id: config.id, // this is the instagram id but fbid is instead used for chat
         id: this.config.fbid,
@@ -181,9 +171,16 @@ export default class MetaMessengerAPI {
 
     this._initPromise?.resolve()
 
-    if (this.papi.env === 'IG') {
-      await this.getSnapshotPayload()
+    switch (this.papi.env) {
+      case "IG":
+        await this.getSnapshotPayloadForIGD()
+        break
+      case "MESSENGER":
+      case "FB":
+        await this.getSnapshotPayloadForFB()
+        break
     }
+
     await this.papi.socket.connect()
   }
 
@@ -301,8 +298,8 @@ export default class MetaMessengerAPI {
       .find(c => c.key === 'csrftoken')?.value
   }
 
-  async getSnapshotPayload() {
-    if (this.papi.env !== 'IG') throw new Error('getSnapshotPayload is only supported on IG')
+  async getSnapshotPayloadForIGD() {
+    if (this.papi.env !== 'IG') throw new Error(`getSnapshotPayloadForIGD is only supported on IG but called on ${this.papi.env}`)
     const response = await this.graphqlCall('6195354443842040', {
       deviceId: this.papi.kv.get('clientId'),
       requestId: 0,
@@ -316,6 +313,25 @@ export default class MetaMessengerAPI {
       requestType: 1,
     })
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
+  }
+
+  async getSnapshotPayloadForFB() {
+    if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error(`getSnapshotPayloadForFB is only supported on FB/MESSENGER but called on ${this.papi.env}`)
+    const response = await this.graphqlCall('7357432314358409', {
+      deviceId: this.papi.kv.get('clientId'),
+      includeChatVisibility: false,
+      requestId: 2,
+      requestPayload: JSON.stringify({
+        database: 95,
+        epoch_id: 0,
+        last_applied_cursor: this.papi.kv.get('cursor-1-1'),
+        sync_params: this.papi.kv.get('syncParams-1'),
+        version: '6566200933472970',
+      }),
+      requestType: 1,
+    })
+
+    await new MetaMessengerPayloadHandler(this.papi, response.data.data.viewer.lightspeed_web_request.payload, 'snapshot').__handle()
   }
 
   setSyncGroupThreadsRange(p: IGThreadRanges) {
