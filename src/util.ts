@@ -104,3 +104,5 @@ export function getOriginalURL(linkURL: string) {
 export function parseUnicodeEscapeSequences(str: string) {
   return decodeURIComponent(JSON.parse('"' + str.replace(/\\u([\d\w]{4})/gi, (match, grp) => '\\u' + grp) + '"'))
 }
+
+export const INT64_MAX_AS_STRING = '9223372036854775807'

@@ -10,6 +10,7 @@ import {
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
+  INT64_MAX_AS_STRING,
   parseMqttPacket,
   sleep,
 } from './util'
@@ -671,8 +672,8 @@ export default class MetaMessengerWebSocket {
         filter: ThreadFilter.PRIMARY,
         is_after: 0,
         parent_thread_key: ParentThreadKey.GENERAL,
-        reference_activity_timestamp: '9223372036854775807', // INT64_MAX
-        reference_thread_key: '9223372036854775807', // INT64_MAX
+        reference_activity_timestamp: INT64_MAX_AS_STRING,
+        reference_thread_key: INT64_MAX_AS_STRING,
         secondary_filter: 0,
         filter_value: '',
         sync_group: SyncGroup.MAIN,
@@ -764,8 +765,8 @@ export default class MetaMessengerWebSocket {
         payload: JSON.stringify({
           is_after: 0,
           parent_thread_key: ParentThreadKey.SPAM,
-          reference_thread_key: '9223372036854775807', // INT64_MAX
-          reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+          reference_thread_key: INT64_MAX_AS_STRING,
+          reference_activity_timestamp: INT64_MAX_AS_STRING,
           additional_pages_to_fetch: 0,
           cursor: this.papi.kv.get('cursor-1-1'),
           messaging_tag: null,
@@ -780,8 +781,8 @@ export default class MetaMessengerWebSocket {
         payload: JSON.stringify({
           is_after: 0,
           parent_thread_key: ParentThreadKey.SPAM,
-          reference_thread_key: '9223372036854775807', // INT64_MAX
-          reference_activity_timestamp: '9223372036854775807', // INT64_MAX
+          reference_thread_key: INT64_MAX_AS_STRING,
+          reference_activity_timestamp: INT64_MAX_AS_STRING,
           additional_pages_to_fetch: 0,
           cursor: this.papi.kv.get('cursor-1-95'),
           messaging_tag: null,
