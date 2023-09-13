@@ -324,23 +324,28 @@ export default class MetaMessengerAPI {
 
   getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
-    return value ? JSON.parse(value) as IGThreadRanges : null
+    return typeof value === 'string' ? JSON.parse(value) as IGThreadRanges : null
   }
 
   computeHasMoreThreads() {
     const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-    const general = this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
-
-    if (primary?.hasMoreBefore || general?.hasMoreBefore || (!primary && !general)) {
-      return true
-    }
-
-    return false
+    const generalEnabled = (
+      (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
+      || this.papi.env === 'FB'
+      || this.papi.env === 'MESSENGER'
+    )
+    const general = generalEnabled ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
+    const isPrimarySet = typeof primary?.hasMoreBefore === 'boolean'
+    const isGeneralSet = typeof general?.hasMoreBefore === 'boolean'
+    return (isPrimarySet && primary.hasMoreBefore)
+      || (isGeneralSet && general.hasMoreBefore)
+      || !isPrimarySet
+      || !isGeneralSet
   }
 
   computeHasMoreSpamThreads() {
     const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
-    return values?.hasMoreBefore || true
+    return typeof values?.hasMoreBefore === 'boolean' ? values.hasMoreBefore : true
   }
 
   getContact(contactId: string) {
