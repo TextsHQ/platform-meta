@@ -163,12 +163,21 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const filter = directionIsBefore ? lte : gte
     this.logger.debug('getThreads sg1', { sg1 })
 
-    let whereArgs: SQLWrapper[] = [
-      isSpam ? inArray(schema.threads.parentThreadKey, [
-        ParentThreadKey.SPAM,
-        this.kv.get('hasTabbedInbox') && ParentThreadKey.GENERAL,
-      ].filter(Boolean)) : eq(schema.threads.parentThreadKey, ParentThreadKey.PRIMARY),
-    ]
+    const parentThreadKeys: ParentThreadKey[] = []
+    if (isSpam) {
+      parentThreadKeys.push(ParentThreadKey.SPAM)
+      if (this.env === 'IG' && this.kv.get('hasTabbedInbox')) {
+        parentThreadKeys.push(ParentThreadKey.GENERAL)
+      }
+    } else {
+      parentThreadKeys.push(ParentThreadKey.PRIMARY)
+      if (this.env === 'FB' || this.env === 'MESSENGER') {
+        parentThreadKeys.push(ParentThreadKey.GENERAL)
+      }
+    }
+
+    const folderFilter = inArray(schema.threads.parentThreadKey, parentThreadKeys)
+    const whereArgs: SQLWrapper[] = [folderFilter]
 
     if (cursor) {
       const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
@@ -177,9 +186,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       }
     }
 
-    whereArgs = whereArgs.filter(Boolean)
-
-    const where = whereArgs.length > 0 ? and(...whereArgs) : eq(schema.threads.parentThreadKey, ParentThreadKey.PRIMARY)
+    const where = whereArgs.length > 1 ? and(...whereArgs) : folderFilter
 
     this.logger.debug('getThreads where', whereArgs.length)
     const items = await this.api.queryThreads(where, {
