@@ -43,6 +43,8 @@ export type OperationKey =
   | 'insertSearchSection'
   | 'insertXmaAttachment'
   | 'issueError'
+  | 'issueInsertPersistentMenuCtasForThreadTask'
+  | 'issueInsertPersistentMenuItemsForThreadTask'
   | 'issueNewError'
   | 'issueNewTask'
   | 'mailboxTaskCompletionApiOnTaskCompletion'
