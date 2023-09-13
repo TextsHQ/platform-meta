@@ -185,6 +185,50 @@ interface Config {
     instagramdotcom: boolean
     workdotmetadotcom: boolean
   }
+  MercuryConfig: {
+    DYIDeepLink: string
+    SearchMorePeople: number
+    MontageThreadViewer: boolean
+    msgr_region: string
+    'roger.seen_delay': number
+    activity_limit: number
+    idle_limit: number
+    idle_poll_interval: number
+    LOG_INTERVAL_MS: number
+    MaxThreadResults: number
+    MessengerAppID: string
+    upload_url: string
+    WWWMessengerMontageLWR: boolean
+    Mentions: boolean
+    Reactions: boolean
+    WWWSyncHolesLogging: boolean
+    MNFWD: boolean
+    MNNSS: boolean
+    MNSIF: boolean
+    MessengerForwardButtonForSharedFilesGK: boolean
+    ShowInviteSurface: boolean
+    AllowCoworkerInvites: boolean
+    MNGPS: boolean
+    ChatComposer: boolean
+    ChatGroupChat: boolean
+    MessengerGroupCreationUseMNetQE: boolean
+    DFFD: 0
+    MNWNS: boolean
+    ShouldGameTextStartGame: boolean
+    ShouldGameIconStartGame: boolean
+    ShowBiggerGameIcon: boolean
+    M3CRE: boolean
+    SM3BD: boolean
+    RTPE: boolean
+    RTVE: boolean
+    RTSE: boolean
+    RTGE: boolean
+    RTOAE: boolean
+    ShowInGameChat: boolean
+    IVITP: boolean
+    WorkSyncedGroupAutoCreateEnabled: boolean
+    WorkSyncedGroupEntryPointEnabled: boolean
+  }
 }
 
 function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvKey {
@@ -275,6 +319,7 @@ export function parseMessengerInitialPage(html: string) {
 
   const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment') as Config['CurrentEnvironment'])
   const MqttWebConfig = definesMap.get('MqttWebConfig') as Config['MqttWebConfig']
+  const MercuryConfig = definesMap.get('MercuryConfig') as Config['MercuryConfig']
 
   if (CurrentEnvironment === 'IG') {
     // MqttWebConfig.endpoint is wrong for IG
@@ -288,12 +333,15 @@ export function parseMessengerInitialPage(html: string) {
     LSD: definesMap.get('LSD') as Config['LSD'],
     LSPlatformMessengerSyncParams,
     MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
+    MercuryConfig,
     MqttWebConfig,
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults') as Config['RelayAPIConfigDefaults'],
     XIGSharedData,
     CurrentEnvironment,
     initialPayloads: initialPayloads.filter(Boolean),
+    gqlEndpointPath: parsed.RelayAPIConfigDefaults.graphURI,
+    gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
   } as const
 }
 
