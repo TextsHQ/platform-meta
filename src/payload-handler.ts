@@ -29,6 +29,8 @@ export interface MetaMessengerPayloadHandlerResponse {
     fullName: string
     imgURL: string
     username: string
+    isVerified: boolean
+    cannotMessage: boolean
   }[]
 }
 
@@ -1052,21 +1054,50 @@ export default class MetaMessengerPayloadHandler {
 
   private insertSearchResult(a: SimpleArgType[]) {
     const r = {
-      // query: a[0],
-      id: a[1] as string,
-      // type of [1] is user
-      // type of [2] is group chat
-      type: (String(a[4]) === '1' ? 'user' : String(a[4]) === '2' ? 'group' : 'unknown_user') as SearchArgumentType,
-      fullName: a[5] as string,
-      imgURL: a[6] as string,
-      username: a[8] as string,
-      // messageId: a[9],
-      // messageTimestampMs: new Date(Number(a[10])),
-      // isVerified: Boolean(a[12]),
-    }
+      query: a[0],
+      resultId: a[1] as string,
+      globalIndex: a[2],
+      type_: a[3],
+      threadType: a[4] as string,
+      displayName: a[5] as string,
+      profilePicUrl: a[6] as string,
+      secondaryProfilePicUrl: a[7],
+      contextLine: a[8] as string,
+      messageId: a[9],
+      messageTimestampMs: a[10],
+      blockedByViewerStatus: a[11],
+      isVerified: a[12] as boolean,
+      isInteropEligible: a[13],
+      restrictionType: a[14],
+      isGroupsXacEligible: a[15],
+      canViewerMessage: a[18] as boolean,
+      isInvitedToCmChannel: a[16],
+      isEligibleForCmInvite: a[17],
+      isWaAddressable: a[19],
+      waEligibility: a[20],
+      isArmadilloTlcEligible: a[21],
+      communityId: a[22],
+      otherUserId: a[23],
+      threadJoinLinkHash: a[24],
+      supportsE2eeSpamdStorage: a[25],
+      defaultE2eeThreads: a[26],
+      isRestrictedByViewer: a[27],
+      defaultE2eeThreadOneToOne: a[28],
+      hasCutoverThread: a[29],
+      isViewerUnconnected: a[30],
+      resultIgid: a[31],
+    } as const
     this.__logger.debug('insertSearchResult', a, r)
     if (!this.__responses.insertSearchResult || !this.__responses.insertSearchResult.length) this.__responses.insertSearchResult = []
-    this.__responses.insertSearchResult.push(r)
+    this.__responses.insertSearchResult.push({
+      id: r.resultId,
+      type: (r.threadType === '1' ? 'user' : r.threadType === '2' ? 'group' : 'unknown_user') as SearchArgumentType,
+      fullName: r.displayName,
+      username: r.type_ === '9' ? r.contextLine : null, // type_ is instagram username
+      imgURL: r.profilePicUrl,
+      isVerified: r.isVerified,
+      cannotMessage: !r.canViewerMessage,
+    })
   }
 
   private insertSearchSection(a: SimpleArgType[]) {
