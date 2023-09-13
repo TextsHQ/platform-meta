@@ -283,7 +283,7 @@ export default class MetaMessengerWebSocket {
         cp: Number(this.papi.kv.get('mqttClientCapabilities')),
         ecp: Number(this.papi.kv.get('mqttCapabilities')),
         chat_on: this.papi.env === 'IG',
-        fg: false,
+        fg: this.papi.env === 'IG',
         d: this.papi.kv.get('clientId'),
         ct: this.papi.env === 'IG' ? 'cookie_auth' : 'websocket',
         mqtt_sid: '', // @TODO: should we use the one from the cookie?
@@ -684,20 +684,25 @@ export default class MetaMessengerWebSocket {
     },
   ])
 
-  fetchMoreThreads = async () => {
-    if (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox')) {
-      await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
-      await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
-    }
-    const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-    const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
+  fetchMoreThreads = async (parentThreadKey: ParentThreadKey) => {
+    // if (
+    //   (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
+    //   // || this.papi.env === 'MESSENGER'
+    //   // || this.papi.env === 'FB'
+    // ) {
+    //   await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
+    //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
+    //   return
+    // }
+    const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, parentThreadKey)
+    const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, parentThreadKey) || sg1Primary
 
     return this.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
       {
         label: '145',
         payload: JSON.stringify({
           is_after: 0,
-          parent_thread_key: ParentThreadKey.PRIMARY,
+          parent_thread_key: parentThreadKey,
           reference_thread_key: sg1Primary.minThreadKey,
           reference_activity_timestamp: Number(sg1Primary.minLastActivityTimestampMs),
           additional_pages_to_fetch: 0,
@@ -713,7 +718,7 @@ export default class MetaMessengerWebSocket {
         label: '145',
         payload: JSON.stringify({
           is_after: 0,
-          parent_thread_key: ParentThreadKey.PRIMARY,
+          parent_thread_key: parentThreadKey,
           reference_thread_key: sg95Primary.minThreadKey,
           reference_activity_timestamp: Number(sg95Primary.minLastActivityTimestampMs),
           additional_pages_to_fetch: 0,

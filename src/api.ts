@@ -29,7 +29,7 @@ import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
-import { ParentThreadKey, SyncGroup } from './types'
+import { ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -145,7 +145,19 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       if (isSpam) {
         promise = this.socket.fetchSpamThreads()
       } else if (pagination) {
-        promise = this.socket.fetchMoreThreads()
+        if (this.env === 'IG' && this.kv.get('hasTabbedInbox')) {
+          promise = Promise.all([
+            this.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
+            this.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
+          ])
+        } else if (this.env === 'FB' || this.env === 'MESSENGER') {
+          promise = Promise.all([
+            this.socket.fetchMoreThreads(ParentThreadKey.PRIMARY),
+            this.socket.fetchMoreThreads(ParentThreadKey.GENERAL),
+          ])
+        } else {
+          promise = this.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)
+        }
       } else {
         promise = this.socket.fetchInitialThreads()
       }
