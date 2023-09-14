@@ -42,4 +42,6 @@ const EnvOptions = {
 export type EnvKey = keyof typeof EnvOptions
 export type EnvOptionsValue = typeof EnvOptions[EnvKey]
 
+export const THREAD_PAGE_SIZE = 15
+
 export default EnvOptions

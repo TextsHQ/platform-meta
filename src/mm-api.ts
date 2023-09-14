@@ -11,8 +11,8 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { SerializedSession, IGAttachment, IGMessage, IGMessageRanges } from './types'
-import { IGThreadRanges, ParentThreadKey, SyncGroup } from './types'
-import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
+import { IGThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences, timeoutOrPromise } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
@@ -168,20 +168,22 @@ export default class MetaMessengerAPI {
     for (const payload of this.config.initialPayloads) {
       await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
-
-    this._initPromise?.resolve()
-
+debugger
     switch (this.papi.env) {
-      case "IG":
+      case 'IG':
         await this.getSnapshotPayloadForIGD()
         break
-      case "MESSENGER":
-      case "FB":
+      case 'MESSENGER':
+      case 'FB':
         await this.getSnapshotPayloadForFB()
         break
+      default:
+        break
     }
-
+    debugger
     await this.papi.socket.connect()
+debugger
+    this._initPromise?.resolve()
   }
 
   getCookies() {
@@ -353,6 +355,7 @@ export default class MetaMessengerAPI {
     const general = generalEnabled ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
     const isPrimarySet = typeof primary?.hasMoreBefore === 'boolean'
     const isGeneralSet = typeof general?.hasMoreBefore === 'boolean'
+    debugger
     return (isPrimarySet && primary.hasMoreBefore)
       || (isGeneralSet && general.hasMoreBefore)
       || !isPrimarySet
@@ -362,6 +365,36 @@ export default class MetaMessengerAPI {
   computeHasMoreSpamThreads() {
     const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
     return typeof values?.hasMoreBefore === 'boolean' ? values.hasMoreBefore : true
+  }
+
+  async fetchMoreThreads(isSpam: boolean, isInitial: boolean) {
+    const canFetchMore = isSpam ? this.computeHasMoreSpamThreads() : this.computeHasMoreThreads()
+    if (!canFetchMore) return { fetched: false } as const
+    const getFetcher = () => {
+      if (isSpam) return this.papi.socket.fetchSpamThreads()
+      if (isInitial) return this.papi.socket.fetchInitialThreads()
+      if (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox')) {
+        return Promise.all([
+          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
+          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
+        ])
+      }
+      if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
+        return Promise.all([
+          this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY),
+          this.papi.socket.fetchMoreThreads(ParentThreadKey.GENERAL), // @TODO: this is disgusting
+        ])
+      }
+      return this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)
+    }
+
+    try {
+      const promise = getFetcher()
+      await timeoutOrPromise<unknown>(promise)
+    } catch (err) {
+      this.logger.error(err)
+    }
+    return { fetched: true } as const
   }
 
   getContact(contactId: string) {
@@ -492,7 +525,7 @@ export default class MetaMessengerAPI {
     ) {
       limit = 1
       const order = threadIdsOrWhere === QueryWhereSpecial.NEWEST ? desc : asc
-      orderBy = order(schema.messages.timestampMs)
+      orderBy = order(schema.threads.lastActivityTimestampMs)
     } else if (Array.isArray(threadIdsOrWhere)) {
       where = inArray(threadsSchema.threadKey, threadIdsOrWhere)
       if (threadIdsOrWhere.length === 1) limit = 1

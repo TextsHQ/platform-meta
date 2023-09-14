@@ -28,13 +28,14 @@ import MetaMessengerAPI from './mm-api'
 import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
-import type { PAPIReturn, SerializedSession } from './types'
-import { ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import type { IGThreadRanges, PAPIReturn, SerializedSession } from './types'
+import { ParentThreadKey, SyncGroup } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
-import EnvOptions, { type EnvKey, type EnvOptionsValue } from './env'
+import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
+import { toSqliteFormattedDateTimeString } from './util'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -52,6 +53,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   socket: MetaMessengerWebSocket
 
   envOpts: EnvOptionsValue
+
+  private loadedThreadSet = new Set<string>()
+
+  private earliestLoadedThreadCursor?: string
 
   constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
@@ -129,51 +134,46 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
 
     this.onEvent = onEvent
-    await this.socket.connect()
   }
 
   searchUsers = (typed: string) => this.socket.searchUsers(typed)
 
   getThreads = async (_folderName: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+    await this.api.initPromise
     const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
 
-    this.logger.debug('getThreads', { folderName, _folderName, pagination })
+    this.logger.debug('getThreads 1', { folderName, _folderName, pagination })
 
     const isSpam = folderName === InboxName.REQUESTS
-    try {
-      let promise: Promise<unknown>
-      if (isSpam) {
-        promise = this.socket.fetchSpamThreads()
-      } else if (pagination) {
-        if (this.env === 'IG' && this.kv.get('hasTabbedInbox')) {
-          promise = Promise.all([
-            this.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
-            this.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
-          ])
-        } else if (this.env === 'FB' || this.env === 'MESSENGER') {
-          promise = Promise.all([
-            this.socket.fetchMoreThreads(ParentThreadKey.PRIMARY),
-            this.socket.fetchMoreThreads(ParentThreadKey.GENERAL),
-          ])
-        } else {
-          promise = this.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)
-        }
-      } else {
-        promise = this.socket.fetchInitialThreads()
-      }
-      if (this.env === 'IG') {
-        await promise
-      }
-    } catch (err) {
-      this.logger.error(err)
-    }
 
-    const sg1 = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, isSpam ? ParentThreadKey.SPAM : ParentThreadKey.GENERAL)
-    const { direction = 'before', cursor } = pagination || {}
+    debugger
+    await this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined')
+    debugger
+    let syncGroup: IGThreadRanges
+    if (isSpam) {
+      syncGroup = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+    } else if (this.env === 'FB' || this.env === 'MESSENGER') {
+      const _syncGroups = [
+        this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL),
+        this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY),
+        this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
+        this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
+      ]
+      debugger
+    }
+    const { direction = 'before' } = pagination || {}
+    const cursor = (() => {
+      const cursorStr = pagination?.cursor
+      if (cursorStr) {
+        const [lastActivity, threadKey] = cursorStr.split(',')
+        return [lastActivity, threadKey] as const
+      }
+    })()
+    debugger
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
-    this.logger.debug('getThreads sg1', { sg1 })
+    this.logger.debug('getThreads 2', { syncGroup, cursor, directionIsBefore })
 
     const parentThreadKeys: ParentThreadKey[] = []
     if (isSpam) {
@@ -191,27 +191,40 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const folderFilter = inArray(schema.threads.parentThreadKey, parentThreadKeys)
     const whereArgs: SQLWrapper[] = [folderFilter]
 
-    if (cursor) {
-      const [_minThreadKey, minLastActivityTimestampMs] = cursor?.split(':') ?? []
-      if (minLastActivityTimestampMs) {
-        whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(minLastActivityTimestampMs)))
-      }
+    if (cursor?.[0]) {
+      debugger
+      whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(cursor?.[0])))
     }
 
     const where = whereArgs.length > 1 ? and(...whereArgs) : folderFilter
 
-    this.logger.debug('getThreads where', whereArgs.length)
+    this.logger.debug('getThreads 3 where', whereArgs.length)
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      limit: 15,
+      limit: THREAD_PAGE_SIZE,
     })
 
-    this.logger.debug('getThreads items', items)
+    this.logger.debug('getThreads 4 items', items)
 
+    const lastThread = items[items.length - 1]
+
+    let oldestCursor: string | undefined
+    if (items.length >= THREAD_PAGE_SIZE) {
+      let stamp = lastThread.extra.lastActivityTimestampMs
+      if (!stamp?.toJSON()) {
+        stamp = new Date()
+      }
+      oldestCursor = `${toSqliteFormattedDateTimeString(stamp)},${lastThread.id}`
+    }
+
+    const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
+    const hasMoreInServer = isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads()
+    const hasMore = hasMoreInDatabase || hasMoreInServer
+    debugger
     return {
       items,
-      hasMore: isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads(),
-      oldestCursor: `${sg1?.minThreadKey}:${sg1?.minLastActivityTimestampMs}`,
+      hasMore,
+      oldestCursor: oldestCursor || (hasMore ? '0,0' : undefined),
     }
   }
 

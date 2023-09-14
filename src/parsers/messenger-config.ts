@@ -340,8 +340,6 @@ export function parseMessengerInitialPage(html: string) {
     XIGSharedData,
     CurrentEnvironment,
     initialPayloads: initialPayloads.filter(Boolean),
-    gqlEndpointPath: parsed.RelayAPIConfigDefaults.graphURI,
-    gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
   } as const
 }
 
@@ -362,6 +360,8 @@ export function getMessengerConfig(html: string) {
     mqttClientCapabilities: parsed.MqttWebConfig?.clientCapabilities,
     syncParams: parsed.LSPlatformMessengerSyncParams?.contact,
     initialPayloads: parsed.initialPayloads,
+    gqlEndpointPath: parsed.RelayAPIConfigDefaults.graphURI,
+    gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
   }
 }
 

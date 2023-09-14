@@ -204,5 +204,8 @@ export function mapThread(
       items: mapMessages(t.messages, env, fbid, t),
       hasMore: ranges.hasMoreBeforeFlag,
     },
+    extra: {
+      lastActivityTimestampMs: t.lastActivityTimestampMs,
+    },
   } as const
 }

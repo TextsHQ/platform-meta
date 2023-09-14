@@ -102,7 +102,7 @@ export default class MetaMessengerWebSocket {
       return
     }
     this.logger.info('[ws] connecting (will wait for api to be ready)')
-    await this.papi.api.initPromise // wait for api to be ready
+    // await this.papi.api.initPromise // wait for api to be ready
     this.logger.debug('[ws]', 'connecting to ws', {
       mqttSid: this.mqttSid,
       lastTaskId: this.lastTaskId,
@@ -694,9 +694,9 @@ export default class MetaMessengerWebSocket {
     //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
     //   return
     // }
+    // debugger
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, parentThreadKey)
     const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, parentThreadKey) || sg1Primary
-
     return this.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
       {
         label: '145',
