@@ -146,9 +146,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     const isSpam = folderName === InboxName.REQUESTS
 
-    debugger
+//@@    debugger
     await this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined')
-    debugger
+//@@    debugger
     let syncGroup: IGThreadRanges
     if (isSpam) {
       syncGroup = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
@@ -159,7 +159,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
         this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
       ]
-      debugger
+  //@@    debugger
     }
     const { direction = 'before' } = pagination || {}
     const cursor = (() => {
@@ -169,7 +169,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         return [lastActivity, threadKey] as const
       }
     })()
-    debugger
+//@@    debugger
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
@@ -191,8 +191,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const folderFilter = inArray(schema.threads.parentThreadKey, parentThreadKeys)
     const whereArgs: SQLWrapper[] = [folderFilter]
 
-    if (cursor?.[0]) {
-      debugger
+    if (cursor?.[0] && cursor[0] !== '0') {
+  //@@    debugger
       whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(cursor?.[0])))
     }
 
@@ -201,7 +201,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('getThreads 3 where', whereArgs.length)
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      limit: THREAD_PAGE_SIZE,
+      // limit: THREAD_PAGE_SIZE,
+      limit: 10000,
     })
 
     this.logger.debug('getThreads 4 items', items)
@@ -220,11 +221,19 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
     const hasMoreInServer = isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads()
     const hasMore = hasMoreInDatabase || hasMoreInServer
-    debugger
+    const oCursor = oldestCursor || (hasMore ? '0,0' : undefined)
+    this.logger.debug('getThreads 5', {
+      oldestCursor,
+      hasMore,
+      hasMoreInDatabase,
+      hasMoreInServer,
+      oCursor,
+    })
+//@@    debugger
     return {
       items,
-      hasMore,
-      oldestCursor: oldestCursor || (hasMore ? '0,0' : undefined),
+      hasMore: true,
+      oldestCursor: '0,0',
     }
   }
 

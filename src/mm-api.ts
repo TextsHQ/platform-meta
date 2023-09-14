@@ -168,7 +168,7 @@ export default class MetaMessengerAPI {
     for (const payload of this.config.initialPayloads) {
       await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
-debugger
+//@@    debugger
     switch (this.papi.env) {
       case 'IG':
         await this.getSnapshotPayloadForIGD()
@@ -180,9 +180,9 @@ debugger
       default:
         break
     }
-    debugger
+//@@    debugger
     await this.papi.socket.connect()
-debugger
+//@@    debugger
     this._initPromise?.resolve()
   }
 
@@ -355,7 +355,7 @@ debugger
     const general = generalEnabled ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
     const isPrimarySet = typeof primary?.hasMoreBefore === 'boolean'
     const isGeneralSet = typeof general?.hasMoreBefore === 'boolean'
-    debugger
+//@@    debugger
     return (isPrimarySet && primary.hasMoreBefore)
       || (isGeneralSet && general.hasMoreBefore)
       || !isPrimarySet
