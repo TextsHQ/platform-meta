@@ -1512,6 +1512,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('updateOptimisticEphemeralMediaState (ignored)', a)
   }
 
+  private deleteThenInsertAttachmentConversion(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertAttachmentConversion (ignored)', a)
+  }
+
   private updateOrInsertThread(a: SimpleArgType[]) {
     this.deleteThenInsertThread(a)
   }

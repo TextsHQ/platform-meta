@@ -17,6 +17,7 @@ export type OperationKey =
   | 'deleteMessage'
   | 'deleteReaction'
   | 'deleteRtcOngoingCallData'
+  | 'deleteThenInsertAttachmentConversion'
   | 'deleteThenInsertContact'
   | 'deleteThenInsertContactPresence'
   | 'deleteThenInsertIGContactInfo'

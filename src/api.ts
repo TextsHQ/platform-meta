@@ -141,26 +141,25 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   getThreads = async (_folderName: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     await this.api.initPromise
     const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
-
-    this.logger.debug('getThreads 1', { folderName, _folderName, pagination })
-
     const isSpam = folderName === InboxName.REQUESTS
 
-//@@    debugger
-    await this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined')
-//@@    debugger
-    let syncGroup: IGThreadRanges
+    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam })
+
+    const result = await this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined')
+
+    const syncGroups: IGThreadRanges[] = []
     if (isSpam) {
-      syncGroup = this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+      syncGroups.push(this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM))
     } else if (this.env === 'FB' || this.env === 'MESSENGER') {
-      const _syncGroups = [
+      syncGroups.push(
         this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL),
         this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY),
         this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
         this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
-      ]
-  //@@    debugger
+      )
     }
+    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam }, { result, syncGroups })
+
     const { direction = 'before' } = pagination || {}
     const cursor = (() => {
       const cursorStr = pagination?.cursor
@@ -169,11 +168,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         return [lastActivity, threadKey] as const
       }
     })()
-//@@    debugger
+
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
     const filter = directionIsBefore ? lte : gte
-    this.logger.debug('getThreads 2', { syncGroup, cursor, directionIsBefore })
 
     const parentThreadKeys: ParentThreadKey[] = []
     if (isSpam) {
@@ -192,7 +190,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const whereArgs: SQLWrapper[] = [folderFilter]
 
     if (cursor?.[0] && cursor[0] !== '0') {
-  //@@    debugger
       whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(cursor?.[0])))
     }
 
@@ -201,11 +198,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('getThreads 3 where', whereArgs.length)
     const items = await this.api.queryThreads(where, {
       orderBy: [order(schema.threads.lastActivityTimestampMs)],
-      // limit: THREAD_PAGE_SIZE,
-      limit: 10000,
+      limit: THREAD_PAGE_SIZE,
     })
-
-    this.logger.debug('getThreads 4 items', items)
 
     const lastThread = items[items.length - 1]
 
@@ -222,18 +216,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const hasMoreInServer = isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads()
     const hasMore = hasMoreInDatabase || hasMoreInServer
     const oCursor = oldestCursor || (hasMore ? '0,0' : undefined)
-    this.logger.debug('getThreads 5', {
-      oldestCursor,
-      hasMore,
-      hasMoreInDatabase,
-      hasMoreInServer,
-      oCursor,
-    })
-//@@    debugger
     return {
       items,
-      hasMore: true,
-      oldestCursor: '0,0',
+      hasMore,
+      oldestCursor: oCursor,
     }
   }
 
