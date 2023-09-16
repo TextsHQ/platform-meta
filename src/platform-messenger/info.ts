@@ -67,7 +67,7 @@ const info: PlatformInfo = {
     macOSAppBundleIDs: ['com.facebook.archon.developerID'],
     knownIssues: [
       "Facebook may lock your account since it doesn't recognize Texts app and make you reset your password.",
-      "You'll get a login notification from Facebook saying Texts has logged in as a Google Pixel 2. There is no physical/simulated device used but how Texts identifies itself.",
+      // "You'll get a login notification from Facebook saying Texts has logged in as a Google Pixel 2. There is no physical/simulated device used but how Texts identifies itself.",
     ],
   },
   getUserProfileLink: ({ username }) =>
