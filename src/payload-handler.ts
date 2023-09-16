@@ -15,7 +15,7 @@ import { MetaMessengerError } from './errors'
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
 export interface MetaMessengerPayloadHandlerResponse {
-  replaceOptimsiticMessage?: {
+  replaceOptimsiticMessage?: { // typo here is intentional, Meta names it like that
     offlineThreadingId: string
     messageId: string
   }
@@ -108,7 +108,6 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private __run = async () => {
-    this.__logger.debug('loaded calls', { calls: this.__calls })
     for (const [method, args] of this.__calls) {
       if (method.startsWith('__')) {
         // we assume meta doesn't send any methods that start with __
@@ -120,15 +119,13 @@ export default class MetaMessengerPayloadHandler {
 
       const isValidMethod = method in this && typeof this[method] === 'function'
       if (!isValidMethod) {
-        this.__logger.debug(`missing handler (${method})`, args)
+        this.__logger.warn(`missing handler (${method})`, args)
         this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${method})`, undefined, undefined, true))
         continue
       }
 
       try {
-        this.__logger.debug(`calling method ${method}`, { args })
         const call = this[method].bind(this)
-
         const result = await call(args)
 
         if (typeof result === 'function') {
