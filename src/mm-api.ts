@@ -126,7 +126,11 @@ export default class MetaMessengerAPI {
       },
     })
 
-    this.config = getMessengerConfig(body)
+    try {
+      this.config = getMessengerConfig(body)
+    } catch (e) {
+      throw new Error('No valid configuration was detected. Login window may have been interrupted before it finished loading.')
+    }
 
     this.papi.kv.setMany({
       'syncParams-1': JSON.stringify(this.config.syncParams),
@@ -140,6 +144,11 @@ export default class MetaMessengerAPI {
       mqttClientCapabilities: String(this.config.mqttClientCapabilities),
     })
 
+    this.papi.currentUser = {
+      id: this.config.fbid,
+      fullName: this.config.name,
+    }
+
     if (this.papi.env === 'IG') {
       if (!this.config.igViewerConfig?.id) {
         throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
@@ -150,25 +159,16 @@ export default class MetaMessengerAPI {
         igUserId: this.config.igViewerConfig.id,
       })
 
-      this.papi.currentUser = {
-        // id: config.id, // this is the instagram id but fbid is instead used for chat
-        id: this.config.fbid,
-        fullName: this.config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name),
-        imgURL: fixUrl(this.config.igViewerConfig.profile_pic_url_hd),
-        username: this.config.igViewerConfig.username,
-      }
-    } else {
-      this.papi.currentUser = {
-        // id: config.id, // this is the instagram id but fbid is instead used for chat
-        id: this.config.fbid,
-        fullName: this.config.name,
-      }
+      // config.id, is the instagram id but fbid is instead used for chat
+      this.papi.currentUser.fullName = this.config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name)
+      this.papi.currentUser.imgURL = fixUrl(this.config.igViewerConfig.profile_pic_url_hd)
+      this.papi.currentUser.username = this.config.igViewerConfig.username
     }
 
     for (const payload of this.config.initialPayloads) {
       await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
-//@@    debugger
+
     switch (this.papi.env) {
       case 'IG':
         await this.getSnapshotPayloadForIGD()
@@ -180,9 +180,8 @@ export default class MetaMessengerAPI {
       default:
         break
     }
-//@@    debugger
+
     await this.papi.socket.connect()
-//@@    debugger
     this._initPromise?.resolve()
   }
 
@@ -355,11 +354,21 @@ export default class MetaMessengerAPI {
     const general = generalEnabled ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
     const isPrimarySet = typeof primary?.hasMoreBefore === 'boolean'
     const isGeneralSet = typeof general?.hasMoreBefore === 'boolean'
-//@@    debugger
-    return (isPrimarySet && primary.hasMoreBefore)
+    const hasMore = (isPrimarySet && primary.hasMoreBefore)
       || (isGeneralSet && general.hasMoreBefore)
       || !isPrimarySet
       || !isGeneralSet
+
+    this.logger.debug('computeHasMoreThreads', {
+      primary,
+      general,
+      hasMore,
+      generalEnabled,
+      isGeneralSet,
+      isPrimarySet,
+    })
+
+    return hasMore
   }
 
   computeHasMoreSpamThreads() {
