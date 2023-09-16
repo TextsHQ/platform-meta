@@ -9,7 +9,8 @@ const info: PlatformInfo = {
     authCookieName: 'c_user',
   },
   name: 'facebookdotcom',
-  displayName: 'Messenger',
+  displayName: 'Facebook',
+  tags: ['INTERNAL TESTING ONLY'],
   icon,
   autofillHostnames: ['messenger.com', 'facebook.com'],
   deletionMode: MessageDeletionMode.DELETE_FOR_EVERYONE,
@@ -54,12 +55,13 @@ const info: PlatformInfo = {
   extra: {
     macOSAppBundleIDs: ['com.facebook.archon.developerID'],
     knownIssues: [
+      'Prefer using the Messenger integration instead of Facebook. This integration is only for internal testing.',
       "Facebook may lock your account since it doesn't recognize Texts app and make you reset your password.",
       // "You'll get a login notification from Facebook saying Texts has logged in as a Google Pixel 2. There is no physical/simulated device used but how Texts identifies itself.",
     ],
   },
   getUserProfileLink: ({ username }) =>
-    username && `https://www.messenger.com/t/${username}`,
+    username && `https://www.facebook.com/messages/t/${username}`,
 }
 
 export default info
