@@ -222,7 +222,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     await this.socket.fetchMessages(threadID, ranges)
 
-    let hasMore = !ranges ? true : ranges.hasMoreBeforeFlag
+    let hasMore = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
     try {
       await this.socket.waitForMessageRange(threadID)
       const _ranges = await this.api.getMessageRanges(threadID)

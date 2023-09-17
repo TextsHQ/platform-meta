@@ -202,7 +202,7 @@ export function mapThread(
     },
     messages: {
       items: mapMessages(t.messages, env, fbid, t),
-      hasMore: ranges.hasMoreBeforeFlag,
+      hasMore: typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true,
     },
     extra: {
       lastActivityTimestampMs: t.lastActivityTimestampMs,
