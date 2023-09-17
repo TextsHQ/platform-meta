@@ -1063,7 +1063,7 @@ export default class MetaMessengerPayloadHandler {
       messageId: a[9],
       messageTimestampMs: a[10],
       blockedByViewerStatus: a[11],
-      isVerified: a[12] as boolean,
+      isVerified: Boolean(a[12]),
       isInteropEligible: a[13],
       restrictionType: a[14],
       isGroupsXacEligible: a[15],
@@ -1691,8 +1691,9 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('upsertFolderSeenTimestamp (ignored)', a)
   }
 
+  // eslint-disable-next-line class-methods-use-this
   private upsertGradientColor(a: SimpleArgType[]) {
-    this.__logger.debug('upsertGradientColor (ignored)', a)
+    // this.__logger.debug('upsertGradientColor (ignored)', a)
   }
 
   private upsertInboxThreadsRange(a: SimpleArgType[]) {

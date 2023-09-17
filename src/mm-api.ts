@@ -234,27 +234,49 @@ export default class MetaMessengerAPI {
   }
 
   async logout() {
-    if (this.papi.env !== 'IG') throw new Error('logout is only supported on IG')
     const baseURL = `https://${this.papi.envOpts.domain}/`
-    const { json } = await this.httpJSONRequest(baseURL + 'api/v1/web/accounts/logout/ajax/', {
-      // todo: refactor headers
-      method: 'POST',
-      body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
-      headers: {
-        accept: '*/*',
-        ...SHARED_HEADERS,
-        'x-asbd-id': '129477',
-        'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': this.papi.kv.get('appId'),
-        'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
-        'x-requested-with': 'XMLHttpRequest',
-        Referer: baseURL,
-        'x-instagram-ajax': '1007993177',
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-    })
-    if (json.status !== 'ok') {
-      throw new Error(`logout ${this.papi.kv.get('igUserId')} failed: ${JSON.stringify(json, null, 2)}`)
+    switch (this.papi.env) {
+      case 'IG': {
+        const { json } = await this.httpJSONRequest(`${baseURL}api/v1/web/accounts/logout/ajax/`, {
+          // todo: refactor headers
+          method: 'POST',
+          body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
+          headers: {
+            accept: '*/*',
+            ...SHARED_HEADERS,
+            'x-asbd-id': '129477',
+            'x-csrftoken': this.getCSRFToken(),
+            'x-ig-app-id': this.papi.kv.get('appId'),
+            'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
+            'x-requested-with': 'XMLHttpRequest',
+            Referer: baseURL,
+            'x-instagram-ajax': '1007993177',
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+        })
+        if (json.status !== 'ok') {
+          throw new Error(`logout ${this.papi.kv.get('igUserId')} failed: ${JSON.stringify(json, null, 2)}`)
+        }
+        break
+      }
+      case 'MESSENGER': {
+        const response = await this.httpRequest(`${baseURL}logout/`, {
+          method: 'POST',
+          body: `fb_dtsg=${this.papi.kv.get('fb_dtsg')}&jazoest=25869`,
+          headers: {
+            accept: '*/*',
+            ...SHARED_HEADERS,
+            Referer: baseURL,
+            'content-type': 'application/x-www-form-urlencoded',
+          },
+        })
+        if (response.statusCode !== 302) {
+          throw new Error(`logout ${this.papi.kv.get('fbid')} failed: ${JSON.stringify(response.body, null, 2)}`)
+        }
+      }
+        break
+      default:
+        throw new Error(`logout is not supported on ${this.papi.env}`)
     }
   }
 
@@ -389,7 +411,7 @@ export default class MetaMessengerAPI {
         ])
       }
       if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
-        return Promise.all([
+        return Promise.race([
           this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY),
           this.papi.socket.fetchMoreThreads(ParentThreadKey.GENERAL), // @TODO: this is disgusting
         ])
@@ -398,8 +420,7 @@ export default class MetaMessengerAPI {
     }
 
     try {
-      const promise = getFetcher()
-      await timeoutOrPromise<unknown>(promise)
+      await timeoutOrPromise<unknown>(getFetcher())
     } catch (err) {
       this.logger.error(err)
     }

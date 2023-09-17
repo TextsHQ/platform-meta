@@ -8,7 +8,7 @@ const info: PlatformInfo = {
     url: 'https://facebook.com',
     authCookieName: 'c_user',
   },
-  name: 'facebookdotcom',
+  name: 'facebook',
   displayName: 'Facebook',
   tags: ['INTERNAL TESTING ONLY'],
   icon,
