@@ -1,0 +1,5 @@
+import { generateCallList, type MMResponse, safeNumberOrString } from '../../src/payload-parser'
+
+const oneOf = {"request_id":8,"payload":"{\"name\":null,\"step\":[1,[1,[4,0,1,[5,\"mciTraceLog\",[19,\"600\"],\"MCITraceUnsampledEventTraceId\",[9],[19,\"0\"],[9],\"DatascriptExecute_SyncGroup_ServerTrace:2\",[19,\"9\"]]]],[1,[4,0,1,[5,\"executeFirstBlockForSyncTransaction\",[19,\"2\"],[19,\"7109158470362626357\"],\"GSwVQBwcGAAYABUEAAAWARYAFgAAFX4cHBgAGAAVBAAAFgEWABYAABYoAA\",\"GSwVQBwcGAAYABUGAAAWARaK37fQDBYAABV-HEwAABYAForft9AMFgAAFigA\",[19,\"4\"],false,[19,\"0\"],false,[19,\"1\"],[9]]],[23,[2,0],[1,[5,\"storyContactSyncFromBucket\"]]]],[1,[1,[5,\"executeFinallyBlockForSyncTransaction\",true,[19,\"2\"],[19,\"7109158470362626357\"]]],[1,[4,0,1,[5,\"mciTraceLog\",[19,\"601\"],\"MCITraceUnsampledEventTraceId\",[9],[19,\"0\"],[9],[9],[19,\"9\"]]]]]]}","sp":["mciTraceLog","executeFirstBlockForSyncTransaction","storyContactSyncFromBucket","executeFinallyBlockForSyncTransaction"],"target":3}
+
+console.log(JSON.stringify(generateCallList('IG', oneOf.payload), null, 2))

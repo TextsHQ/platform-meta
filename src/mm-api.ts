@@ -11,7 +11,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { SerializedSession, IGAttachment, IGMessage, IGMessageRanges } from './types'
-import { IGThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences, timeoutOrPromise } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
@@ -306,15 +306,6 @@ export default class MetaMessengerAPI {
     }
   }
 
-  // async getMe() {
-  //   if (!this.viewerConfig) return
-  //   const data = await this.getUserById(this.viewerConfig.id)
-  //   const { username } = data
-  //   if (!username) return
-  //   const user = await this.getUserByUsername(username)
-  //   return user
-  // }
-
   getCSRFToken() {
     return this.jar
       .getCookiesSync(`https://${this.papi.envOpts.domain}/`)
@@ -357,13 +348,13 @@ export default class MetaMessengerAPI {
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.viewer.lightspeed_web_request.payload, 'snapshot').__handle()
   }
 
-  setSyncGroupThreadsRange(p: IGThreadRanges) {
+  setSyncGroupThreadsRange(p: MetaThreadRanges) {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
   getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
-    return typeof value === 'string' ? JSON.parse(value) as IGThreadRanges : null
+    return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
   }
 
   computeHasMoreThreads() {
@@ -403,7 +394,7 @@ export default class MetaMessengerAPI {
     if (!canFetchMore) return { fetched: false } as const
     const getFetcher = () => {
       if (isSpam) return this.papi.socket.fetchSpamThreads()
-      if (isInitial) return this.papi.socket.fetchInitialThreads()
+      if (isInitial) return this.papi.socket.fetchInitialThreadsForIG()
       if (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox')) {
         return Promise.all([
           this.papi.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),

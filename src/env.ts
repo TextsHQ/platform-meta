@@ -13,7 +13,7 @@ const EnvOptions = {
     // baseURL: 'https://www.facebook.com/',
     initialURL: 'https://www.facebook.com/messages/' as const,
     defaultContactName: 'Facebook User' as const,
-    defaultVersionId: 6552526831451374, // @TODO: CHANGE THIS
+    defaultVersionId: 6345422228920134, // @TODO: CHECK THIS
   },
   MESSENGER: {
     id: 'messengerdotcom',
@@ -21,7 +21,7 @@ const EnvOptions = {
     // baseURL: 'https://www.messenger.com/',
     initialURL: 'https://www.messenger.com/' as const,
     defaultContactName: 'Facebook User' as const,
-    defaultVersionId: 6552526831451374, // @TODO: CHANGE THIS
+    defaultVersionId: 6345422228920134,
   },
   WORK: {
     id: 'workplacedotcom',

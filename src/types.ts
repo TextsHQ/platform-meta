@@ -352,7 +352,7 @@ export type IGMessageRanges = {
   hasMoreAfterFlag: boolean
 }
 
-export type IGThreadRanges = {
+export type MetaThreadRanges = {
   syncGroup: SyncGroup
   parentThreadKey: ParentThreadKey
   minLastActivityTimestampMs: string

@@ -12,11 +12,11 @@ import {
   getTimeValues,
   INT64_MAX_AS_STRING,
   parseMqttPacket,
-  sleep,
+  sleep, timeoutOrPromise,
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { IGMessageRanges, MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'
@@ -246,14 +246,17 @@ export default class MetaMessengerWebSocket {
 
   private async onOpen() {
     await this.afterConnect()
+    // @TODO: need to send rtc_multi
     await this.sendAppSettings()
     this.startPing()
   }
 
   private afterConnect() {
+    const isFacebook = this.papi.env === 'FB' || this.papi.env === 'MESSENGER'
     this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
       isSubscribedToLsResp: this.isSubscribedToLsResp,
+      isFacebook,
     })
 
     const st = this.isInitialConnection ? [] as const : [
@@ -269,6 +272,20 @@ export default class MetaMessengerWebSocket {
         messageId: 65536,
       } as const,
     ]
+
+    const depends = <T>(valueForInstagram: T, valueForFacebookOrMessenger: T, defaultValue?: T) => {
+      switch (this.papi.env) {
+        case 'IG':
+          return valueForInstagram
+        case 'FB':
+        case 'MESSENGER':
+          return valueForFacebookOrMessenger
+        default:
+          if (defaultValue) return defaultValue
+          throw new Error('Invalid environment')
+      }
+    }
+
     const p = this.send({
       cmd: 'connect',
       protocolId: 'MQIsdp',
@@ -282,11 +299,11 @@ export default class MetaMessengerWebSocket {
         s: this.mqttSid,
         cp: Number(this.papi.kv.get('mqttClientCapabilities')),
         ecp: Number(this.papi.kv.get('mqttCapabilities')),
-        chat_on: this.papi.env === 'IG',
-        fg: this.papi.env === 'IG',
+        chat_on: depends<boolean>(true, false),
+        fg: depends<boolean>(true, false),
         d: this.papi.kv.get('clientId'),
-        ct: this.papi.env === 'IG' ? 'cookie_auth' : 'websocket',
-        mqtt_sid: '', // @TODO: should we use the one from the cookie?
+        ct: depends<string>('cookie_auth', 'websocket'),
+        mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
         aid: Number(this.papi.kv.get('appId')),
         st,
         pm,
@@ -632,7 +649,65 @@ export default class MetaMessengerWebSocket {
     }])
   }
 
-  fetchInitialThreads = () => this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
+  private fetchMoreThreadsV3Promises = new Map<'inbox' | 'requests', Promise<unknown>>()
+
+  fetchMoreThreadsV3 = async (folder: 'inbox' | 'requests') => {
+    if (this.fetchMoreThreadsV3Promises.has(folder)) {
+      return this.fetchMoreThreadsV3Promises.get(folder)
+    }
+
+    const syncGroups: MetaThreadRanges[] = []
+    if (folder === 'requests') {
+      syncGroups.push(this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM))
+    } else if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
+      syncGroups.push(
+        this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL),
+        this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY),
+        this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
+        this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
+      )
+    }
+
+    this.logger.debug('fetchMoreThreadsV3', {
+      folder,
+      syncGroups,
+    })
+
+    const tasks = syncGroups.map(sg => {
+      if (!sg) return
+      if (typeof sg.hasMoreBefore === 'boolean' && !sg.hasMoreBefore) return
+      const parent_thread_key = sg.parentThreadKey
+      const reference_thread_key = sg.minThreadKey || 0
+      const reference_activity_timestamp = typeof sg.minLastActivityTimestampMs === 'number' ? sg.minLastActivityTimestampMs : 9999999999999
+      const sync_group = sg.syncGroup
+      const cursor = this.papi.kv.get(`cursor-1-${sync_group}`)
+      return {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key,
+          reference_thread_key,
+          reference_activity_timestamp,
+          additional_pages_to_fetch: 0,
+          cursor,
+          messaging_tag: null,
+          sync_group,
+        }),
+        queue_name: 'trq',
+        task_id: this.genTaskId(),
+        failure_count: null,
+      }
+    }).filter(Boolean)
+
+    // if there are no more threads to load
+    if (tasks.length === 0) return
+    const task = this.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
+    const promiseWithTimeout = timeoutOrPromise(task, 10000)
+    this.fetchMoreThreadsV3Promises.set(folder, promiseWithTimeout)
+    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(folder))
+  }
+
+  fetchInitialThreadsForIG = () => this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
     {
       label: '145',
       payload: JSON.stringify({
@@ -984,7 +1059,7 @@ export default class MetaMessengerWebSocket {
   // not sure exactly what this does, but it's required.
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
-  private subscribeToDB(database: number, cursor: `cursor-${number}-${SyncGroup}`, syncParams: string) {
+  private subscribeToDB(database: number, cursor: `cursor-${number}-${SyncGroup}` = null, syncParams: string = null) {
     const request_id = this.genRequestId()
     return this.send({
       cmd: 'publish',
@@ -999,7 +1074,7 @@ export default class MetaMessengerWebSocket {
           database,
           epoch_id: getTimeValues().epoch_id,
           failure_count: null,
-          last_applied_cursor: this.papi.kv.get(cursor),
+          last_applied_cursor: cursor ? this.papi.kv.get(cursor) : null,
           sync_params: syncParams,
           version: EnvOptions[this.papi.env].defaultVersionId,
         }),
@@ -1032,16 +1107,33 @@ export default class MetaMessengerWebSocket {
         type: 2,
       }),
     })
-    // this.subscribeToDB(2, 'cursor-2')
+    const isFacebook = this.papi.env === 'FB' || this.papi.env === 'MESSENGER'
+    // this.subscribeToDB(2, 'cursor-2') // @TODO add
     const syncParamsString = this.papi.kv.get('syncParams-1')
-    await this.subscribeToDB(6, null, syncParamsString)
-    await this.subscribeToDB(7, null, JSON.stringify({
-      mnet_rank_types: [44],
-    }))
-    await this.subscribeToDB(16, null, syncParamsString)
-    await this.subscribeToDB(28, null, syncParamsString)
-    await this.subscribeToDB(196, null, syncParamsString)
-    await this.subscribeToDB(198, null, syncParamsString)
+    if (this.papi.env === 'IG') {
+      await this.subscribeToDB(6, null, syncParamsString)
+      await this.subscribeToDB(7, null, JSON.stringify({
+        mnet_rank_types: [44],
+      }))
+      await this.subscribeToDB(16, null, syncParamsString)
+      await this.subscribeToDB(28, null, syncParamsString)
+      await this.subscribeToDB(196, null, syncParamsString)
+      await this.subscribeToDB(198, null, syncParamsString)
+    } else if (isFacebook) {
+      await this.subscribeToDB(2, 'cursor-1-1', null)
+      await this.subscribeToDB(5, null, syncParamsString)
+      await this.subscribeToDB(16, null, syncParamsString)
+      await this.subscribeToDB(26, null, syncParamsString)
+      await this.subscribeToDB(28, null, syncParamsString)
+      await this.subscribeToDB(95, 'cursor-1-1', syncParamsString)
+      await this.subscribeToDB(104, null, syncParamsString)
+      await this.subscribeToDB(140, null, syncParamsString)
+      await this.subscribeToDB(141, null, syncParamsString)
+      await this.subscribeToDB(142, null, syncParamsString)
+      await this.subscribeToDB(143, null, syncParamsString)
+      await this.subscribeToDB(196, null, syncParamsString)
+      await this.subscribeToDB(198, null, syncParamsString)
+    }
   }
 
   // does not work for moving threads out of the message requests folder

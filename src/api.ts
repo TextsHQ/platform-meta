@@ -28,7 +28,7 @@ import MetaMessengerAPI from './mm-api'
 import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
-import type { IGThreadRanges, PAPIReturn, SerializedSession } from './types'
+import type { MetaThreadRanges, PAPIReturn, SerializedSession } from './types'
 import { ParentThreadKey, SyncGroup } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
@@ -145,20 +145,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam })
 
-    const result = await this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined')
+    const result = await (this.env === 'IG' ? this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined') : this.socket.fetchMoreThreadsV3(isSpam ? 'requests' : 'inbox'))
 
-    const syncGroups: IGThreadRanges[] = []
-    if (isSpam) {
-      syncGroups.push(this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM))
-    } else if (this.env === 'FB' || this.env === 'MESSENGER') {
-      syncGroups.push(
-        this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL),
-        this.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY),
-        this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
-        this.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
-      )
-    }
-    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam }, { result, syncGroups })
+    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam }, { result })
 
     const { direction = 'before' } = pagination || {}
     const cursor = (() => {
