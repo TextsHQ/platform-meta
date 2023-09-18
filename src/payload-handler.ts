@@ -852,13 +852,6 @@ export default class MetaMessengerPayloadHandler {
       // })
       // const attachment = JSON.parse(a.attachment) as IGAttachment
       const parsedMessage = JSON.parse(messages.message) as IGMessage
-      if (this.__papi.env !== 'IG') {
-        this.__logger.error('insertAttachmentCta NON IG PLATFORM ', {}, JSON.stringify({
-          parsedMessage,
-          actionUrl: r.actionUrl,
-          r,
-        }))
-      }
 
       const mediaLink = r.actionUrl.startsWith('/') ? `https://www.instagram.com${r.actionUrl}` : getOriginalURL(r.actionUrl) // @TODO: add env support
 
