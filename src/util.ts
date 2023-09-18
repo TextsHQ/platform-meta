@@ -112,7 +112,7 @@ export function toSqliteFormattedDateTimeString(date: Date) {
 }
 
 export async function timeoutOrPromise<T>(promise: Promise<T>, timeoutMs = 10000): Promise<T> {
-  return Promise.race([promise, new Promise<T>((resolve, reject) => {
+  return Promise.race([promise, new Promise<T>((_, reject) => {
     setTimeout(() => reject(new Error('Timeout')), timeoutMs)
   })])
 }

@@ -12,7 +12,8 @@ import {
   getTimeValues,
   INT64_MAX_AS_STRING,
   parseMqttPacket,
-  sleep, timeoutOrPromise,
+  sleep,
+  timeoutOrPromise,
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
@@ -656,15 +657,15 @@ export default class MetaMessengerWebSocket {
       return this.fetchMoreThreadsV3Promises.get(folder)
     }
 
-    const syncGroups: MetaThreadRanges[] = []
+    const syncGroups: [SyncGroup, ParentThreadKey][] = []
     if (folder === 'requests') {
-      syncGroups.push(this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM))
+      syncGroups.push([SyncGroup.MAIN, ParentThreadKey.SPAM])
     } else if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
       syncGroups.push(
-        this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL),
-        this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY),
-        this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.GENERAL),
-        this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY),
+        [SyncGroup.MAIN, ParentThreadKey.GENERAL],
+        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
+        [SyncGroup.UNKNOWN, ParentThreadKey.GENERAL],
+        [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
       )
     }
 
@@ -673,14 +674,13 @@ export default class MetaMessengerWebSocket {
       syncGroups,
     })
 
-    const tasks = syncGroups.map(sg => {
-      if (!sg) return
-      if (typeof sg.hasMoreBefore === 'boolean' && !sg.hasMoreBefore) return
-      const parent_thread_key = sg.parentThreadKey
-      const reference_thread_key = sg.minThreadKey || 0
-      const reference_activity_timestamp = typeof sg.minLastActivityTimestampMs === 'number' ? sg.minLastActivityTimestampMs : 9999999999999
-      const sync_group = sg.syncGroup
-      const cursor = this.papi.kv.get(`cursor-1-${sync_group}`)
+    const tasks = syncGroups.map(([syncGroup, parentThreadKey]) => {
+      const range = this.papi.api.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
+      if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
+      const parent_thread_key = parentThreadKey
+      const reference_thread_key = range?.minThreadKey || 0
+      const reference_activity_timestamp = typeof range?.minLastActivityTimestampMs === 'number' ? range.minLastActivityTimestampMs : 9999999999999
+      const cursor = this.papi.kv.get(`cursor-1-${syncGroup}`)
       return {
         label: '145',
         payload: JSON.stringify({
@@ -691,7 +691,7 @@ export default class MetaMessengerWebSocket {
           additional_pages_to_fetch: 0,
           cursor,
           messaging_tag: null,
-          sync_group,
+          sync_group: syncGroup,
         }),
         queue_name: 'trq',
         task_id: this.genTaskId(),
@@ -702,7 +702,7 @@ export default class MetaMessengerWebSocket {
     // if there are no more threads to load
     if (tasks.length === 0) return
     const task = this.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
-    const promiseWithTimeout = timeoutOrPromise(task, 10000)
+    const promiseWithTimeout = timeoutOrPromise(task, 15000)
     this.fetchMoreThreadsV3Promises.set(folder, promiseWithTimeout)
     return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(folder))
   }
@@ -769,7 +769,6 @@ export default class MetaMessengerWebSocket {
     //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
     //   return
     // }
-    // debugger
     const sg1Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.MAIN, parentThreadKey)
     const sg95Primary = this.papi.api.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, parentThreadKey) || sg1Primary
     return this.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
