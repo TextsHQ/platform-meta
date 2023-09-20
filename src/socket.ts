@@ -666,7 +666,7 @@ export default class MetaMessengerWebSocket {
         [SyncGroup.MAIN, ParentThreadKey.SPAM],
         [SyncGroup.UNKNOWN, ParentThreadKey.SPAM],
       )
-    } else if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
+    } else {
       syncGroups.push(
         [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
         [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
