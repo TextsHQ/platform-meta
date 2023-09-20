@@ -1788,6 +1788,21 @@ export default class MetaMessengerPayloadHandler {
     // this.__logger.debug('upsertGradientColor (ignored)', a)
   }
 
+  private updateOrInsertReactionV2(a: SimpleArgType[]) {
+    const r = {
+      messageId: a[1],
+      threadKey: a[0],
+      reactionFbid: a[2],
+      // messageTimestamp: e.timestampMs,
+      authorityLevel: a[5],
+      count: a[4],
+      viewerIsReactor: a[6],
+      viewerReactionTimestampMs: a[7],
+      lastUpdatedTimestampMs: a[8],
+    }
+    this.__logger.debug('updateOrInsertReactionV2 (ignored)', a, r)
+  }
+
   private upsertInboxThreadsRange(a: SimpleArgType[]) {
     this.__logger.debug('upsertInboxThreadsRange (ignored)', a)
   }

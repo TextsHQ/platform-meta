@@ -83,6 +83,7 @@ export type OperationKey =
   | 'updateLastSyncCompletedTimestampMsToNow'
   | 'updateMessagesOptimisticContext'
   | 'updateOptimisticEphemeralMediaState'
+  | 'updateOrInsertReactionV2'
   | 'updateOrInsertThread'
   | 'updateParentFolderReadWatermark'
   | 'updateParticipantCapabilities'
