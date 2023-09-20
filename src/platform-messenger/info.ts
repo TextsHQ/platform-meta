@@ -40,7 +40,7 @@ const info: PlatformInfo = {
     // Attribute.SUPPORTS_STOP_TYPING_INDICATOR,
     Attribute.SUPPORTS_QUOTED_MESSAGES,
     Attribute.CAN_MESSAGE_USERNAME,
-    Attribute.DEFINES_MESSAGE_CURSOR,
+    // Attribute.DEFINES_MESSAGE_CURSOR,
     Attribute.SUBSCRIBE_TO_ONLINE_OFFLINE_ACTIVITY,
     Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
