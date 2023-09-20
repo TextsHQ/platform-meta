@@ -676,7 +676,7 @@ export default class MetaMessengerWebSocket {
 
     const tasks = syncGroups.map(([syncGroup, parentThreadKey]) => {
       const range = this.papi.api.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
-      if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
+      // if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
       const parent_thread_key = parentThreadKey
       const reference_thread_key = range?.minThreadKey || 0
       const reference_activity_timestamp = typeof range?.minLastActivityTimestampMs === 'number' ? range.minLastActivityTimestampMs : 9999999999999
