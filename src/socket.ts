@@ -653,18 +653,22 @@ export default class MetaMessengerWebSocket {
   private fetchMoreThreadsV3Promises = new Map<'inbox' | 'requests', Promise<unknown>>()
 
   fetchMoreThreadsV3 = async (folder: 'inbox' | 'requests') => {
+    if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error('fetchMoreThreadsV3 is only supported with Facebook/Messenger')
     if (this.fetchMoreThreadsV3Promises.has(folder)) {
       return this.fetchMoreThreadsV3Promises.get(folder)
     }
 
     const syncGroups: [SyncGroup, ParentThreadKey][] = []
     if (folder === 'requests') {
-      syncGroups.push([SyncGroup.MAIN, ParentThreadKey.SPAM])
-    } else if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
       syncGroups.push(
         [SyncGroup.MAIN, ParentThreadKey.GENERAL],
-        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
         [SyncGroup.UNKNOWN, ParentThreadKey.GENERAL],
+        [SyncGroup.MAIN, ParentThreadKey.SPAM],
+        [SyncGroup.UNKNOWN, ParentThreadKey.SPAM],
+      )
+    } else if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
+      syncGroups.push(
+        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
         [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
       )
     }
