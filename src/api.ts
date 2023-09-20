@@ -28,8 +28,8 @@ import MetaMessengerAPI from './mm-api'
 import MetaMessengerWebSocket from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
-import type { MetaThreadRanges, PAPIReturn, SerializedSession } from './types'
-import { ParentThreadKey, SyncGroup } from './types'
+import type { PAPIReturn, SerializedSession } from './types'
+import { ParentThreadKey } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -536,4 +536,16 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const parsed: PushSubscriptionJSON = JSON.parse(token)
     await this.api.webPushRegister(parsed.endpoint, parsed.keys.p256dh, parsed.keys.auth)
   }
+
+  getAsset = async (_: any, assetType: string, attachmentType: string, ...args: string[]) => {
+    this.logger.debug('getAsset', assetType, attachmentType, args)
+    if (assetType !== 'attachment' || attachmentType !== 'ig_reel') {
+      throw Error('not implemented')
+    }
+    const [mediaId, reelId, username] = args
+    const reel = await this.api.getIGReels(mediaId, reelId, username)
+    return reel.url
+  }
+
+  // getAsset?: (fetchOptions?: GetAssetOptions, ...args: string[]) => Awaitable<FetchURL | FetchInfo | Buffer | Readable | Asset>;
 }

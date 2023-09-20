@@ -189,12 +189,12 @@ export type IGMessage = {
   links?: Message['links']
   extra?: {
     mediaLink?: string
+    assetURL?: string
   }
   textHeading?: string
 }
 
 export type IGAttachment = {
-  raw: string
   threadKey: string
   messageId: string
   attachmentFbid: string

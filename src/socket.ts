@@ -17,7 +17,7 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { IGMessageRanges, MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { IGMessageRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import * as schema from './store/schema'
 import { MetaMessengerError } from './errors'

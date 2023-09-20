@@ -157,7 +157,7 @@ export default class MetaMessengerPayloadHandler {
       await callback()
     }
 
-    let toSync: ServerEvent[] = []
+    const toSync: ServerEvent[] = []
     if (this.__threadsToSync.size > 0) {
       const entries = await this.__papi.api.queryThreads([...this.__threadsToSync])
       if (entries.length > 0) {
@@ -178,9 +178,9 @@ export default class MetaMessengerPayloadHandler {
       this.__threadsToSync.clear()
     }
 
-    if (this.__events.length > 0) {
-      this.__papi.onEvent([...toSync, ...this.__events])
-      toSync = []
+    const finalEvents = [...toSync, ...this.__events].filter(Boolean)
+    if (finalEvents.length > 0) {
+      this.__papi.onEvent(finalEvents)
       this.__events = []
     }
   }
@@ -830,11 +830,21 @@ export default class MetaMessengerPayloadHandler {
 
   private async insertAttachmentCta(a: SimpleArgType[]) {
     const r = {
-      raw: JSON.stringify(a),
-      attachmentFbid: a[1] as string,
-      threadKey: a[3] as string,
+      ctaId: a[0],
+      attachmentFbid: a[1],
+      attachmentIndex: a[2],
+      threadKey: a[3],
       messageId: a[5] as string,
+      title: a[6],
+      type_: a[7],
+      platformToken: a[8],
       actionUrl: a[9] as string,
+      nativeUrl: a[10],
+      urlWebviewType: a[11],
+      actionContentBlob: a[12],
+      enableExtensions: a[13],
+      extensionHeightType: a[14],
+      targetId: a[15],
     }
     this.__logger.debug('insertAttachmentCta', a, r)
     // const messages = await this.__papi.db.select({ message: schema.messages.message }).from(schema.messages).where(eq(schema.messages.messageId, r.messageId!)).run()
@@ -846,6 +856,20 @@ export default class MetaMessengerPayloadHandler {
         message: true,
       },
     })
+
+    let assetURL: string
+    if (r?.title === 'attachment' && r?.type_ === 'xma_web_url' && r.actionUrl?.startsWith('https://www.instagram.com/stories/')) {
+      // https://www.instagram.com/stories/ogzcn/3195371052958782801?reel_id=3660493&reel_owner_id=3660493
+      try {
+        const reelUrl = new URL(r.actionUrl)
+        const [,_reelType, username, mediaId] = reelUrl.pathname.split('/')
+        const reelId = reelUrl.searchParams.get('reel_id')
+        assetURL = `asset://$accountID/attachment/ig_reel/${mediaId}/${reelId}/${username}`
+      } catch (e) {
+        this.__logger.error('insertAttachmentCta', e)
+      }
+    }
+
     if (r.actionUrl && r.actionUrl !== 'null') {
       // const a = this.__papi.db.query.attachments.findFirst({
       //   where: eq(schema.attachments.attachmentFbid, r.attachmentFbid!),
@@ -858,7 +882,9 @@ export default class MetaMessengerPayloadHandler {
       this.__logger.debug('insertAttachmentCta mediaLink', mediaLink)
       const INSTAGRAM_PROFILE_BASE_URL = 'https://www.instagram.com/_u/' // @TODO: add env support
       if (mediaLink.startsWith(INSTAGRAM_PROFILE_BASE_URL)) {
-        parsedMessage.extra = {}
+        parsedMessage.extra = {
+          assetURL,
+        }
         parsedMessage.links = [{
           url: mediaLink,
           title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
@@ -866,6 +892,7 @@ export default class MetaMessengerPayloadHandler {
       } else if (mediaLink.startsWith(`https://${this.__papi.envOpts.domain}/`)) {
         parsedMessage.extra = {
           mediaLink,
+          assetURL,
         }
       } else {
         parsedMessage.links = [{
@@ -887,19 +914,92 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
-  private insertAttachmentItem(a: SimpleArgType[]) {
-    const i = {
-      attachmentFbid: a[0],
-      threadKey: a[2],
-      messageId: a[4],
+  private async insertAttachmentItem(a: SimpleArgType[]) {
+    const {
+      threadKey,
+      messageId,
+      attachmentFbid,
+      ...attachment
+    } = {
+      attachmentFbid: a[0] as string,
+      attachmentIndex: a[1],
+      threadKey: a[2] as string,
+      messageId: a[4] as string,
+      defaultActionEnableExtensions: a[30],
+      originalPageSenderId: a[7],
+      titleText: a[8],
+      subtitleText: a[9],
+      playableUrl: a[12],
+      playableUrlFallback: a[13],
+      playableUrlExpirationTimestampMs: a[14],
+      playableUrlMimeType: a[15],
+      dashManifest: a[16],
       previewUrl: a[17],
+      previewUrlFallback: a[18],
+      previewUrlExpirationTimestampMs: a[19],
+      previewUrlMimeType: a[20],
+      previewWidth: a[21],
+      previewHeight: a[22],
+      imageUrl: a[23],
+      defaultCtaId: a[24],
+      defaultCtaTitle: a[25],
+      defaultCtaType: a[26],
+      defaultButtonType: a[28],
+      defaultActionUrl: a[29],
+      defaultWebviewHeightRatio: a[32],
+      attachmentCta1Id: a[34],
+      cta1Title: a[35],
+      cta1IconType: a[36],
+      cta1Type: a[37],
+      attachmentCta2Id: a[39],
+      cta2Title: a[40],
+      cta2IconType: a[41],
+      cta2Type: a[42],
+      attachmentCta3Id: a[44],
+      cta3Title: a[45],
+      cta3IconType: a[46],
+      cta3Type: a[47],
+      faviconUrl: a[48],
+      faviconUrlFallback: a[49],
+      faviconUrlExpirationTimestampMs: a[50],
+      previewUrlLarge: a[51],
     }
-    this.__logger.debug('insertAttachmentItem (ignored)', a, i)
+    this.__logger.debug('insertAttachmentItem', a, {
+      threadKey,
+      messageId,
+      attachmentFbid,
+      attachment,
+    })
+
+    const current = await this.__papi.db.query.attachments.findFirst({
+      columns: {
+        attachment: true,
+      },
+      where: and(
+        eq(schema.attachments.threadKey, threadKey),
+        eq(schema.attachments.messageId, messageId),
+        eq(schema.attachments.attachmentFbid, attachmentFbid),
+      ),
+    })
+
+    const mapped = {
+      threadKey,
+      messageId,
+      attachmentFbid,
+      attachment: JSON.stringify({
+        ...(current?.attachment ? JSON.parse(current.attachment) : {}),
+        ...attachment,
+      }),
+    }
+
+    this.__papi.db.insert(schema.attachments).values(mapped).onConflictDoUpdate({
+      target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
+      set: { ...mapped },
+    }).run()
   }
 
-  private insertBlobAttachment(a: SimpleArgType[]) {
+  private async insertBlobAttachment(a: SimpleArgType[]) {
     const ba: IGAttachment = {
-      raw: JSON.stringify(a),
       filename: a[0] as string,
       threadKey: a[27] as string,
       messageId: a[32] as string,
@@ -948,7 +1048,7 @@ export default class MetaMessengerPayloadHandler {
       authorityLevel: a[48] as string,
     }
     this.__logger.debug('insertBlobAttachment', a, ba)
-    const { messageId } = this.__papi.api.upsertAttachment(ba)
+    const { messageId } = await this.__papi.api.upsertAttachment(ba)
 
     return async () => {
       await this.__syncAttachment(ba.threadKey, messageId)
@@ -1098,9 +1198,8 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('insertStickerAttachment (ignored)', a)
   }
 
-  private insertXmaAttachment(a: SimpleArgType[]) {
+  private async insertXmaAttachment(a: SimpleArgType[]) {
     const ba: IGAttachment = {
-      raw: JSON.stringify(a),
       threadKey: a[25] as string,
       messageId: a[30] as string,
       attachmentFbid: a[32] as string,
@@ -1214,7 +1313,7 @@ export default class MetaMessengerPayloadHandler {
       authorityLevel: a[122] as string,
     }
     this.__logger.debug('insertXmaAttachment', a, ba)
-    const { messageId } = this.__papi.api.upsertAttachment(ba)
+    const { messageId } = await this.__papi.api.upsertAttachment(ba)
     return async () => {
       await this.__syncAttachment(ba.threadKey, messageId)
     }
@@ -1685,7 +1784,7 @@ export default class MetaMessengerPayloadHandler {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  private upsertGradientColor(a: SimpleArgType[]) {
+  private upsertGradientColor(_a: SimpleArgType[]) {
     // this.__logger.debug('upsertGradientColor (ignored)', a)
   }
 

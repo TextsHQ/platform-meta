@@ -123,6 +123,39 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   if (message.text === '' && !message.textHeading && attachments?.length === 0) {
     message.textHeading = 'No longer available'
   }
+  // else {
+  //   const assetURL = message.extra?.assetURL
+  //   if (assetURL?.includes('/ig_reel/')) {
+  //     attachments.push({
+  //       id: `story-in-${m.messageId}-video`,
+  //       type: AttachmentType.VIDEO,
+  //       size: {
+  //         width: 1080,
+  //         height: 1920,
+  //       },
+  //       mimeType: AttachmentType.VIDEO,
+  //       fileSize: 0,
+  //       fileName: `story-in-${m.messageId}.mp4`,
+  //       srcURL: assetURL,
+  //       isGif: false,
+  //       extra: undefined,
+  //     })
+  //     attachments.push({
+  //       id: `story-in-${m.messageId}-img`,
+  //       type: AttachmentType.IMG,
+  //       size: {
+  //         width: 1080,
+  //         height: 1920,
+  //       },
+  //       mimeType: AttachmentType.IMG,
+  //       fileSize: 0,
+  //       fileName: `story-in-${m.messageId}.jpg`,
+  //       srcURL: assetURL,
+  //       isGif: false,
+  //       extra: undefined,
+  //     })
+  //   }
+  // }
 
   const textFooter = !message.isUnsent && attachmentWithText
   const textHeading = (!linkedMessageID && (message.textHeading || message.replySnippet)) || textFooter
@@ -142,7 +175,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     linkedMessageID,
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
-    attachments: attachments.filter(a => !!a.srcURL),
+    attachments: attachments.filter(att => !!att.srcURL),
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,

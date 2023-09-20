@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import { type FetchOptions, type MessageSendOptions, ReAuthError, texts, type User } from '@textshq/platform-sdk'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 
@@ -32,6 +32,7 @@ export const SHARED_HEADERS = {
   'sec-fetch-mode': 'cors',
   'sec-fetch-site': 'same-origin',
   'viewport-width': '1280',
+  // te: 'trailers',
 } as const
 
 const fixUrl = (url: string) =>
@@ -104,7 +105,11 @@ export default class MetaMessengerAPI {
       // })
     }
 
-    return { statusCode: res.statusCode, headers: res.headers, json: JSON.parse(res.body) }
+    return {
+      statusCode: res.statusCode,
+      headers: res.headers,
+      json: JSON.parse(res.body),
+    }
   }
 
   async init(triggeredFrom: 'login' | 'init') {
@@ -220,14 +225,26 @@ export default class MetaMessengerAPI {
     return user
   }
 
-  async graphqlCall<T extends {}>(doc_id: string, variables: T) {
+  async graphqlCall<T extends {}>(doc_id: string, variables: T, { headers, bodyParams }: {
+    headers?: Record<string, string>
+    bodyParams?: Record<string, string>
+  } = {
+    headers: {},
+    bodyParams: {},
+  }) {
     const { json } = await this.httpJSONRequest(`https://${this.papi.envOpts.domain}/api/graphql/`, {
       method: 'POST',
       headers: {
+        ...headers,
         'content-type': 'application/x-www-form-urlencoded',
       },
       // todo: maybe use FormData instead:
-      body: new URLSearchParams({ fb_dtsg: this.papi.kv.get('fb_dtsg'), variables: JSON.stringify(variables), doc_id }).toString(),
+      body: new URLSearchParams({
+        ...bodyParams,
+        fb_dtsg: this.papi.kv.get('fb_dtsg'),
+        variables: JSON.stringify(variables),
+        doc_id,
+      }).toString(),
     })
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
     return { data: json }
@@ -348,6 +365,94 @@ export default class MetaMessengerAPI {
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.viewer.lightspeed_web_request.payload, 'snapshot').__handle()
   }
 
+  async getIGReels(media_id: string, reel_ids: string, username: string) {
+    const response = await this.httpJSONRequest(
+      `https://www.instagram.com/api/v1/feed/reels_media/?media_id=${media_id}&reel_ids=${reel_ids}`,
+      {
+        headers: {
+          'User-Agent': this.ua,
+          Accept: '*/*',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'X-CSRFToken': this.getCSRFToken(),
+          'X-IG-App-ID': this.papi.kv.get('appId'),
+          'X-ASBD-ID': '129477',
+          'X-IG-WWW-Claim': this.papi.kv.get('wwwClaim') || '0',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-origin',
+          Referer: `https://www.instagram.com/stories/${username}/${media_id}`,
+        },
+      },
+    )
+    const data = response.json as {
+      status: 'ok'
+      reels?: {
+        [reel_id: string]: {
+          items?: {
+            pk: string
+            image_versions2?: {
+              candidates: {
+                url: string
+                width: number
+                height: number
+              }[]
+            }
+            video_versions?: {
+              url: string
+              width: number
+              height: number
+            }[]
+          }[]
+        }
+      }
+    }
+    if (data.status !== 'ok') {
+      throw Error(`getIGReels ${media_id} ${reel_ids} ${username} failed: ${JSON.stringify(data, null, 2)}`)
+    }
+    const media = data.reels?.[reel_ids].items?.find(i => i.pk === media_id)
+    const video = media?.video_versions?.[0]
+    // const video = media?.video_versions?.find(v => v.width === 1080)
+    if (video?.url) return { type: 'video', url: video.url }
+    const image = media?.image_versions2?.candidates?.find(i => i.width === 1080)
+    if (image?.url) return { type: 'image', url: image.url }
+
+    throw Error(`getIGReels ${media_id} ${reel_ids} ${username} no matching media: ${JSON.stringify(data, null, 2)}`)
+  }
+
+  async setIGReelSeen({
+    reelId,
+    reelMediaId,
+    reelMediaOwnerId,
+    reelMediaTakenAt,
+    viewSeenAt,
+  }: {
+    reelId: string
+    reelMediaId: string
+    reelMediaOwnerId: string
+    reelMediaTakenAt: number
+    viewSeenAt: number
+  }) {
+    if (this.papi.env !== 'IG') throw new Error(`setReelSeen is only supported on IG but called on ${this.papi.env}`)
+    try {
+      await this.graphqlCall('6704432082997469', {
+        reelId,
+        reelMediaId,
+        reelMediaOwnerId,
+        reelMediaTakenAt,
+        viewSeenAt,
+      }, {
+        bodyParams: {
+          fb_api_caller_class: 'RelayModern',
+          fb_api_req_friendly_name: 'PolarisAPIReelSeenMutation',
+          server_timestamps: 'true',
+        },
+      })
+    } catch (e) {
+      this.logger.error(e, {}, 'setReelSeen')
+    }
+  }
+
   setSyncGroupThreadsRange(p: MetaThreadRanges) {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
@@ -456,7 +561,10 @@ export default class MetaMessengerAPI {
   }
 
   private async uploadFile(threadID: string, filePath: string, fileName?: string) {
-    const { domain, initialURL } = this.papi.envOpts
+    const {
+      domain,
+      initialURL,
+    } = this.papi.envOpts
     const file = await fs.readFile(filePath)
     const formData = new FormData()
     formData.append('farr', file, { filename: fileName })
@@ -493,7 +601,10 @@ export default class MetaMessengerAPI {
     return JSON.parse(jsonResponse)
   }
 
-  async sendMedia(threadID: string, opts: MessageSendOptions, { filePath, fileName }: { filePath: string, fileName: string }) {
+  async sendMedia(threadID: string, opts: MessageSendOptions, {
+    filePath,
+    fileName,
+  }: { filePath: string, fileName: string }) {
     this.logger.debug('sendMedia about to call uploadFile')
     const res = await this.uploadFile(threadID, filePath, fileName)
     const metadata = res.payload.metadata[0] as {
@@ -512,7 +623,10 @@ export default class MetaMessengerAPI {
     formData.append('device_token', endpoint)
     formData.append('device_type', 'web_vapid')
     formData.append('mid', crypto.randomUUID()) // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
-    formData.append('subscription_keys', JSON.stringify({ auth, p256dh }))
+    formData.append('subscription_keys', JSON.stringify({
+      auth,
+      p256dh,
+    }))
     const { json } = await this.httpJSONRequest(`https://${domain}/api/v1/web/push/register/`, {
       method: 'POST',
       body: formData,
@@ -630,17 +744,37 @@ export default class MetaMessengerAPI {
     })
   }
 
-  upsertAttachment(a: IGAttachment) {
-    const { raw, threadKey, messageId, attachmentFbid, timestampMs, offlineAttachmentId, ...attachment } = a
+  async upsertAttachment(a: IGAttachment) {
+    const {
+      threadKey,
+      messageId,
+      attachmentFbid,
+      timestampMs,
+      offlineAttachmentId,
+      ...attachment
+    } = a
+
+    const current = await this.papi.db.query.attachments.findFirst({
+      columns: {
+        attachment: true,
+      },
+      where: and(
+        eq(schema.attachments.threadKey, threadKey),
+        eq(schema.attachments.messageId, messageId),
+        eq(schema.attachments.attachmentFbid, attachmentFbid),
+      ),
+    })
 
     const aMapped = {
-      raw,
       threadKey,
       messageId,
       attachmentFbid,
       timestampMs: new Date(timestampMs),
       offlineAttachmentId,
-      attachment: JSON.stringify(attachment),
+      attachment: JSON.stringify({
+        ...(current?.attachment ? JSON.parse(current.attachment) : {}),
+        ...attachment,
+      }),
     }
 
     this.papi.db.insert(schema.attachments).values(aMapped).onConflictDoUpdate({
@@ -652,7 +786,16 @@ export default class MetaMessengerAPI {
   }
 
   upsertMessage(m: IGMessage) {
-    const { raw, threadKey, messageId, offlineThreadingId, timestampMs, senderId, primarySortKey, ...message } = m
+    const {
+      raw,
+      threadKey,
+      messageId,
+      offlineThreadingId,
+      timestampMs,
+      senderId,
+      primarySortKey,
+      ...message
+    } = m
     const _m = {
       raw,
       threadKey,
