@@ -543,6 +543,4 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const reel = await this.api.getIGReels(mediaId, reelId, username)
     return reel.url
   }
-
-  // getAsset?: (fetchOptions?: GetAssetOptions, ...args: string[]) => Awaitable<FetchURL | FetchInfo | Buffer | Readable | Asset>;
 }
