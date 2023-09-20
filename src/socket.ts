@@ -679,7 +679,7 @@ export default class MetaMessengerWebSocket {
       // if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
       const parent_thread_key = parentThreadKey
       const reference_thread_key = range?.minThreadKey || 0
-      const reference_activity_timestamp = typeof range?.minLastActivityTimestampMs === 'number' ? range.minLastActivityTimestampMs : 9999999999999
+      const reference_activity_timestamp = range?.minLastActivityTimestampMs ? range.minLastActivityTimestampMs : 9999999999999
       const cursor = this.papi.kv.get(`cursor-1-${syncGroup}`)
       return {
         label: '145',
