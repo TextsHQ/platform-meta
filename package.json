@@ -27,15 +27,15 @@
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
     "utf-8-validate": "^6.0.3",
-    "ws": "^8.14.1"
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
-    "@types/better-sqlite3": "^7.6.4",
+    "@types/better-sqlite3": "^7.6.5",
     "@types/eslint": "^8.21.3",
-    "@types/lodash": "4.14.196",
+    "@types/lodash": "4.14.198",
     "@types/node": "^18.15.8",
-    "@types/tough-cookie": "^4.0.2",
+    "@types/tough-cookie": "^4.0.3",
     "@types/ws": "^8.5.5",
     "copyfiles": "^2.4.1",
     "drizzle-kit": "^0.19.13",
