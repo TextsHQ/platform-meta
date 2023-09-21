@@ -141,7 +141,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     this.logger.debug('getThreads', { inbox, pagination, isSpam })
 
-    const result = await this.socket.fetchMoreThreadsV3(inbox)
+    const result = await (this.env === 'IG' ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined') : this.socket.fetchMoreThreadsV3(inbox))
 
     this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
