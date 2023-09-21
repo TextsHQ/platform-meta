@@ -73,7 +73,7 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
       case MigrateStrategy.RECREATE_SIMPLE:
         await db.transaction(async tx => {
           for (const migration of migrations) {
-            tx.run(migration)
+            await tx.run(migration)
           }
         })
         break
