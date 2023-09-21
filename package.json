@@ -8,10 +8,10 @@
   "scripts": {
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
     "prepack": "tsc",
-    "build": "tsc",
+    "build": "bun run build.ts",
     "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
-    "lint:fix": "yarn lint --fix",
+    "lint:fix": "bun run lint --fix",
     "watch": "tsc --watch",
     "db:generate": "rimraf ./drizzle && drizzle-kit generate:sqlite && node ./create-migrations-ts.js"
   },

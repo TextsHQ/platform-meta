@@ -5,7 +5,7 @@ import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from './schema'
 import { getLogger, type Logger } from '../logger'
-import { migrations } from './migrations'
+import { migrations } from './migrations.generated'
 import type { EnvKey } from '../env'
 import EnvOptions from '../env'
 import { MetaMessengerError } from '../errors'
@@ -79,7 +79,9 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
         break
       case MigrateStrategy.DRIZZLE:
       case MigrateStrategy.RECREATE_DRIZZLE:
-        migrate(db, { migrationsFolder: './drizzle' })
+        migrate(db, {
+          migrationsFolder: resolve(__dirname, './drizzle'),
+        })
         break
       default: break
     }

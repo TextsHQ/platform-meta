@@ -17,7 +17,8 @@ const EnvOptions = {
     initialURL: 'https://www.facebook.com/messages/' as const,
     defaultContactName: 'Facebook User' as const,
     defaultVersionId: 6345422228920134, // @TODO: CHECK THIS
-    migrationStrategy: MigrateStrategy.DRIZZLE,
+    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
+    // migrationStrategy: MigrateStrategy.DRIZZLE,
   },
   MESSENGER: {
     id: 'messengerdotcom',
@@ -26,7 +27,8 @@ const EnvOptions = {
     initialURL: 'https://www.messenger.com/' as const,
     defaultContactName: 'Facebook User' as const,
     defaultVersionId: 6345422228920134,
-    migrationStrategy: MigrateStrategy.DRIZZLE,
+    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
+    // migrationStrategy: MigrateStrategy.DRIZZLE,
   },
   WORK: {
     id: 'workplacedotcom',
@@ -34,7 +36,8 @@ const EnvOptions = {
     defaultContactName: '',
     initialURL: '',
     defaultVersionId: 0,
-    migrationStrategy: MigrateStrategy.DRIZZLE,
+    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
+    // migrationStrategy: MigrateStrategy.DRIZZLE,
   },
   WORKMETA: {
     id: 'workdotmetadotcom',
@@ -42,7 +45,8 @@ const EnvOptions = {
     defaultContactName: '',
     initialURL: '',
     defaultVersionId: 0,
-    migrationStrategy: MigrateStrategy.DRIZZLE,
+    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
+    // migrationStrategy: MigrateStrategy.DRIZZLE,
   },
 } as const
 
