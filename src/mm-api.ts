@@ -18,8 +18,8 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession } from './types'
-import { MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
-import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences, timeoutOrPromise } from './util'
+import { MetaThreadRanges, ParentThreadKey, SyncGroup } from './types'
+import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
@@ -501,30 +501,6 @@ export default class MetaMessengerAPI {
       const value = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
       return typeof value?.hasMoreBefore === 'boolean' ? value.hasMoreBefore : true
     })
-  }
-
-  async fetchMoreThreadsForIG(isSpam: boolean, isInitial: boolean) {
-    if (this.papi.env !== 'IG') throw new Error(`fetchMoreThreadsForIG is only supported on IG but called on ${this.papi.env}`)
-    const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
-    if (!canFetchMore) return { fetched: false } as const
-    const getFetcher = () => {
-      if (isSpam) return this.papi.socket.fetchSpamThreads()
-      if (isInitial) return this.papi.socket.fetchInitialThreadsForIG()
-      if (this.papi.kv.get('hasTabbedInbox')) {
-        return Promise.all([
-          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
-          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
-        ])
-      }
-      return this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)
-    }
-
-    try {
-      await timeoutOrPromise<unknown>(getFetcher())
-    } catch (err) {
-      this.logger.error(err)
-    }
-    return { fetched: true } as const
   }
 
   getContact(contactId: string) {
