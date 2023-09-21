@@ -54,10 +54,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   envOpts: EnvOptionsValue
 
-  private loadedThreadSet = new Set<string>()
-
-  private earliestLoadedThreadCursor?: string
-
   constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
     this.envOpts = EnvOptions[env]
