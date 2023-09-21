@@ -1,7 +1,14 @@
 import fs from 'fs/promises'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
-import { type FetchOptions, type MessageSendOptions, ReAuthError, texts, type User } from '@textshq/platform-sdk'
+import {
+  type FetchOptions,
+  InboxName,
+  type MessageSendOptions,
+  ReAuthError,
+  texts,
+  type User,
+} from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
@@ -10,7 +17,7 @@ import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
-import type { SerializedSession, IGAttachment, IGMessage, IGMessageRanges } from './types'
+import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession } from './types'
 import { MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences, timeoutOrPromise } from './util'
 import { mapMessages, mapThread } from './mappers'
@@ -462,54 +469,51 @@ export default class MetaMessengerAPI {
     return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
   }
 
-  computeHasMoreThreads() {
-    const primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+  computeSyncGroups(inbox: InboxName) {
     const generalEnabled = (
       (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
       || this.papi.env === 'FB'
       || this.papi.env === 'MESSENGER'
     )
-    const general = generalEnabled ? this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.GENERAL) : { hasMoreBefore: false }
-    const isPrimarySet = typeof primary?.hasMoreBefore === 'boolean'
-    const isGeneralSet = typeof general?.hasMoreBefore === 'boolean'
-    const hasMore = (isPrimarySet && primary.hasMoreBefore)
-      || (isGeneralSet && general.hasMoreBefore)
-      || !isPrimarySet
-      || !isGeneralSet
 
-    this.logger.debug('computeHasMoreThreads', {
-      primary,
-      general,
-      hasMore,
-      generalEnabled,
-      isGeneralSet,
-      isPrimarySet,
+    const syncGroups: [SyncGroup, ParentThreadKey][] = []
+
+    if (inbox === 'requests') {
+      syncGroups.push(
+        generalEnabled && [SyncGroup.MAIN, ParentThreadKey.GENERAL],
+        generalEnabled && [SyncGroup.UNKNOWN, ParentThreadKey.GENERAL],
+        [SyncGroup.MAIN, ParentThreadKey.SPAM],
+        [SyncGroup.UNKNOWN, ParentThreadKey.SPAM],
+      )
+    } else {
+      syncGroups.push(
+        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
+        [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
+      )
+    }
+
+    return syncGroups.filter(Boolean)
+  }
+
+  computeServerHasMoreThreads(inbox: InboxName) {
+    const syncGroups = this.computeSyncGroups(inbox)
+    return syncGroups.some(([syncGroup, parentThreadKey]) => {
+      const value = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
+      return typeof value?.hasMoreBefore === 'boolean' ? value.hasMoreBefore : true
     })
-
-    return hasMore
   }
 
-  computeHasMoreSpamThreads() {
-    const values = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
-    return typeof values?.hasMoreBefore === 'boolean' ? values.hasMoreBefore : true
-  }
-
-  async fetchMoreThreads(isSpam: boolean, isInitial: boolean) {
-    const canFetchMore = isSpam ? this.computeHasMoreSpamThreads() : this.computeHasMoreThreads()
+  async fetchMoreThreadsForIG(isSpam: boolean, isInitial: boolean) {
+    if (this.papi.env !== 'IG') throw new Error(`fetchMoreThreadsForIG is only supported on IG but called on ${this.papi.env}`)
+    const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
     if (!canFetchMore) return { fetched: false } as const
     const getFetcher = () => {
       if (isSpam) return this.papi.socket.fetchSpamThreads()
       if (isInitial) return this.papi.socket.fetchInitialThreadsForIG()
-      if (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox')) {
+      if (this.papi.kv.get('hasTabbedInbox')) {
         return Promise.all([
           this.papi.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
           this.papi.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
-        ])
-      }
-      if (this.papi.env === 'FB' || this.papi.env === 'MESSENGER') {
-        return Promise.race([
-          this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY),
-          this.papi.socket.fetchMoreThreads(ParentThreadKey.GENERAL), // @TODO: this is disgusting
         ])
       }
       return this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)

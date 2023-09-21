@@ -4,6 +4,7 @@ import mqtt, { type Packet } from 'mqtt-packet'
 
 import type { MessageContent, MessageSendOptions } from '@textshq/platform-sdk'
 import { eq } from 'drizzle-orm'
+import { InboxName } from '@textshq/platform-sdk'
 import {
   createPromise,
   genClientContext,
@@ -650,31 +651,18 @@ export default class MetaMessengerWebSocket {
     }])
   }
 
-  private fetchMoreThreadsV3Promises = new Map<'inbox' | 'requests', Promise<unknown>>()
+  private fetchMoreThreadsV3Promises = new Map<InboxName, Promise<unknown>>()
 
-  fetchMoreThreadsV3 = async (folder: 'inbox' | 'requests') => {
+  fetchMoreThreadsV3 = async (inbox: InboxName) => {
     if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error('fetchMoreThreadsV3 is only supported with Facebook/Messenger')
-    if (this.fetchMoreThreadsV3Promises.has(folder)) {
-      return this.fetchMoreThreadsV3Promises.get(folder)
+    if (this.fetchMoreThreadsV3Promises.has(inbox)) {
+      return this.fetchMoreThreadsV3Promises.get(inbox)
     }
 
-    const syncGroups: [SyncGroup, ParentThreadKey][] = []
-    if (folder === 'requests') {
-      syncGroups.push(
-        [SyncGroup.MAIN, ParentThreadKey.GENERAL],
-        [SyncGroup.UNKNOWN, ParentThreadKey.GENERAL],
-        [SyncGroup.MAIN, ParentThreadKey.SPAM],
-        [SyncGroup.UNKNOWN, ParentThreadKey.SPAM],
-      )
-    } else {
-      syncGroups.push(
-        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
-        [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
-      )
-    }
+    const syncGroups = this.papi.api.computeSyncGroups(inbox)
 
     this.logger.debug('fetchMoreThreadsV3', {
-      folder,
+      inbox,
       syncGroups,
     })
 
@@ -707,8 +695,8 @@ export default class MetaMessengerWebSocket {
     if (tasks.length === 0) return
     const task = this.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
     const promiseWithTimeout = timeoutOrPromise(task, 15000)
-    this.fetchMoreThreadsV3Promises.set(folder, promiseWithTimeout)
-    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(folder))
+    this.fetchMoreThreadsV3Promises.set(inbox, promiseWithTimeout)
+    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
   }
 
   fetchInitialThreadsForIG = () => this.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [

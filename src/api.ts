@@ -134,16 +134,16 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   searchUsers = (typed: string) => this.socket.searchUsers(typed)
 
-  getThreads = async (_folderName: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+  getThreads = async (inbox: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
+    if (inbox !== InboxName.NORMAL && inbox !== InboxName.REQUESTS) throw Error('not implemented')
     await this.api.initPromise
-    const folderName = _folderName === InboxName.REQUESTS ? InboxName.REQUESTS : InboxName.NORMAL
-    const isSpam = folderName === InboxName.REQUESTS
+    const isSpam = inbox === InboxName.REQUESTS
 
-    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam })
+    this.logger.debug('getThreads', { inbox, pagination, isSpam })
 
-    const result = await (this.env === 'IG' ? this.api.fetchMoreThreads(isSpam, typeof pagination === 'undefined') : this.socket.fetchMoreThreadsV3(isSpam ? 'requests' : 'inbox'))
+    const result = await (this.env === 'IG' ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined') : this.socket.fetchMoreThreadsV3(inbox))
 
-    this.logger.debug('getThreads', { folderName, _folderName, pagination, isSpam }, { result })
+    this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
     const { direction = 'before' } = pagination || {}
     const cursor = (() => {
@@ -195,7 +195,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
 
     const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
-    const hasMoreInServer = isSpam ? this.api.computeHasMoreSpamThreads() : this.api.computeHasMoreThreads()
+    const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
     const hasMore = hasMoreInDatabase || hasMoreInServer
     const oCursor = oldestCursor || (hasMore ? '0,0' : undefined)
     return {
