@@ -165,8 +165,8 @@ export default class MetaMessengerAPI {
       })
 
       // config.id, is the instagram id but fbid is instead used for chat
-      this.papi.currentUser.fullName = this.config.igViewerConfig.full_name?.length > 0 && parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name)
-      this.papi.currentUser.imgURL = fixUrl(this.config.igViewerConfig.profile_pic_url_hd)
+      this.papi.currentUser.fullName = this.config.igViewerConfig.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name) : null
+      this.papi.currentUser.imgURL = this.config.igViewerConfig?.profile_pic_url_hd ? fixUrl(this.config.igViewerConfig.profile_pic_url_hd) : null
       this.papi.currentUser.username = this.config.igViewerConfig.username
     }
 
