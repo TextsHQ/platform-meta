@@ -2,11 +2,14 @@ import { resolve } from 'path'
 import { access, mkdir, unlink } from 'fs/promises'
 import Database from 'better-sqlite3'
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from './schema'
 import { getLogger, type Logger } from '../logger'
 import { migrations } from './migrations'
 import type { EnvKey } from '../env'
+import EnvOptions from '../env'
 import { MetaMessengerError } from '../errors'
+import { MigrateStrategy } from './helpers'
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>
 
@@ -44,14 +47,16 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
   await createDirectoryIfNotExists(dataDirPath, logger)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
 
+  const { migrationStrategy } = EnvOptions[env]
+
   logger.info('initializing database at', {
     accountID,
     sqlitePath,
+    migrationStrategy,
   })
 
   try {
-    await removeDatabaseFile(sqlitePath, logger)
-
+    if (retryAttempt > 0 || [MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)) await removeDatabaseFile(sqlitePath, logger)
     const sqlite = new Database(sqlitePath)
     const db = drizzle(sqlite, {
       schema,
@@ -62,12 +67,22 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
       },
     })
 
-    logger.debug('migrating database', { sqlitePath, retryAttempt })
-    await db.transaction(async tx => {
-      for (const migration of migrations) {
-        tx.run(migration)
-      }
-    })
+    logger.debug('migrating database', { sqlitePath, retryAttempt, migrationStrategy })
+
+    switch (migrationStrategy as MigrateStrategy) {
+      case MigrateStrategy.RECREATE_SIMPLE:
+        await db.transaction(async tx => {
+          for (const migration of migrations) {
+            tx.run(migration)
+          }
+        })
+        break
+      case MigrateStrategy.DRIZZLE:
+      case MigrateStrategy.RECREATE_DRIZZLE:
+        migrate(db, { migrationsFolder: './drizzle' })
+        break
+      default: break
+    }
 
     return db
   } catch (err) {
