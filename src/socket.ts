@@ -650,16 +650,16 @@ export default class MetaMessengerWebSocket {
     }])
   }
 
-  private fetchMoreThreadsV3Promises = new Map<InboxName, Promise<unknown>>()
+  private fetchMoreThreadsPromises = new Map<InboxName, Promise<unknown>>()
 
-  fetchMoreThreadsV3 = async (inbox: InboxName) => {
-    if (this.fetchMoreThreadsV3Promises.has(inbox)) {
-      return this.fetchMoreThreadsV3Promises.get(inbox)
+  fetchMoreThreads = async (inbox: InboxName) => {
+    if (this.fetchMoreThreadsPromises.has(inbox)) {
+      return this.fetchMoreThreadsPromises.get(inbox)
     }
 
     const syncGroups = this.papi.api.computeSyncGroups(inbox)
 
-    this.logger.debug('fetchMoreThreadsV3', {
+    this.logger.debug('fetchMoreThreads', {
       inbox,
       syncGroups,
     })
@@ -693,8 +693,8 @@ export default class MetaMessengerWebSocket {
     if (tasks.length === 0) return
     const task = this.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
     const promiseWithTimeout = timeoutOrPromise(task, 15000)
-    this.fetchMoreThreadsV3Promises.set(inbox, promiseWithTimeout)
-    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
+    this.fetchMoreThreadsPromises.set(inbox, promiseWithTimeout)
+    return promiseWithTimeout.finally(() => this.fetchMoreThreadsPromises.delete(inbox))
   }
 
   async requestContacts(contactIDs: string[]) {
