@@ -1,4 +1,4 @@
-import { asc, desc, eq, placeholder } from 'drizzle-orm'
+import { asc, desc, eq, sql } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
 import * as s from './schema'
 import { messages as messagesSchema, threads as threadsSchema } from './schema'
@@ -127,7 +127,7 @@ export function preparedQueries(db: DrizzleDB) {
     getAllKeyValues: db.select().from(s.keyValues).prepare(),
     getKeyValue: db.select({
       value: s.keyValues.value,
-    }).from(s.keyValues).where(eq(s.keyValues.key, placeholder('key'))).prepare(),
+    }).from(s.keyValues).where(eq(s.keyValues.key, sql.placeholder('key'))).prepare(),
     getContact: db
       .select({
         id: s.contacts.id,
@@ -138,7 +138,7 @@ export function preparedQueries(db: DrizzleDB) {
       })
       .from(s.contacts)
       .limit(1)
-      .where(eq(s.contacts.id, placeholder('contactId')))
+      .where(eq(s.contacts.id, sql.placeholder('contactId')))
       .prepare(),
   } as const
 }
