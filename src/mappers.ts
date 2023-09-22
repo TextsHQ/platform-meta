@@ -28,10 +28,6 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
   const mimeType = attachment.previewUrlMimeType || playableUrlMimeType
   const type = mapMimeTypeToAttachmentType(playableUrlMimeType || attachment.previewUrlMimeType)
   return {
-    // _original: JSON.stringify({
-    //   attachment,
-    //   raw: a.raw,
-    // }),
     id: a.attachmentFbid,
     type,
     size: {
@@ -170,10 +166,6 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const textHeading = (!linkedMessageID && (message.textHeading || message.replySnippet)) || textFooter
 
   return {
-    // _original: JSON.stringify({
-    //   message,
-    //   raw: m.raw,
-    // }), // get original object works for debugging
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,

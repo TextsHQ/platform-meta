@@ -264,7 +264,6 @@ export default class MetaMessengerPayloadHandler {
   private addParticipantIdToGroupThread(a: SimpleArgType[]) {
     this.__logger.debug('addParticipantIdToGroupThread', a)
     const p = {
-      raw: JSON.stringify(a),
       threadKey: a[0] as string,
       userId: a[1] as string,
       readWatermarkTimestampMs: getAsDate(a[2] as string),
@@ -474,7 +473,6 @@ export default class MetaMessengerPayloadHandler {
 
     this.__papi.db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
     this.__papi.db.insert(schema.contacts).values({
-      raw: JSON.stringify(a),
       id,
       name,
       profilePictureUrl,
@@ -707,7 +705,6 @@ export default class MetaMessengerPayloadHandler {
 
     this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
     this.__papi.db.insert(schema.threads).values({
-      raw: JSON.stringify(a),
       threadKey,
       folderName: thread.folderName,
       parentThreadKey: thread.parentThreadKey,
@@ -1062,7 +1059,6 @@ export default class MetaMessengerPayloadHandler {
   private insertMessage(a: SimpleArgType[]) {
     this.__logger.debug('insertMessage', a)
     return this.__upsertMessageAndSync({
-      raw: JSON.stringify(a),
       links: null,
       threadKey: a[3] as string,
       timestampMs: getAsMS(a[5] as string),
@@ -1810,7 +1806,6 @@ export default class MetaMessengerPayloadHandler {
   private upsertMessage(a: SimpleArgType[]) {
     const m: IGMessage = {
       links: null,
-      raw: JSON.stringify(a),
       threadKey: a[3] as string,
       timestampMs: getAsMS(a[5]),
       messageId: a[8] as string,
@@ -1885,7 +1880,6 @@ export default class MetaMessengerPayloadHandler {
   private upsertReaction(a: SimpleArgType[]) {
     this.__logger.debug('upsertReaction', a)
     const r = {
-      raw: JSON.stringify(a),
       threadKey: a[0] as string,
       timestampMs: getAsDate(a[1] as string),
       messageId: a[2] as string,
@@ -1956,7 +1950,6 @@ export default class MetaMessengerPayloadHandler {
   private verifyContactRowExists(a: SimpleArgType[]) {
     this.__logger.debug('verifyContactRowExists', a)
     const parsed = {
-      raw: JSON.stringify(a),
       id: a[0],
       profilePictureUrl: a[2] == null ? '' : a[2],
       name: a[3],
@@ -1981,10 +1974,9 @@ export default class MetaMessengerPayloadHandler {
       contactViewerRelationship: a[19],
       gender: a[18],
     }
-    const { id, raw, name, profilePictureUrl, username, ...contact } = parsed
+    const { id, name, profilePictureUrl, username, ...contact } = parsed
     const c = {
       id: id as string,
-      raw: raw as string,
       name: name as string,
       profilePictureUrl: profilePictureUrl as string,
       username: username as string,

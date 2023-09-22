@@ -2,7 +2,6 @@ import { sql } from 'drizzle-orm'
 
 export const migrations = [
   sql`CREATE TABLE \`attachments\` (
-  \`raw\` text,
   \`attachment\` text,
   \`threadKey\` text NOT NULL,
   \`messageId\` text NOT NULL,
@@ -14,7 +13,6 @@ export const migrations = [
 `,
 sql`CREATE TABLE \`contacts\` (
   \`id\` text PRIMARY KEY NOT NULL,
-  \`raw\` text,
   \`contact\` text,
   \`igContact\` text,
   \`profilePictureUrl\` text,
@@ -28,7 +26,6 @@ sql`CREATE TABLE \`key_values\` (
 );
 `,
 sql`CREATE TABLE \`messages\` (
-  \`raw\` text,
   \`message\` text,
   \`threadKey\` text NOT NULL,
   \`messageId\` text PRIMARY KEY NOT NULL,
@@ -39,7 +36,6 @@ sql`CREATE TABLE \`messages\` (
 );
 `,
 sql`CREATE TABLE \`participants\` (
-  \`raw\` text,
   \`threadKey\` text NOT NULL,
   \`userId\` text NOT NULL,
   \`readWatermarkTimestampMs\` integer,
@@ -51,7 +47,6 @@ sql`CREATE TABLE \`participants\` (
 );
 `,
 sql`CREATE TABLE \`reactions\` (
-  \`raw\` text,
   \`threadKey\` text,
   \`timestampMs\` integer,
   \`messageId\` text,
@@ -66,7 +61,6 @@ sql`CREATE TABLE \`threads\` (
   \`lastActivityTimestampMs\` integer,
   \`folderName\` text,
   \`parentThreadKey\` integer,
-  \`raw\` text,
   \`igThread\` text,
   \`ranges\` text
 );

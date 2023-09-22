@@ -732,7 +732,6 @@ export default class MetaMessengerAPI {
     const ranges = {
       ...await this.getMessageRanges(r.threadKey!),
       ...r,
-      // raw: undefined,
     }
 
     this.papi.db.update(schema.threads).set({
@@ -791,7 +790,6 @@ export default class MetaMessengerAPI {
 
   upsertMessage(m: IGMessage) {
     const {
-      raw,
       threadKey,
       messageId,
       offlineThreadingId,
@@ -801,7 +799,6 @@ export default class MetaMessengerAPI {
       ...message
     } = m
     const _m = {
-      raw,
       threadKey,
       messageId,
       offlineThreadingId,

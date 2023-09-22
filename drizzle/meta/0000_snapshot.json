@@ -1,19 +1,12 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "f32605d5-7c3d-4c2f-9d48-282f2464c3d4",
+  "id": "e1fed2eb-c3c4-4032-84e2-1910e82b1fd0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
       "name": "attachments",
       "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "attachment": {
           "name": "attachment",
           "type": "text",
@@ -78,13 +71,6 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
-        },
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "contact": {
@@ -154,13 +140,6 @@
     "messages": {
       "name": "messages",
       "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "message": {
           "name": "message",
           "type": "text",
@@ -219,13 +198,6 @@
     "participants": {
       "name": "participants",
       "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "threadKey": {
           "name": "threadKey",
           "type": "text",
@@ -291,13 +263,6 @@
     "reactions": {
       "name": "reactions",
       "columns": {
-        "raw": {
-          "name": "raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "threadKey": {
           "name": "threadKey",
           "type": "text",
@@ -381,13 +346,6 @@
         "parentThreadKey": {
           "name": "parentThreadKey",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "raw": {
-          "name": "raw",
-          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

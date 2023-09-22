@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm'
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import type { IGAttachment, IGMessage, IGThread } from '../types'
 
-export type IGThreadInDB = Omit<IGThread, 'raw' | 'threadKey' | 'lastActivityTimestampMs'>
+export type IGThreadInDB = Omit<IGThread, 'threadKey' | 'lastActivityTimestampMs'>
 
 export const threads = sqliteTable('threads', {
   threadKey: text('threadKey').notNull().primaryKey(),
@@ -12,16 +12,14 @@ export const threads = sqliteTable('threads', {
   lastActivityTimestampMs: integer('lastActivityTimestampMs', { mode: 'timestamp' }),
   folderName: text('folderName'),
   parentThreadKey: integer('parentThreadKey'),
-  raw: text('raw'),
   igThread: text('igThread'),
   // hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
   ranges: text('ranges'),
 })
 
-export type IGMessageInDB = Omit<IGMessage, 'raw' | 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'primarySortKey' | 'senderId'>
+export type IGMessageInDB = Omit<IGMessage, 'messageId' | 'threadKey' | 'offlineThreadingId' | 'timestampMs' | 'primarySortKey' | 'senderId'>
 
 export const messages = sqliteTable('messages', {
-  raw: text('raw'),
   // message: blob('message', { mode: 'json' }).$type<RawMessage>(),
   message: text('message'),
   threadKey: text('threadKey').notNull(),
@@ -32,10 +30,9 @@ export const messages = sqliteTable('messages', {
   senderId: text('senderId').notNull(),
 })
 
-export type RawAttachment = Omit<IGAttachment, 'raw' | 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
+export type RawAttachment = Omit<IGAttachment, 'threadKey' | 'messageId' | 'attachmentFbid' | 'timestampMs' | 'offlineAttachmentId'>
 
 export const attachments = sqliteTable('attachments', {
-  raw: text('raw'),
   attachment: text('attachment'),
   // attachment: blob('attachment', { mode: 'json' }).$type<RawAttachment>(),
   threadKey: text('threadKey').notNull(), // .references(() => threads.threadKey),
@@ -53,7 +50,6 @@ export const attachmentRelations = relations(attachments, ({ one }) => ({
 
 export const contacts = sqliteTable('contacts', {
   id: text('id').notNull().primaryKey(),
-  raw: text('raw'),
   contact: text('contact'),
   // igContact: blob('igContact', { mode: 'json' }).$type<{
   //   igId: string
@@ -71,7 +67,6 @@ export const contacts = sqliteTable('contacts', {
 
 export const participants = sqliteTable('participants', {
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
-  raw: text('raw'),
   threadKey: text('threadKey').notNull(), // .references(() => threads.threadKey),
   userId: text('userId').notNull(),
   readWatermarkTimestampMs: integer('readWatermarkTimestampMs', { mode: 'timestamp' }),
@@ -106,7 +101,6 @@ export type DBParticipantSelect =
   }
 
 export const reactions = sqliteTable('reactions', {
-  raw: text('raw'),
   // original: blob('_original', { mode: 'json' }).$type<unknown>(),
   // threadKey: text('threadKey').references(() => threads.threadKey),
   threadKey: text('threadKey'),

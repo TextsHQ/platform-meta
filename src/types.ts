@@ -36,7 +36,6 @@ export enum ParentThreadKey {
 }
 
 export type IGThread = {
-  raw: string
   threadKey: string
   lastReadWatermarkTimestampMs: number
   threadType: string
@@ -124,7 +123,6 @@ export type IGThread = {
 }
 
 export type IGMessage = {
-  raw?: string
   threadKey: string
   offlineThreadingId: string
   authorityLevel: number
@@ -324,7 +322,6 @@ export type IGReadReceipt = {
 }
 
 export type IGContact = {
-  raw: string
   id: string
   profilePictureUrl: string
   name: string

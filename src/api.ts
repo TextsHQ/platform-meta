@@ -461,7 +461,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           thread: true,
           lastActivityTimestampMs: true,
           parentThreadKey: true,
-          raw: true,
         },
         with: {
           participants: {
@@ -494,7 +493,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       const message = await this.db.query.messages.findFirst({
         where: eq(schema.messages.messageId, objectID),
         columns: {
-          raw: true,
           message: true,
           threadKey: true,
           messageId: true,
@@ -506,7 +504,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         with: {
           attachments: {
             columns: {
-              raw: true,
               attachmentFbid: true,
               attachment: true,
             },

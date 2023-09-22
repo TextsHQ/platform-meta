@@ -39,7 +39,6 @@ export async function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThread
       },
       messages: {
         columns: {
-          raw: false,
           threadKey: true,
           messageId: true,
           timestampMs: true,
@@ -50,7 +49,6 @@ export async function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThread
         with: {
           attachments: {
             columns: {
-              raw: false,
               attachmentFbid: true,
               attachment: true,
             },
@@ -72,7 +70,6 @@ export type QueryThreadsResult = Awaited<ReturnType<typeof queryThreads>>
 export async function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessagesArgs, 'orderBy' | 'limit' | 'where'>> = {}) {
   const messages = await db.query.messages.findMany({
     columns: {
-      // raw: true,
       message: true,
       threadKey: true,
       messageId: true,
@@ -84,7 +81,6 @@ export async function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessa
     with: {
       attachments: {
         columns: {
-          raw: false,
           attachmentFbid: true,
           attachment: true,
         },
