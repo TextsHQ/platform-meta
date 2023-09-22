@@ -964,38 +964,38 @@ export default class MetaMessengerPayloadHandler {
       faviconUrlExpirationTimestampMs: a[50],
       previewUrlLarge: a[51],
     }
-    this.__logger.debug('insertAttachmentItem', a, {
+    this.__logger.debug('insertAttachmentItem (ignored)', a, {
       threadKey,
       messageId,
       attachmentFbid,
       attachment,
     })
-
-    const current = await this.__papi.db.query.attachments.findFirst({
-      columns: {
-        attachment: true,
-      },
-      where: and(
-        eq(schema.attachments.threadKey, threadKey),
-        eq(schema.attachments.messageId, messageId),
-        eq(schema.attachments.attachmentFbid, attachmentFbid),
-      ),
-    })
-
-    const mapped = {
-      threadKey,
-      messageId,
-      attachmentFbid,
-      attachment: JSON.stringify({
-        ...(current?.attachment ? JSON.parse(current.attachment) : {}),
-        ...attachment,
-      }),
-    }
-
-    this.__papi.db.insert(schema.attachments).values(mapped).onConflictDoUpdate({
-      target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
-      set: { ...mapped },
-    }).run()
+    //
+    // const current = await this.__papi.db.query.attachments.findFirst({
+    //   columns: {
+    //     attachment: true,
+    //   },
+    //   where: and(
+    //     eq(schema.attachments.threadKey, threadKey),
+    //     eq(schema.attachments.messageId, messageId),
+    //     eq(schema.attachments.attachmentFbid, attachmentFbid),
+    //   ),
+    // })
+    //
+    // const mapped = {
+    //   threadKey,
+    //   messageId,
+    //   attachmentFbid,
+    //   attachment: JSON.stringify({
+    //     ...(current?.attachment ? JSON.parse(current.attachment) : {}),
+    //     ...attachment,
+    //   }),
+    // }
+    //
+    // this.__papi.db.insert(schema.attachments).values(mapped).onConflictDoUpdate({
+    //   target: [schema.attachments.threadKey, schema.attachments.messageId, schema.attachments.attachmentFbid],
+    //   set: { ...mapped },
+    // }).run()
   }
 
   private async insertBlobAttachment(a: SimpleArgType[]) {

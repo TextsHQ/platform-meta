@@ -46,6 +46,7 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
     extra: {
       text: attachment.descriptionText || attachment.titleText,
       mmType: attachment.attachmentType,
+      headerTitle: attachment.headerTitle,
     },
   }
 }
@@ -117,12 +118,20 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
+  // @TODO: we should only loop over attachments once here
   const attachments = m.attachments.map(a => mapAttachment(a))
   const attachmentWithText = attachments.find(a => !!a.extra?.text)?.extra?.text
+  const attachmentsWithMedia = attachments?.filter(att => !!att.srcURL)
+  const reelWithTitle = attachments?.find(att => att.extra?.mmType === '7' && !!att.extra?.headerTitle)
 
-  if (message.text === '' && !message.textHeading && attachments?.length === 0) {
+  if (reelWithTitle?.extra?.headerTitle) {
+    message.textHeading = `Shared a reel from @${reelWithTitle.extra.headerTitle}`
+  }
+
+  if (message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText) {
     message.textHeading = 'No longer available'
   }
+
   // else {
   //   const assetURL = message.extra?.assetURL
   //   if (assetURL?.includes('/ig_reel/')) {
@@ -175,7 +184,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     linkedMessageID,
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
-    attachments: attachments.filter(att => !!att.srcURL),
+    attachments: attachmentsWithMedia,
     reactions: m.reactions.map(r => mapReaction(r)),
     textHeading,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
