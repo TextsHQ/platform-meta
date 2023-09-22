@@ -333,6 +333,7 @@ export default class MetaMessengerWebSocket {
   }
 
   private sendPing() {
+    if (this.ws?.readyState !== WebSocket.OPEN) return
     return this.send({
       cmd: 'pingreq',
     })
