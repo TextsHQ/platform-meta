@@ -42,21 +42,27 @@ async function removeDatabaseFile(sqlitePath: string, logger: Logger) {
   }
 }
 
-const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryAttempt = 0): Promise<DrizzleDB> => {
+const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryAttempt = 0): Promise<{
+  db: DrizzleDB
+  dbClose: () => Promise<void>
+}> => {
   const logger = getLogger(env, 'drizzle')
   await createDirectoryIfNotExists(dataDirPath, logger)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
 
   const { migrationStrategy } = EnvOptions[env]
+  const shouldRecreate = [MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)
 
   logger.info('initializing database at', {
     accountID,
     sqlitePath,
     migrationStrategy,
+    retryAttempt,
+    shouldRecreate,
   })
 
   try {
-    if (retryAttempt > 0 || [MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)) await removeDatabaseFile(sqlitePath, logger)
+    if (retryAttempt > 0 || shouldRecreate) await removeDatabaseFile(sqlitePath, logger)
     const sqlite = new Database(sqlitePath)
     const db = drizzle(sqlite, {
       schema,
@@ -86,7 +92,14 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
       default: break
     }
 
-    return db
+    return {
+      db,
+      dbClose: async () => {
+        logger.debug('closing database', { sqlitePath })
+        sqlite.close()
+        if (shouldRecreate) await removeDatabaseFile(sqlitePath, logger)
+      },
+    }
   } catch (err) {
     logger.error('error migrating database', {
       sqlitePath,

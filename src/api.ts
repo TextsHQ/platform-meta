@@ -42,6 +42,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   db: DrizzleDB
 
+  dbClose: () => Promise<void>
+
   logger: Logger
 
   api: MetaMessengerAPI
@@ -80,7 +82,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     this.logger.info('starting', { dataDirPath, accountID })
 
-    this.db = await getDB(this.env, accountID, dataDirPath)
+    const { db, dbClose } = await getDB(this.env, accountID, dataDirPath)
+    this.db = db
+    this.dbClose = dbClose
     this.preparedQueries = preparedQueries(this.db)
 
     this.logger.debug('loading keys', this.kv.getAll())
@@ -90,11 +94,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.init('init')
   }
 
-  dispose = () => {
-    this.socket?.dispose()
-    // if (this.api?.socket?.ws?.readyState === WebSocket.OPEN) {
-    //   this.api?.socket.ws.close()
-    // }
+  dispose = async () => {
+    this.logger.info('disposing')
+    try {
+      this.socket?.dispose?.()
+      await this?.dbClose?.()
+    } catch (e) {
+      this.logger.error(e)
+    }
   }
 
   currentUser: CurrentUser
