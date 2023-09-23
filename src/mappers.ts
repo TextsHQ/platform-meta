@@ -21,6 +21,12 @@ function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   }
 }
 
+function mapSize(input: string | number | null): number | null {
+  if (typeof input === 'number') return input
+  if (typeof input === 'string') return Number(input)
+  return null
+}
+
 export function mapAttachment(a: QueryMessagesResult[number]['attachments'][number]) {
   const attachment = JSON.parse(a.attachment) as RawAttachment
   const hasPlayableUrl = !!attachment.playableUrl
@@ -31,8 +37,8 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
     id: a.attachmentFbid,
     type,
     size: {
-      width: attachment.previewWidth,
-      height: attachment.previewHeight,
+      width: mapSize(attachment.previewWidth),
+      height: mapSize(attachment.previewHeight),
     },
     mimeType: attachment.playableUrlMimeType || attachment.previewUrlMimeType,
     fileSize: attachment.playableDurationMs,
