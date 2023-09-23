@@ -35,6 +35,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
+import { toSqliteFormattedDateTimeString } from './util'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -151,7 +152,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
-    const { direction = 'before', cursor } = pagination || {}
+    const { direction = 'before' } = pagination || {}
+    const cursor = (() => {
+      const cursorStr = pagination?.cursor
+      if (cursorStr) {
+        const [lastActivity, threadKey] = cursorStr.split(',')
+        return [lastActivity, threadKey] as const
+      }
+    })()
 
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
@@ -182,20 +190,25 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       limit: THREAD_PAGE_SIZE,
     })
 
-    const lastThread = items.at(-1)
+    const lastThread = items[items.length - 1]
 
     let oldestCursor: string | undefined
     if (items.length >= THREAD_PAGE_SIZE) {
-      oldestCursor = lastThread.id
+      let stamp = lastThread.extra.lastActivityTimestampMs
+      if (!stamp?.toJSON()) {
+        stamp = new Date()
+      }
+      oldestCursor = `${toSqliteFormattedDateTimeString(stamp)},${lastThread.id}`
     }
 
     const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
     const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
     const hasMore = hasMoreInDatabase || hasMoreInServer
+    const oCursor = oldestCursor || (hasMore ? '0,0' : undefined)
     return {
       items,
       hasMore,
-      oldestCursor: oldestCursor || (hasMore ? '0' : undefined),
+      oldestCursor: oCursor,
     }
   }
 
