@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import { setTimeout as sleep } from 'timers/promises'
 import url from 'url'
 import type {
   ClientContext,
@@ -147,7 +148,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     this.logger.debug('getThreads', { inbox, pagination, isSpam })
 
-    const result = await (this.env === 'IG' ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined') : this.socket.fetchMoreThreadsV3(inbox))
+    const result = await (this.env === 'IG'
+      ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
+      : this.socket.fetchMoreThreadsV3(inbox))
 
     this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
@@ -172,7 +175,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const folderFilter = inArray(schema.threads.parentThreadKey, parentThreadKeys)
     const whereArgs: SQLWrapper[] = [folderFilter]
 
-    if (lastActivity && lastActivity !== 'hasMore') {
+    if (lastActivity) {
       whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(+lastActivity)))
     }
 
@@ -184,23 +187,26 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       limit: THREAD_PAGE_SIZE,
     })
 
-    const lastThread = items[items.length - 1]
-
     let oldestCursor: string | undefined
-    if (items.length >= THREAD_PAGE_SIZE) {
+    const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
+    const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
+    const hasMore = hasMoreInDatabase || hasMoreInServer
+    if (hasMoreInDatabase) {
+      const lastThread = items.at(-1)
       let stamp = lastThread.extra.lastActivityTimestampMs
       if (!stamp?.toJSON()) stamp = new Date()
       oldestCursor = `${stamp.getTime()},${lastThread.id}`
     }
+    if (hasMore && (!items.length || !oldestCursor)) {
+      // todo fix
+      await sleep(1_000)
+      return this.getThreads(inbox, pagination)
+    }
 
-    const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
-    const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
-    const hasMore = hasMoreInDatabase || hasMoreInServer
-    const oCursor = oldestCursor || (hasMore ? 'hasMore,null' : undefined)
     return {
       items,
       hasMore,
-      oldestCursor: oCursor,
+      oldestCursor,
     }
   }
 
