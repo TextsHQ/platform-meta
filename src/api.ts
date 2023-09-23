@@ -35,7 +35,6 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
-import { toSqliteFormattedDateTimeString } from './util'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -153,13 +152,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
     const { direction = 'before' } = pagination || {}
-    const cursor = (() => {
-      const cursorStr = pagination?.cursor
-      if (cursorStr) {
-        const [lastActivity, threadKey] = cursorStr.split(',')
-        return [lastActivity, threadKey] as const
-      }
-    })()
+    const cursorStr = pagination?.cursor
+    const [lastActivity] = cursorStr?.split(',') || []
 
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
@@ -178,8 +172,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const folderFilter = inArray(schema.threads.parentThreadKey, parentThreadKeys)
     const whereArgs: SQLWrapper[] = [folderFilter]
 
-    if (cursor?.[0] && cursor[0] !== '0') {
-      whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(cursor?.[0])))
+    if (lastActivity && lastActivity !== 'hasMore') {
+      whereArgs.push(filter(schema.threads.lastActivityTimestampMs, new Date(+lastActivity)))
     }
 
     const where = whereArgs.length > 1 ? and(...whereArgs) : folderFilter
@@ -195,16 +189,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     let oldestCursor: string | undefined
     if (items.length >= THREAD_PAGE_SIZE) {
       let stamp = lastThread.extra.lastActivityTimestampMs
-      if (!stamp?.toJSON()) {
-        stamp = new Date()
-      }
-      oldestCursor = `${toSqliteFormattedDateTimeString(stamp)},${lastThread.id}`
+      if (!stamp?.toJSON()) stamp = new Date()
+      oldestCursor = `${stamp.getTime()},${lastThread.id}`
     }
 
     const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
     const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
     const hasMore = hasMoreInDatabase || hasMoreInServer
-    const oCursor = oldestCursor || (hasMore ? '0,0' : undefined)
+    const oCursor = oldestCursor || (hasMore ? 'hasMore,null' : undefined)
     return {
       items,
       hasMore,
