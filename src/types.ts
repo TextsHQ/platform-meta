@@ -19,17 +19,17 @@ export interface SerializedSession {
   // lastCursor: string
 }
 
-export enum SyncGroup {
+export const enum SyncGroup {
   MAIN = 1,
   UNKNOWN = 95,
 }
 
-export enum ThreadFilter {
+export const enum ThreadFilter {
   GENERAL = 4,
   PRIMARY = 3,
 }
 
-export enum ParentThreadKey {
+export const enum ParentThreadKey {
   PRIMARY = 0,
   GENERAL = -1,
   SPAM = -3,

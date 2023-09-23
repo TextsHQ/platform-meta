@@ -34,7 +34,7 @@ type MMSocketTask = {
   task_id: number
 }
 
-export enum RequestResolverType {
+export const enum RequestResolverType {
   CREATE_THREAD = 'CREATE_THREAD',
   CREATE_GROUP_THREAD = 'CREATE_GROUP_THREAD',
   SEND_MESSAGE = 'SEND_MESSAGE',
