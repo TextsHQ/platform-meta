@@ -101,7 +101,7 @@ export default class MetaMessengerPayloadHandler {
     if (
       this.__requestId !== 'initial'
       && this.__requestId !== 'snapshot'
-      && this.__papi.api.initResolved
+      // && this.__papi.api.initResolved
     ) {
       await this.__sync()
     }

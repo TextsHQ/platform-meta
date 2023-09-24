@@ -208,7 +208,7 @@ export default class MetaMessengerWebSocket {
       if (!this.stop) retry()
     }
 
-    return this.readyPromise.promise
+    // return this.readyPromise.promise
   }
 
   dispose() {
