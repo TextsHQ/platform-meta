@@ -98,6 +98,8 @@ export default class MetaMessengerWebSocket {
 
   private isSubscribedToLsResp = false
 
+  private readyPromise = createPromise<void>()
+
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       this.logger.warn('[ws] already connected')
@@ -205,6 +207,8 @@ export default class MetaMessengerWebSocket {
       this.pingInterval = null
       if (!this.stop) retry()
     }
+
+    return this.readyPromise.promise
   }
 
   dispose() {
@@ -240,7 +244,7 @@ export default class MetaMessengerWebSocket {
     return this.send(p)
   }
 
-  readonly send = (p: Packet): Promise<void> | void => {
+  private readonly send = (p: Packet): Promise<void> | void => {
     if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
     this.logger.debug('sending', p)
     this.ws.send(mqtt.generate(p))
@@ -381,13 +385,24 @@ export default class MetaMessengerWebSocket {
         this.isSubscribedToLsResp = true
       }
 
-      await this.subscribeToAllDatabases()
+      await this.afterInitialHandshake()
       // this.getThreads()
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
       this.logger.debug('unhandled message (1)', data)
     }
+  }
+
+  // runs after
+  // - we get ack for requesting app settings
+  // - we subscribe to /ls_foreground_state, /ls_resp
+  private async afterInitialHandshake() {
+    await this.subscribeToAllDatabases()
+    if (['MESSENGER', 'FB'].includes(this.papi.env)) {
+      await this.fetchMoreThreadsV3(InboxName.NORMAL)
+    }
+    this.readyPromise.resolve()
   }
 
   private async parseNon0x42Data(data: any) {

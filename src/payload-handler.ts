@@ -1,4 +1,4 @@
-import { type ServerEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
+import { type ServerEvent, StateSyncEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
 import { pick } from 'lodash'
 import type PlatformMetaMessenger from './api'
@@ -53,7 +53,7 @@ export default class MetaMessengerPayloadHandler {
 
   private __errors: MetaMessengerError[] = []
 
-  private __events: ServerEvent[] = []
+  private __events: StateSyncEvent[] = []
 
   constructor(
     private readonly __papi: PlatformMetaMessenger,
@@ -98,7 +98,13 @@ export default class MetaMessengerPayloadHandler {
       this.__papi.onEvent(errorEvents)
     }
 
-    if (this.__requestId !== 'initial' && this.__requestId !== 'snapshot') await this.__sync()
+    if (
+      this.__requestId !== 'initial'
+      && this.__requestId !== 'snapshot'
+      && this.__papi.api.initResolved
+    ) {
+      await this.__sync()
+    }
 
     // wait for everything to be synced before resolving
     if (requestType && !hasErrors) {
@@ -157,7 +163,7 @@ export default class MetaMessengerPayloadHandler {
       await callback()
     }
 
-    const toSync: ServerEvent[] = []
+    const toSync: StateSyncEvent[] = []
     if (this.__threadsToSync.size > 0) {
       const entries = await this.__papi.api.queryThreads([...this.__threadsToSync])
       if (entries.length > 0) {

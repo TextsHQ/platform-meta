@@ -139,7 +139,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.onEvent = onEvent
   }
 
-  searchUsers = (typed: string) => this.socket.searchUsers(typed)
+  searchUsers = (typed: string) => this.api.initPromise.then(() => this.socket.searchUsers(typed))
 
   getThreads = async (inbox: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     if (inbox !== InboxName.NORMAL && inbox !== InboxName.REQUESTS) throw Error('not implemented')
@@ -211,6 +211,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
+    await this.api.initPromise
     const ranges = await this.api.getMessageRanges(threadID)
     this.logger.debug('getMessages [papi]', {
       threadID,
@@ -263,16 +264,19 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   getThread = async (threadID: string): PAPIReturn<'getThread'> => {
+    await this.api.initPromise
     const t = await this.api.queryThreads([threadID], null)
     return t[0]
   }
 
   getMessage = async (threadID: ThreadID, messageID: MessageID) => {
+    await this.api.initPromise
     const [msg] = await this.api.queryMessages(threadID, [messageID])
     return msg
   }
 
   getUser = async (ids: { userID?: string } | { username?: string } | { phoneNumber?: string } | { email?: string }) => {
+    await this.api.initPromise
     // type check username
     this.logger.debug('getUser', ids)
     if ('userID' in ids && typeof ids.userID === 'string') {
@@ -286,6 +290,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   createThread = async (userIDs: string[], title?: string, messageText?: string) => {
+    await this.api.initPromise
     this.logger.debug('createThread', {
       userIDs,
       title,
@@ -372,6 +377,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   updateThread = async (threadID: string, updates: Partial<Thread>) => {
+    await this.api.initPromise
+
     this.logger.debug('updateThread', threadID, updates)
     const promises: Promise<void>[] = []
 
@@ -393,10 +400,12 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   deleteThread = async (threadID: string) => {
+    await this.api.initPromise
     await this.socket.deleteThread(threadID)
   }
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
+    await this.api.initPromise
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
       this.logger.debug('sendMessage', filePath)
@@ -430,27 +439,29 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }]
   }
 
-  sendActivityIndicator = (type: ActivityType, threadID: string) => {
+  sendActivityIndicator = async (type: ActivityType, threadID: string) => {
+    await this.api.initPromise
     this.logger.debug('sendActivityIndicator', threadID, type)
     if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
     return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
   }
 
-  deleteMessage = (threadID: string, messageID: string, _forEveryone?: boolean) => this.socket.unsendMessage(messageID)
+  deleteMessage = (_threadID: string, messageID: string, _forEveryone?: boolean) => this.api.initPromise.then(() => this.socket.unsendMessage(messageID))
 
-  sendReadReceipt = (threadID: string, _messageID: string, _messageCursor?: string) => this.socket.sendReadReceipt(threadID, Date.now())
+  sendReadReceipt = (threadID: string, _messageID: string, _messageCursor?: string) => this.api.initPromise.then(() => this.socket.sendReadReceipt(threadID, Date.now()))
 
-  addReaction = (threadID: string, messageID: string, reactionKey: string) => this.socket.addReaction(threadID, messageID, reactionKey)
+  addReaction = (threadID: string, messageID: string, reactionKey: string) => this.api.initPromise.then(() => this.socket.addReaction(threadID, messageID, reactionKey))
 
-  removeReaction = (threadID: string, messageID: string, _reactionKey: string) => this.socket.addReaction(threadID, messageID, '')
+  removeReaction = (threadID: string, messageID: string, _reactionKey: string) => this.api.initPromise.then(() => this.socket.addReaction(threadID, messageID, ''))
 
-  addParticipant = (threadID: string, participantID: string) => this.socket.addParticipants(threadID, [participantID])
+  addParticipant = (threadID: string, participantID: string) => this.api.initPromise.then(() => this.socket.addParticipants(threadID, [participantID]))
 
-  removeParticipant = (threadID: string, participantID: string) => this.socket.removeParticipant(threadID, participantID)
+  removeParticipant = (threadID: string, participantID: string) => this.api.initPromise.then(() => this.socket.removeParticipant(threadID, participantID))
 
-  changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.socket.changeAdminStatus(threadID, participantID, role === 'admin')
+  changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.api.initPromise.then(() => this.socket.changeAdminStatus(threadID, participantID, role === 'admin'))
 
   getOriginalObject = async (objName: 'thread' | 'message', objectID: ThreadID | MessageID) => {
+    await this.api.initPromise
     if (objName === 'thread') {
       const thread = await this.db.query.threads.findFirst({
         where: eq(schema.threads.threadKey, objectID),
@@ -523,16 +534,19 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   }
 
   forwardMessage = async (_threadID: ThreadID, messageID: MessageID, threadIDs: ThreadID[]) => {
+    await this.api.initPromise
     await Promise.all(threadIDs.map(tid => this.socket.forwardMessage(tid, messageID)))
   }
 
   registerForPushNotifications = async (type: keyof NotificationsInfo, token: string) => {
+    await this.api.initPromise
     if (type !== 'web') throw Error('invalid type')
     const parsed: PushSubscriptionJSON = JSON.parse(token)
     await this.api.webPushRegister(parsed.endpoint, parsed.keys.p256dh, parsed.keys.auth)
   }
 
   getAsset = async (_: any, assetType: string, attachmentType: string, ...args: string[]) => {
+    await this.api.initPromise
     this.logger.debug('getAsset', assetType, attachmentType, args)
     if (assetType !== 'attachment' || attachmentType !== 'ig_reel') {
       throw Error('not implemented')

@@ -48,6 +48,8 @@ const fixUrl = (url: string) =>
 export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
 
+  initResolved = false
+
   get initPromise() {
     return this._initPromise.promise
   }
@@ -56,6 +58,9 @@ export default class MetaMessengerAPI {
 
   constructor(private readonly papi: Instagram, env: EnvKey) {
     this.logger = getLogger(env, 'mm-api')
+    this.initPromise.then(() => {
+      this.initResolved = true
+    })
   }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
@@ -194,6 +199,7 @@ export default class MetaMessengerAPI {
     }
 
     await this.papi.socket.connect()
+
     this._initPromise?.resolve()
   }
 
