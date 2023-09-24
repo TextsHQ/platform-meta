@@ -2,6 +2,7 @@ import {
   AttachmentType,
   InboxName,
   type Message,
+  type Thread,
   type Participant,
   type ThreadType,
   UNKNOWN_DATE,
@@ -206,7 +207,7 @@ export function mapThread(
   env: EnvKey,
   fbid: string,
   ranges: IGMessageRanges,
-) {
+): Thread {
   const thread = JSON.parse(t.thread) as IGThreadInDB | null
   const isUnread = t.lastActivityTimestampMs?.getTime() > thread?.lastReadWatermarkTimestampMs
   const participants = mapParticipants(t.participants, env, fbid)
@@ -227,6 +228,7 @@ export function mapThread(
     title: threadType === 'group' ? thread?.threadName : null,
     isUnread,
     folderName: t.parentThreadKey === ParentThreadKey.SPAM ? InboxName.REQUESTS : InboxName.NORMAL,
+    isArchived: t.parentThreadKey === ParentThreadKey.ARCHIVE,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,

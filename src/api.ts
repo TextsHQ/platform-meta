@@ -26,11 +26,11 @@ import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import MetaMessengerAPI from './mm-api'
-import MetaMessengerWebSocket from './socket'
+import MetaMessengerWebSocket, { ThreadRemoveType } from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
-import { ParentThreadKey } from './types'
+import { ParentThreadKey, SyncGroup } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -399,9 +399,17 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await Promise.all(promises)
   }
 
+  archiveThread = async (threadID: ThreadID, archived: boolean) => {
+    if (archived) {
+      await this.socket.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAIN)
+    } else {
+      await this.socket.unarchiveThread(threadID)
+    }
+  }
+
   deleteThread = async (threadID: string) => {
     await this.api.initPromise
-    await this.socket.deleteThread(threadID)
+    await this.socket.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAIN)
   }
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {

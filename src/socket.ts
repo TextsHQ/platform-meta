@@ -35,31 +35,39 @@ type MMSocketTask = {
 }
 
 export const enum RequestResolverType {
-  CREATE_THREAD = 'CREATE_THREAD',
-  CREATE_GROUP_THREAD = 'CREATE_GROUP_THREAD',
-  SEND_MESSAGE = 'SEND_MESSAGE',
-  UNSEND_MESSAGE = 'UNSEND_MESSAGE',
-  FETCH_MESSAGES = 'FETCH_MESSAGES',
-  FETCH_INITIAL_THREADS = 'FETCH_INITIAL_THREADS',
-  FETCH_MORE_THREADS = 'FETCH_MORE_THREADS',
-  FETCH_MORE_INBOX_THREADS = 'FETCH_MORE_INBOX_THREADS',
-  REQUEST_CONTACTS = 'REQUEST_CONTACTS',
-  MUTE_THREAD = 'MUTE_THREAD',
-  SET_THREAD_NAME = 'SET_THREAD_NAME',
-  SET_THREAD_FOLDER = 'SET_THREAD_FOLDER',
-  SET_ADMIN_STATUS = 'SET_ADMIN_STATUS',
-  MOVE_OUT_OF_MESSAGE_REQUESTS = 'MOVE_OUT_OF_MESSAGE_REQUESTS',
   ADD_PARTICIPANTS = 'ADD_PARTICIPANTS',
-  REMOVE_PARTICIPANT = 'REMOVE_PARTICIPANT',
-  GET_THREAD = 'GET_THREAD',
-  GET_NEW_THREAD = 'GET_NEW_THREAD',
+  ADD_REACTION = 'ADD_REACTION',
+  ARCHIVE_THREAD = 'ARCHIVE_THREAD',
+  CREATE_GROUP_THREAD = 'CREATE_GROUP_THREAD',
+  CREATE_THREAD = 'CREATE_THREAD',
   DELETE_THREAD = 'DELETE_THREAD',
+  FETCH_INITIAL_THREADS = 'FETCH_INITIAL_THREADS',
+  FETCH_MESSAGES = 'FETCH_MESSAGES',
+  FETCH_MORE_INBOX_THREADS = 'FETCH_MORE_INBOX_THREADS',
+  FETCH_MORE_THREADS = 'FETCH_MORE_THREADS',
+  FORWARD_MESSAGE = 'FORWARD_MESSAGE',
+  GET_NEW_THREAD = 'GET_NEW_THREAD',
+  GET_THREAD = 'GET_THREAD',
+  MOVE_OUT_OF_MESSAGE_REQUESTS = 'MOVE_OUT_OF_MESSAGE_REQUESTS',
+  MUTE_THREAD = 'MUTE_THREAD',
+  REMOVE_PARTICIPANT = 'REMOVE_PARTICIPANT',
+  REMOVE_THREAD = 'REMOVE_THREAD',
+  REQUEST_CONTACTS = 'REQUEST_CONTACTS',
   SEARCH_USERS_PRIMARY = 'SEARCH_USERS_PRIMARY',
   SEARCH_USERS_SECONDARY = 'SEARCH_USERS_SECONDARY',
+  SEND_MESSAGE = 'SEND_MESSAGE',
   SEND_READ_RECEIPT = 'SEND_READ_RECEIPT',
-  FORWARD_MESSAGE = 'FORWARD_MESSAGE',
   SEND_TYPING_INDICATOR = 'SEND_TYPING_INDICATOR',
-  ADD_REACTION = 'ADD_REACTION',
+  SET_ADMIN_STATUS = 'SET_ADMIN_STATUS',
+  SET_THREAD_FOLDER = 'SET_THREAD_FOLDER',
+  SET_THREAD_NAME = 'SET_THREAD_NAME',
+  UNARCHIVE_THREAD = 'UNARCHIVE_THREAD',
+  UNSEND_MESSAGE = 'UNSEND_MESSAGE',
+}
+
+export const enum ThreadRemoveType {
+  DELETE = 0,
+  ARCHIVE = 1,
 }
 
 export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResponse) => void
@@ -1000,20 +1008,6 @@ export default class MetaMessengerWebSocket {
     }])
   }
 
-  async deleteThread(thread_key: string) {
-    return this.publishTask(RequestResolverType.DELETE_THREAD, [{
-      label: '146',
-      payload: JSON.stringify({
-        thread_key,
-        remove_type: 0,
-        sync_group: 1,
-      }),
-      queue_name: thread_key.toString(),
-      task_id: this.genTaskId(),
-      failure_count: null,
-    }])
-  }
-
   async searchUsers(query: string) {
     const { timestamp } = getTimeValues()
     const payload = JSON.stringify({
@@ -1156,6 +1150,38 @@ export default class MetaMessengerWebSocket {
         sync_group: 1,
       }),
       queue_name: thread_key,
+      task_id: this.genTaskId(),
+      failure_count: null,
+    }])
+  }
+
+  removeThread(remove_type: ThreadRemoveType, thread_key: string, sync_group: SyncGroup) {
+    if (remove_type === ThreadRemoveType.ARCHIVE && !this.papi.envOpts.supportsArchive) throw new Error('removeThread is not supported in this environment')
+    return this.publishTask(
+      remove_type === ThreadRemoveType.ARCHIVE ? RequestResolverType.ARCHIVE_THREAD : RequestResolverType.DELETE_THREAD,
+      [{
+        label: '146',
+        payload: JSON.stringify({
+          thread_key,
+          remove_type,
+          sync_group,
+        }),
+        queue_name: thread_key.toString(),
+        task_id: this.genTaskId(),
+        failure_count: null,
+      }],
+    )
+  }
+
+  unarchiveThread(threadKey: string, sync_group = SyncGroup.MAIN) {
+    if (!this.papi.envOpts.supportsArchive) throw new Error('unarchiveThread is not supported in this environment')
+    return this.publishTask(RequestResolverType.UNARCHIVE_THREAD, [{
+      label: '242',
+      payload: JSON.stringify({
+        thread_id: threadKey,
+        sync_group,
+      }),
+      queue_name: 'unarchive_thread',
       task_id: this.genTaskId(),
       failure_count: null,
     }])

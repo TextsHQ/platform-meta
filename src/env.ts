@@ -9,6 +9,7 @@ const EnvOptions = {
     defaultContactName: 'Instagram User' as const,
     defaultVersionId: 6552526831451374,
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
+    supportsArchive: false,
   },
   FB: {
     id: 'facebookdotcom',
@@ -19,6 +20,7 @@ const EnvOptions = {
     defaultVersionId: 6345422228920134, // @TODO: CHECK THIS
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
+    supportsArchive: true,
   },
   MESSENGER: {
     id: 'messengerdotcom',
@@ -29,6 +31,7 @@ const EnvOptions = {
     defaultVersionId: 6345422228920134,
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
+    supportsArchive: true,
   },
   WORK: {
     id: 'workplacedotcom',
@@ -38,6 +41,7 @@ const EnvOptions = {
     defaultVersionId: 0,
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
+    supportsArchive: false,
   },
   WORKMETA: {
     id: 'workdotmetadotcom',
@@ -47,6 +51,7 @@ const EnvOptions = {
     defaultVersionId: 0,
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
+    supportsArchive: false,
   },
 } as const
 

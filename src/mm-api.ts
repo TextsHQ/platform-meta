@@ -482,6 +482,7 @@ export default class MetaMessengerAPI {
       || this.papi.env === 'MESSENGER'
     )
 
+    const { supportsArchive } = this.papi.envOpts
     const syncGroups: [SyncGroup, ParentThreadKey][] = []
 
     if (inbox === 'requests') {
@@ -495,6 +496,8 @@ export default class MetaMessengerAPI {
       syncGroups.push(
         [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
         [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
+        supportsArchive ? [SyncGroup.MAIN, ParentThreadKey.ARCHIVE] : undefined,
+        supportsArchive ? [SyncGroup.UNKNOWN, ParentThreadKey.ARCHIVE] : undefined,
       )
     }
 

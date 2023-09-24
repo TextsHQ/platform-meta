@@ -34,6 +34,7 @@ export const enum ParentThreadKey {
   PRIMARY = 0,
   GENERAL = -1,
   SPAM = -3,
+  ARCHIVE = -10,
 }
 
 export type IGThread = {
