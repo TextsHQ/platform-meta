@@ -25,8 +25,9 @@ export const enum SyncGroup {
 }
 
 export const enum ThreadFilter {
-  GENERAL = 4,
   PRIMARY = 3,
+  GENERAL = 4, // ParentThreadKey.PRIMARY
+  IG_CHANNELS = 11, // ParentThreadKey.PRIMARY
 }
 
 export const enum ParentThreadKey {
