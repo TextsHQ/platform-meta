@@ -4,14 +4,14 @@ import icon from './icon'
 
 const info: PlatformInfo = {
   ...infoDefaults,
+  name: 'facebook',
+  displayName: 'Facebook',
+  icon,
   browserLogin: {
     url: 'https://facebook.com',
     authCookieName: 'c_user',
   },
-  name: 'facebook',
-  displayName: 'Facebook',
   tags: ['INTERNAL TESTING ONLY'],
-  icon,
   autofillHostnames: ['messenger.com', 'facebook.com'],
   deletionMode: MessageDeletionMode.DELETE_FOR_EVERYONE,
   maxGroupTitleLength: 25,
@@ -31,34 +31,20 @@ const info: PlatformInfo = {
     Attribute.CAN_MESSAGE_USERNAME,
     Attribute.DEFINES_MESSAGE_CURSOR,
     Attribute.SUBSCRIBE_TO_ONLINE_OFFLINE_ACTIVITY,
-    Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
+    // Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
   attachments: {
     gifMimeType: 'image/gif',
     recordedAudioMimeType: 'audio/wav',
-    maxSize: {
-      // https://developers.facebook.com/docs/messenger-platform/send-messages/
-      // "The Messenger Platform allows you to attach assets to messages, including audio, video, images, and files. The maximum attachment size is 25 MB."
-      // "Please note that our servers might encode an uploaded file to ensure compatibility. It's possible to get a file size limit error if the resulting size surpasses the 25MB limit."
-      // todo: unknown if these limits are just for the developer api or also for regular users using the messenger apps
-      image: 25 * 1024 * 1024,
-      video: 25 * 1024 * 1024,
-      audio: 25 * 1024 * 1024,
-      files: 25 * 1024 * 1024,
-    },
+    maxSize: infoDefaults.attachments.maxSize,
   },
   notifications: {
-    android: {
-      senderID: '622912139302',
-    },
+    // web: {
+    //   vapidKey: '',
+    // },
   },
   extra: {
     macOSAppBundleIDs: ['com.facebook.archon.developerID'],
-    knownIssues: [
-      'Prefer using the Messenger integration instead of Facebook. This integration is only for internal testing.',
-      "Facebook may lock your account since it doesn't recognize Texts app and make you reset your password.",
-      // "You'll get a login notification from Facebook saying Texts has logged in as a Google Pixel 2. There is no physical/simulated device used but how Texts identifies itself.",
-    ],
   },
   getUserProfileLink: ({ username }) =>
     username && `https://www.facebook.com/messages/t/${username}`,
