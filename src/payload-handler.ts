@@ -1380,6 +1380,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('overwriteAllThreadParticipantsAdminStatus (ignored)', a)
   }
 
+  private queryAdditionalGroupThreads(a: SimpleArgType[]) {
+    this.__logger.debug('queryAdditionalGroupThreads (ignored)', a)
+  }
+
   private removeAllParticipantsForThread(a: SimpleArgType[]) {
     this.__logger.debug('removeAllParticipantsForThread (ignored)', a)
   }

@@ -54,6 +54,7 @@ export type OperationKey =
   | 'mciTraceLog'
   | 'moveThreadToInboxAndUpdateParent'
   | 'overwriteAllThreadParticipantsAdminStatus'
+  | 'queryAdditionalGroupThreads'
   | 'removeAllParticipantsForThread'
   | 'removeOptimisticGroupThread'
   | 'removeParticipantFromThread'
