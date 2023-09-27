@@ -153,8 +153,10 @@ export default class MetaMessengerAPI {
 
     try {
       this.config = getMessengerConfig(body)
-    } catch (e) {
-      throw new Error('No valid configuration was detected. Login window may have been interrupted before it finished loading.')
+    } catch (err) {
+      console.error(err)
+      texts.Sentry.captureException(err)
+      throw new Error(`No valid configuration was detected: ${err.message}`)
     }
 
     this.papi.kv.setMany({
