@@ -1,6 +1,7 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
 import mqtt, { type Packet } from 'mqtt-packet'
+import { setTimeout as sleep } from 'timers/promises'
 
 import { InboxName } from '@textshq/platform-sdk'
 import {
@@ -9,7 +10,6 @@ import {
   getRetryTimeout,
   getTimeValues,
   parseMqttPacket,
-  sleep,
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
