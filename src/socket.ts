@@ -1,6 +1,6 @@
 import WebSocket from 'ws'
 import { debounce } from 'lodash'
-import mqtt, { type Packet } from 'mqtt-packet'
+import mqttPacket, { type Packet } from 'mqtt-packet'
 import { setTimeout as sleep } from 'timers/promises'
 
 import { InboxName } from '@textshq/platform-sdk'
@@ -76,15 +76,8 @@ export default class MetaMessengerWebSocket {
 
   private logger: Logger
 
-  private readonly lsAppSettings: {
-    qos: 1
-    topic: '/ls_app_settings'
-    payload: string
-  }
-
-  constructor(private readonly papi: PlatformMetaMessenger) {
-    this.logger = getLogger(this.papi.env, 'socket')
-    this.lsAppSettings = {
+  private get lsAppSettings() {
+    return {
       qos: 1,
       topic: '/ls_app_settings',
       payload: JSON.stringify({
@@ -94,13 +87,77 @@ export default class MetaMessengerWebSocket {
     } as const
   }
 
+  constructor(private readonly papi: PlatformMetaMessenger) {
+    this.logger = getLogger(this.papi.env, 'socket')
+  }
+
   private mqttSid: number
 
   private isInitialConnection = true
 
-  private isSubscribedToLsResp = false
-
   private readyPromise = createPromise<void>()
+
+  private depends = <T>(valueForInstagram: T, valueForFacebookOrMessenger: T, defaultValue?: T) => {
+    if (this.papi.env === 'IG') return valueForInstagram
+    if (this.papi.envOpts.isFacebook) return valueForFacebookOrMessenger
+    if (defaultValue) return defaultValue
+    throw new Error('Invalid environment')
+  }
+
+  private subscribedTopics = new Set<string>()
+
+  private getUsername = (isInitialConnection: boolean) => JSON.stringify({
+    // u: "17841418030588216", // doesnt seem to matter
+    u: this.papi.kv.get('fbid'),
+    s: this.mqttSid,
+    cp: Number(this.papi.kv.get('mqttClientCapabilities')),
+    ecp: Number(this.papi.kv.get('mqttCapabilities')),
+    chat_on: this.depends<boolean>(true, false),
+    fg: this.depends<boolean>(true, false),
+    d: this.papi.kv.get('clientId'),
+    ct: this.depends<string>('cookie_auth', 'websocket'),
+    mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
+    aid: Number(this.papi.kv.get('appId')),
+    st: [...this.subscribedTopics],
+    pm: isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536 }],
+    dc: '',
+    no_auto_fg: true,
+    gas: null,
+    pack: [],
+    php_override: '',
+    p: null,
+    a: this.papi.api.ua, // user agent
+    aids: null,
+  })
+
+  private getWebSocketConfig = () => {
+    const endpoint = new URL(this.papi.api.config.mqttEndpoint)
+    const endpointParams = new URLSearchParams(endpoint.searchParams)
+    endpointParams.append('sid', this.mqttSid.toString())
+    endpointParams.append('cid', this.papi.kv.get('clientId'))
+    endpoint.search = endpointParams.toString()
+    const { domain } = this.papi.envOpts
+    const origin = `https://${domain}`
+    return {
+      endpoint,
+      options: {
+        origin,
+        headers: {
+          Host: endpoint.host,
+          Connection: 'Upgrade',
+          Pragma: 'no-cache',
+          'Cache-Control': 'no-cache',
+          Upgrade: 'websocket',
+          Origin: origin,
+          'Sec-WebSocket-Version': '13',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept-Language': 'en', // @TODO: fix this
+          'User-Agent': this.papi.api.ua,
+          Cookie: this.papi.api.getCookies(),
+        },
+      },
+    }
+  }
 
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
@@ -133,30 +190,12 @@ export default class MetaMessengerWebSocket {
     // this.lastTaskId = 0
     // this.lastRequestId = 0
 
-    const endpoint = new URL(this.papi.api.config.mqttEndpoint)
-    const endpointParams = new URLSearchParams(endpoint.searchParams)
-    endpointParams.append('sid', this.mqttSid.toString())
-    endpointParams.append('cid', this.papi.kv.get('clientId'))
-    endpoint.search = endpointParams.toString()
-    const { domain } = this.papi.envOpts
-    const origin = `https://${domain}`
+    const { endpoint, options: { origin, headers } } = this.getWebSocketConfig()
     this.ws = new WebSocket(
       endpoint.toString(),
       {
         origin,
-        headers: {
-          Host: endpoint.host,
-          Connection: 'Upgrade',
-          Pragma: 'no-cache',
-          'Cache-Control': 'no-cache',
-          Upgrade: 'websocket',
-          Origin: origin,
-          'Sec-WebSocket-Version': '13',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Accept-Language': 'en', // @TODO: fix this
-          'User-Agent': this.papi.api.ua,
-          Cookie: this.papi.api.getCookies(),
-        },
+        headers,
       },
     )
 
@@ -249,7 +288,7 @@ export default class MetaMessengerWebSocket {
   readonly send = (p: Packet): Promise<void> | void => {
     if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
     this.logger.debug('sending', p)
-    this.ws.send(mqtt.generate(p))
+    this.ws.send(mqttPacket.generate(p))
   }
 
   private async onOpen() {
@@ -260,39 +299,10 @@ export default class MetaMessengerWebSocket {
   }
 
   private afterConnect() {
-    const isFacebook = this.papi.env === 'FB' || this.papi.env === 'MESSENGER'
     this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
-      isSubscribedToLsResp: this.isSubscribedToLsResp,
-      isFacebook,
+      subscribedTopics: this.subscribedTopics,
     })
-
-    const st = this.isInitialConnection ? [] as const : [
-      '/ls_foreground_state',
-      '/ls_resp',
-    ] as const
-    // this.isSubscribedToLsResp && '/ls_resp',
-    // ].filter(Boolean) as const
-
-    const pm = this.isInitialConnection ? [] as const : [
-      {
-        ...this.lsAppSettings,
-        messageId: 65536,
-      } as const,
-    ]
-
-    const depends = <T>(valueForInstagram: T, valueForFacebookOrMessenger: T, defaultValue?: T) => {
-      switch (this.papi.env) {
-        case 'IG':
-          return valueForInstagram
-        case 'FB':
-        case 'MESSENGER':
-          return valueForFacebookOrMessenger
-        default:
-          if (defaultValue) return defaultValue
-          throw new Error('Invalid environment')
-      }
-    }
 
     const p = this.send({
       cmd: 'connect',
@@ -301,29 +311,7 @@ export default class MetaMessengerWebSocket {
       protocolVersion: 3,
       clean: true,
       keepalive: 10,
-      username: JSON.stringify({
-        // u: "17841418030588216", // doesnt seem to matter
-        u: this.papi.kv.get('fbid'),
-        s: this.mqttSid,
-        cp: Number(this.papi.kv.get('mqttClientCapabilities')),
-        ecp: Number(this.papi.kv.get('mqttCapabilities')),
-        chat_on: depends<boolean>(true, false),
-        fg: depends<boolean>(true, false),
-        d: this.papi.kv.get('clientId'),
-        ct: depends<string>('cookie_auth', 'websocket'),
-        mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
-        aid: Number(this.papi.kv.get('appId')),
-        st,
-        pm,
-        dc: '',
-        no_auto_fg: true,
-        gas: null,
-        pack: [],
-        php_override: '',
-        p: null,
-        a: this.papi.api.ua, // user agent
-        aids: null,
-      }),
+      username: this.getUsername(this.isInitialConnection),
     })
 
     this.isInitialConnection = false
@@ -355,38 +343,30 @@ export default class MetaMessengerWebSocket {
     } as any)
   }
 
+  private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
+    for (let i = 0; i < topics.length; i++) {
+      const topic = topics[i]
+      if (this.subscribedTopics.has(topic)) continue
+      await this.send({
+        cmd: 'subscribe',
+        qos: 1,
+        subscriptions: [
+          {
+            topic,
+            qos: 0,
+          },
+        ],
+        messageId: 3, // TODO: Auto increment messageID
+      } as any)
+      this.subscribedTopics.add(topic)
+    }
+  }
+
   private async onMessage(data: WebSocket.RawData) {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
-      if (!this.isSubscribedToLsResp) {
-        // subscribe to /ls_foreground_state
-        await this.send({
-          cmd: 'subscribe',
-          qos: 1,
-          subscriptions: [
-            {
-              topic: '/ls_foreground_state',
-              qos: 0,
-            },
-          ],
-          messageId: 3, // TODO: Auto increment messageID
-        } as any)
-        // subscribe to /ls_resp
-        await this.send({
-          cmd: 'subscribe',
-          qos: 1,
-          subscriptions: [
-            {
-              topic: '/ls_resp',
-              qos: 0,
-            },
-          ],
-          messageId: 3,
-        } as any)
-        this.isSubscribedToLsResp = true
-      }
-
+      await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
       await this.afterInitialHandshake()
       // this.getThreads()
     } else if ((data as any)[0] !== 0x42) {
@@ -562,7 +542,6 @@ export default class MetaMessengerWebSocket {
         type: 2,
       }),
     })
-    const isFacebook = this.papi.env === 'FB' || this.papi.env === 'MESSENGER'
     // this.subscribeToDB(2, 'cursor-2') // @TODO add
     const syncParamsString = this.papi.kv.get('syncParams-1')
     if (this.papi.env === 'IG') {
@@ -574,7 +553,7 @@ export default class MetaMessengerWebSocket {
       await this.subscribeToDB(28, null, syncParamsString)
       await this.subscribeToDB(196, null, syncParamsString)
       await this.subscribeToDB(198, null, syncParamsString)
-    } else if (isFacebook) {
+    } else if (this.papi.envOpts.isFacebook) {
       await this.subscribeToDB(2, 'cursor-1-1', null)
       await this.subscribeToDB(5, null, syncParamsString)
       await this.subscribeToDB(16, null, syncParamsString)

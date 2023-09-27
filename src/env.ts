@@ -10,6 +10,7 @@ const EnvOptions = {
     defaultVersionId: 6552526831451374,
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: false,
+    isFacebook: false,
   },
   FB: {
     id: 'facebookdotcom',
@@ -21,6 +22,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: true,
+    isFacebook: true,
   },
   MESSENGER: {
     id: 'messengerdotcom',
@@ -32,6 +34,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: true,
+    isFacebook: true,
   },
   WORK: {
     id: 'workplacedotcom',
@@ -42,6 +45,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
+    isFacebook: false,
   },
   WORKMETA: {
     id: 'workdotmetadotcom',
@@ -52,6 +56,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
+    isFacebook: false,
   },
 } as const
 
