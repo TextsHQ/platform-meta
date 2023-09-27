@@ -468,8 +468,13 @@ export default class MetaMessengerWebSocket {
     return { request_id, promise }
   }
 
-  // used for get messages and get threads
-  async publishTask(type: RequestResolverType, tasks: MMSocketTask[]) {
+  async publishTask(type: RequestResolverType, tasks: MMSocketTask[], {
+    timeout,
+    throwOnTimeout,
+  }: {
+    timeout?: number // defaults to never
+    throwOnTimeout?: boolean // defaults to false
+  } = {}): Promise<MetaMessengerPayloadHandlerResponse> {
     const { epoch_id } = getTimeValues()
     const { promise, request_id } = this.createRequest(type)
 
@@ -491,6 +496,17 @@ export default class MetaMessengerWebSocket {
         type: 3,
       }),
     })
+
+    if (typeof timeout === 'number' && timeout > 0) {
+      const timeoutPromise = sleep(timeout).then(() => {
+        if (throwOnTimeout) {
+          throw new MetaMessengerError(this.papi.env, -1, `publishTask/${type} timed out`)
+        }
+        return {}
+      })
+
+      return Promise.race([promise, timeoutPromise])
+    }
 
     return promise
   }

@@ -26,7 +26,6 @@ import {
   INT64_MAX_AS_STRING,
   parseMessageRanges,
   parseUnicodeEscapeSequences,
-  timeoutOrPromise,
 } from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
@@ -526,6 +525,10 @@ export default class MetaMessengerAPI {
     if (this.papi.env !== 'IG') throw new Error(`fetchMoreThreadsForIG is only supported on IG but called on ${this.papi.env}`)
     const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
     if (!canFetchMore) return { fetched: false } as const
+    const publishTaskOpts = {
+      timeout: 15000,
+      throwOnTimeout: false,
+    } as const
     const getFetcher = () => {
       if (isSpam) {
         const group1 = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
@@ -567,7 +570,7 @@ export default class MetaMessengerAPI {
             task_id: this.papi.socket.genTaskId(),
             failure_count: null,
           },
-        ])
+        ], publishTaskOpts)
       }
       if (isInitial) {
         return this.papi.socket.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
@@ -620,7 +623,7 @@ export default class MetaMessengerAPI {
             task_id: this.papi.socket.genTaskId(),
             failure_count: null,
           },
-        ])
+        ], publishTaskOpts)
       }
       if (this.papi.kv.get('hasTabbedInbox')) {
         return Promise.all([
@@ -647,7 +650,7 @@ export default class MetaMessengerAPI {
               task_id: this.papi.socket.genTaskId(),
               failure_count: null,
             },
-          ])
+          ], publishTaskOpts)
         }))
       }
       // if (
@@ -694,11 +697,11 @@ export default class MetaMessengerAPI {
           task_id: this.papi.socket.genTaskId(),
           failure_count: null,
         },
-      ])
+      ], publishTaskOpts)
     }
 
     try {
-      await timeoutOrPromise<unknown>(getFetcher())
+      await getFetcher()
     } catch (err) {
       this.logger.error(err)
     }
@@ -1218,10 +1221,13 @@ export default class MetaMessengerAPI {
 
     // if there are no more threads to load
     if (tasks.length === 0) return
-    const task = this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
-    const promiseWithTimeout = timeoutOrPromise(task, 15000)
-    this.fetchMoreThreadsV3Promises.set(inbox, promiseWithTimeout)
-    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
+    const task = this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks, {
+      timeout: 15000,
+      throwOnTimeout: true,
+    })
+    task.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
+    this.fetchMoreThreadsV3Promises.set(inbox, task)
+    return task
   }
 
   // does not work for moving threads out of the message requests folder

@@ -104,9 +104,3 @@ export function parseUnicodeEscapeSequences(str: string) {
 }
 
 export const INT64_MAX_AS_STRING = '9223372036854775807'
-
-export async function timeoutOrPromise<T>(promise: Promise<T>, timeoutMs = 10000): Promise<T> {
-  return Promise.race([promise, new Promise<T>((_, reject) => {
-    setTimeout(() => reject(new Error('Timeout')), timeoutMs)
-  })])
-}
