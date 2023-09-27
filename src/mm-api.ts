@@ -3,7 +3,7 @@ import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import {
   type FetchOptions,
-  InboxName,
+  InboxName, MessageContent,
   type MessageSendOptions,
   ReAuthError,
   texts,
@@ -19,13 +19,22 @@ import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession } from './types'
 import { MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
-import { createPromise, parseMessageRanges, parseUnicodeEscapeSequences, timeoutOrPromise } from './util'
+import {
+  createPromise,
+  genClientContext,
+  getTimeValues,
+  INT64_MAX_AS_STRING,
+  parseMessageRanges,
+  parseUnicodeEscapeSequences,
+  timeoutOrPromise,
+} from './util'
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
 import EnvOptions, { type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
+import { RequestResolverType, ThreadRemoveType } from './socket'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -512,20 +521,180 @@ export default class MetaMessengerAPI {
     })
   }
 
+  // @TODO: this should be migrated to `fetchMoreThreadsV3`
   async fetchMoreThreadsForIG(isSpam: boolean, isInitial: boolean) {
     if (this.papi.env !== 'IG') throw new Error(`fetchMoreThreadsForIG is only supported on IG but called on ${this.papi.env}`)
     const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
     if (!canFetchMore) return { fetched: false } as const
     const getFetcher = () => {
-      if (isSpam) return this.papi.socket.fetchSpamThreads()
-      if (isInitial) return this.papi.socket.fetchInitialThreadsForIG()
-      if (this.papi.kv.get('hasTabbedInbox')) {
-        return Promise.all([
-          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.PRIMARY),
-          this.papi.socket.fetchMoreInboxThreads(ThreadFilter.GENERAL),
+      if (isSpam) {
+        const group1 = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
+        const group95 = this.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.SPAM)
+        this.logger.debug('fetchRequestThreads', {
+          group1,
+          group95,
+        })
+        return this.papi.socket.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
+          {
+            label: '145',
+            payload: JSON.stringify({
+              is_after: 0,
+              parent_thread_key: ParentThreadKey.SPAM,
+              reference_thread_key: INT64_MAX_AS_STRING,
+              reference_activity_timestamp: INT64_MAX_AS_STRING,
+              additional_pages_to_fetch: 0,
+              cursor: this.papi.kv.get('cursor-1-1'),
+              messaging_tag: null,
+              sync_group: SyncGroup.MAIN,
+            }),
+            queue_name: 'trq',
+            task_id: this.papi.socket.genTaskId(),
+            failure_count: null,
+          },
+          {
+            label: '145',
+            payload: JSON.stringify({
+              is_after: 0,
+              parent_thread_key: ParentThreadKey.SPAM,
+              reference_thread_key: INT64_MAX_AS_STRING,
+              reference_activity_timestamp: INT64_MAX_AS_STRING,
+              additional_pages_to_fetch: 0,
+              cursor: this.papi.kv.get('cursor-1-95'),
+              messaging_tag: null,
+              sync_group: SyncGroup.UNKNOWN,
+            }),
+            queue_name: 'trq',
+            task_id: this.papi.socket.genTaskId(),
+            failure_count: null,
+          },
         ])
       }
-      return this.papi.socket.fetchMoreThreads(ParentThreadKey.PRIMARY)
+      if (isInitial) {
+        return this.papi.socket.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
+          {
+            label: '145',
+            payload: JSON.stringify({
+              is_after: 0,
+              parent_thread_key: ParentThreadKey.GENERAL,
+              reference_thread_key: 0,
+              reference_activity_timestamp: 9999999999999,
+              additional_pages_to_fetch: 0,
+              cursor: this.papi.kv.get('cursor-1-1'),
+              messaging_tag: null,
+              sync_group: SyncGroup.MAIN,
+            }),
+            queue_name: 'trq',
+            task_id: this.papi.socket.genTaskId(),
+            failure_count: null,
+          },
+          {
+            label: '145',
+            payload: JSON.stringify({
+              is_after: 0,
+              parent_thread_key: ParentThreadKey.GENERAL,
+              reference_thread_key: 0,
+              reference_activity_timestamp: 9999999999999,
+              additional_pages_to_fetch: 0,
+              cursor: this.papi.kv.get('cursor-1-95'),
+              messaging_tag: null,
+              sync_group: SyncGroup.UNKNOWN,
+            }),
+            queue_name: 'trq',
+            task_id: this.papi.socket.genTaskId(),
+            failure_count: null,
+          },
+          this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') && {
+            label: '313',
+            payload: JSON.stringify({
+              cursor: this.papi.kv.get('cursor-1-1'),
+              filter: ThreadFilter.PRIMARY,
+              is_after: 0,
+              parent_thread_key: ParentThreadKey.GENERAL,
+              reference_activity_timestamp: INT64_MAX_AS_STRING,
+              reference_thread_key: INT64_MAX_AS_STRING,
+              secondary_filter: 0,
+              filter_value: '',
+              sync_group: SyncGroup.MAIN,
+            }),
+            queue_name: 'trq',
+            task_id: this.papi.socket.genTaskId(),
+            failure_count: null,
+          },
+        ])
+      }
+      if (this.papi.kv.get('hasTabbedInbox')) {
+        return Promise.all([
+          ThreadFilter.PRIMARY,
+          ThreadFilter.GENERAL,
+        ].map(async filter => {
+          const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+
+          return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_INBOX_THREADS, [
+            {
+              label: '313',
+              payload: JSON.stringify({
+                cursor: this.papi.kv.get('cursor-1-1'),
+                filter,
+                is_after: 0,
+                parent_thread_key: 0,
+                reference_activity_timestamp: sg1Primary.minLastActivityTimestampMs,
+                reference_thread_key: sg1Primary.minThreadKey,
+                secondary_filter: 0,
+                filter_value: '',
+                sync_group: SyncGroup.MAIN,
+              }),
+              queue_name: 'trq',
+              task_id: this.papi.socket.genTaskId(),
+              failure_count: null,
+            },
+          ])
+        }))
+      }
+      // if (
+      //   (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
+      //   // || this.papi.env === 'MESSENGER'
+      //   // || this.papi.env === 'FB'
+      // ) {
+      //   await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
+      //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
+      //   return
+      // }
+      const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+      const sg95Primary = this.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
+      return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: ParentThreadKey.PRIMARY,
+            reference_thread_key: sg1Primary.minThreadKey,
+            reference_activity_timestamp: Number(sg1Primary.minLastActivityTimestampMs),
+            additional_pages_to_fetch: 0,
+            cursor: this.papi.kv.get('cursor-1-1'),
+            messaging_tag: null,
+            sync_group: SyncGroup.MAIN,
+          }),
+          queue_name: 'trq',
+          task_id: this.papi.socket.genTaskId(),
+          failure_count: null,
+        },
+        {
+          label: '145',
+          payload: JSON.stringify({
+            is_after: 0,
+            parent_thread_key: ParentThreadKey.PRIMARY,
+            reference_thread_key: sg95Primary.minThreadKey,
+            reference_activity_timestamp: Number(sg95Primary.minLastActivityTimestampMs),
+            additional_pages_to_fetch: 0,
+            cursor: null,
+            messaging_tag: null,
+            sync_group: SyncGroup.UNKNOWN,
+          }),
+          queue_name: 'trq',
+          task_id: this.papi.socket.genTaskId(),
+          failure_count: null,
+        },
+      ])
     }
 
     try {
@@ -539,7 +708,7 @@ export default class MetaMessengerAPI {
   getContact(contactId: string) {
     const contact = this.papi.preparedQueries.getContact.get({ contactId })
     if (contact?.id) return contact
-    this.papi.pQueue.addPromise(this.papi.socket.requestContacts([contactId]).then(() => {}))
+    this.papi.pQueue.addPromise(this.requestContacts([contactId]).then(() => {}))
     return null
   }
 
@@ -569,7 +738,7 @@ export default class MetaMessengerAPI {
 
     const missing = contactIds.filter(id => !existing.includes(id))
     if (missing.length > 0) {
-      this.papi.pQueue.addPromise(this.papi.socket.requestContacts(missing).then(() => {}))
+      this.papi.pQueue.addPromise(this.requestContacts(missing).then(() => {}))
     }
   }
 
@@ -626,7 +795,7 @@ export default class MetaMessengerAPI {
       gif_id?: string
     }
     this.logger.debug('sendMedia', res, metadata)
-    return this.papi.socket.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
+    return this.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
   }
 
   async webPushRegister(endpoint: string, p256dh: string, auth: string) {
@@ -824,4 +993,267 @@ export default class MetaMessengerAPI {
 
     return m
   }
+
+  removeThread(remove_type: ThreadRemoveType, thread_key: string, sync_group: SyncGroup) {
+    if (remove_type === ThreadRemoveType.ARCHIVE && !this.papi.envOpts.supportsArchive) throw new Error('removeThread is not supported in this environment')
+    return this.papi.socket.publishTask(
+      remove_type === ThreadRemoveType.ARCHIVE ? RequestResolverType.ARCHIVE_THREAD : RequestResolverType.DELETE_THREAD,
+      [{
+        label: '146',
+        payload: JSON.stringify({
+          thread_key,
+          remove_type,
+          sync_group,
+        }),
+        queue_name: thread_key.toString(),
+        task_id: this.papi.socket.genTaskId(),
+        failure_count: null,
+      }],
+    )
+  }
+
+  async getThread(threadKey: string) {
+    return this.papi.socket.publishTask(RequestResolverType.GET_NEW_THREAD, [{
+      label: '209',
+      payload: JSON.stringify({
+        thread_fbid: threadKey,
+        force_upsert: 0,
+        use_open_messenger_transport: 0,
+        sync_group: SyncGroup.MAIN,
+        metadata_only: 0,
+        preview_only: 0,
+      }),
+      queue_name: threadKey.toString(),
+      task_id: this.papi.socket.genTaskId(),
+      failure_count: null,
+    }])
+  }
+
+  async requestContacts(contactIDs: string[]) {
+    return this.papi.socket.publishTask(RequestResolverType.REQUEST_CONTACTS, contactIDs.map(contact_id => ({
+      label: '207',
+      payload: JSON.stringify({
+        contact_id,
+      }),
+      queue_name: 'cpq_v2',
+      task_id: this.papi.socket.genTaskId(),
+      failure_count: null,
+    })))
+    // @TODO: code above seems to work for messenger (it was made for ig)
+    // but messenger.com uses `/send_additional_contacts`
+  }
+
+  async mutateReaction(threadID: string, messageID: string, reaction: string) {
+    const message = this.papi.db
+      .select({
+        threadKey: schema.messages.threadKey,
+        messageId: schema.messages.messageId,
+        timestampMs: schema.messages.timestampMs,
+      })
+      .from(schema.messages)
+      .limit(1)
+      .where(eq(schema.messages.threadKey, threadID))
+      .where(eq(schema.messages.messageId, messageID))
+      .get()
+
+    // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
+    await this.papi.socket.publishTask(RequestResolverType.ADD_REACTION, [{
+      label: '29',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        timestamp_ms: Number(message.timestampMs.getTime()),
+        message_id: messageID,
+        actor_id: this.papi.kv.get('fbid'),
+        reaction,
+        reaction_style: null,
+        sync_group: SyncGroup.MAIN,
+      }),
+      queue_name: JSON.stringify([
+        'reaction',
+        messageID,
+      ]),
+      task_id: this.papi.socket.genTaskId(),
+      failure_count: null,
+    }])
+  }
+
+  async createGroupThread(participants: string[]) {
+    const { otid, now } = getTimeValues()
+    const thread_id = genClientContext()
+    const response = await this.papi.socket.publishTask(RequestResolverType.CREATE_GROUP_THREAD, [{
+      label: '130',
+      payload: JSON.stringify({
+        participants,
+        send_payload: {
+          thread_id: thread_id.toString(),
+          otid: otid.toString(),
+          source: 0,
+          send_type: 8,
+        },
+      }),
+      queue_name: thread_id.toString(),
+      task_id: this.papi.socket.genTaskId(),
+      failure_count: null,
+    }])
+    this.logger.debug('create group thread response', response)
+    return { now, offlineThreadingId: response?.replaceOptimisticThread?.offlineThreadingId, threadId: response?.replaceOptimisticThread?.threadId }
+  }
+
+  async fetchMessages(threadID: string, _ranges?: Awaited<ReturnType<typeof this.getMessageRanges>>) {
+    const ranges = _ranges || await this.getMessageRanges(threadID)
+
+    this.logger.debug('fetchMessages', {
+      threadID,
+      ranges,
+    })
+
+    if (!ranges) return
+
+    return this.papi.socket.publishTask(RequestResolverType.FETCH_MESSAGES, [{
+      label: '228',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        direction: 0,
+        reference_timestamp_ms: Number(ranges.minTimestamp),
+        reference_message_id: ranges.minMessageId,
+        sync_group: 1,
+        cursor: this.papi.kv.get('cursor-1-1'),
+      }),
+      queue_name: `mrq.${threadID}`,
+      task_id: this.papi.socket.genTaskId(),
+      failure_count: null,
+    }])
+  }
+
+  async sendMessage(threadID: string, { text }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
+    const { otid, timestamp, now } = getTimeValues()
+
+    const reply_metadata = quotedMessageID && {
+      reply_source_id: quotedMessageID,
+      reply_source_type: 1,
+      reply_type: 0,
+    }
+
+    const hasAttachment = attachmentFbids.length > 0
+
+    const result = await this.papi.socket.publishTask(RequestResolverType.SEND_MESSAGE, [
+      {
+        label: '46',
+        payload: JSON.stringify({
+          thread_id: threadID,
+          otid: otid.toString(),
+          source: (2 ** 16) + 1,
+          send_type: hasAttachment ? 3 : 1,
+          sync_group: 1,
+          text: !hasAttachment ? text : null,
+          initiating_source: hasAttachment ? undefined : 1,
+          skip_url_preview_gen: hasAttachment ? undefined : 0,
+          text_has_links: hasAttachment ? undefined : 0,
+          reply_metadata,
+          attachment_fbids: hasAttachment ? attachmentFbids : undefined,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.papi.socket.genTaskId(),
+        failure_count: null,
+      },
+      {
+        label: '21',
+        payload: JSON.stringify({
+          thread_id: threadID,
+          last_read_watermark_ts: Number(timestamp),
+          sync_group: 1,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.papi.socket.genTaskId(),
+        failure_count: null,
+      },
+    ])
+
+    return {
+      timestamp: new Date(now),
+      offlineThreadingId: String(otid),
+      messageId: result?.replaceOptimsiticMessage.messageId,
+    }
+  }
+
+  private fetchMoreThreadsV3Promises = new Map<InboxName, Promise<unknown>>()
+
+  fetchMoreThreadsV3 = async (inbox: InboxName) => {
+    if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error('fetchMoreThreadsV3 is only supported with Facebook/Messenger')
+    if (this.fetchMoreThreadsV3Promises.has(inbox)) {
+      return this.fetchMoreThreadsV3Promises.get(inbox)
+    }
+
+    const syncGroups = this.computeSyncGroups(inbox)
+
+    this.logger.debug('fetchMoreThreadsV3', {
+      inbox,
+      syncGroups,
+    })
+
+    const tasks = syncGroups.map(([syncGroup, parentThreadKey]) => {
+      const range = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
+      if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
+      const parent_thread_key = parentThreadKey
+      const reference_thread_key = range?.minThreadKey || 0
+      const reference_activity_timestamp = range?.minLastActivityTimestampMs ? range.minLastActivityTimestampMs : 9999999999999
+      const cursor = this.papi.kv.get(`cursor-1-${syncGroup}`)
+      return {
+        label: '145',
+        payload: JSON.stringify({
+          is_after: 0,
+          parent_thread_key,
+          reference_thread_key,
+          reference_activity_timestamp,
+          additional_pages_to_fetch: 0,
+          cursor,
+          messaging_tag: null,
+          sync_group: syncGroup,
+        }),
+        queue_name: 'trq',
+        task_id: this.papi.socket.genTaskId(),
+        failure_count: null,
+      }
+    }).filter(Boolean)
+
+    // if there are no more threads to load
+    if (tasks.length === 0) return
+    const task = this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks)
+    const promiseWithTimeout = timeoutOrPromise(task, 15000)
+    this.fetchMoreThreadsV3Promises.set(inbox, promiseWithTimeout)
+    return promiseWithTimeout.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
+  }
+
+  // does not work for moving threads out of the message requests folder
+  // prefer this.approveThread
+  // since we pretend General and Primary are the same, this method is unused
+  // but it is still here for reference
+  // async changeThreadFolder(thread_key: string, old_ig_folder: number, new_ig_folder: number) {
+  //   await this.socket.publishTask(RequestResolverType.SET_THREAD_FOLDER, [{
+  //     label: '511',
+  //     payload: JSON.stringify({
+  //       thread_key,
+  //       old_ig_folder,
+  //       new_ig_folder,
+  //       sync_group: 1,
+  //     }),
+  //     queue_name: thread_key,
+  //     task_id: this.socket.genTaskId(),
+  //     failure_count: null,
+  //   }])
+  // }
+
+  // async createThread(userId: string) {
+  //   const response = await this.api.socket.publishTask(RequestResolverType.CREATE_THREAD, {
+  //     label: '209',
+  //     payload: JSON.stringify({
+  //       // thread_fbid: BigInt(userId),
+  //       thread_fbid: userId,
+  //     }),
+  //     queue_name: userId,
+  //     task_id: this.api.socket.genTaskId(),
+  //     failure_count: null,
+  //   })
+  //   this.logger.info('create thread response', response)
+  // }
 }

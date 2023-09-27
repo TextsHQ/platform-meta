@@ -2015,7 +2015,7 @@ export default class MetaMessengerPayloadHandler {
     })
     if (!thread) {
       this.__logger.info('thread does not exist, skipping payload and calling getThread')
-      this.__pQueue.addPromise(this.__papi.socket.getThread(threadId).then(d => {
+      this.__pQueue.addPromise(this.__papi.getThread(threadId).then(d => {
         this.__logger.debug('getThread finished', d)
       }))
     }
