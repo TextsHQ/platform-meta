@@ -3,6 +3,42 @@ import { EnvKey } from './env'
 
 type NumberString = `${number}`
 
+// this is purely for optimization
+// all methods should still be included in OperationKey
+// and also have a corresponding method in the payload handler
+const IGNORED_CALLS = [
+  'appendDataTraceAddon',
+  'applyAdminMessageCTA',
+  'applyNewGroupThread',
+  'bumpThread',
+  'changeViewerStatus',
+  'checkAuthoritativeMessageExists',
+  'clearPinnedMessages',
+  'computeDelayForTask',
+  'deleteRtcOngoingCallData',
+  'deleteThenInsertContactPresence',
+  'deleteThenInsertMessageRequest',
+  'executeFinallyBlockForSyncTransaction',
+  'getFirstAvailableAttachmentCTAID',
+  'handleRepliesOnUnsend',
+  'hasMatchingAttachmentCTA',
+  'hybridThreadDelete',
+  'insertAttachment',
+  'insertAttachmentItem',
+  'insertIcebreakerData',
+  'insertSearchSection',
+  'insertStickerAttachment',
+  'mailboxTaskCompletionApiOnTaskCompletion',
+  'mciTraceLog',
+  'removeTask',
+  'taskExists',
+  'updateExtraAttachmentColumns',
+  'updateFilteredThreadsRanges',
+  'upsertProfileBadge',
+  'upsertTheme',
+  'verifyCommunityMemberContextualProfileExists',
+] as const
+
 export type OperationKey =
   | 'addParticipantIdToGroupThread'
   | 'appendDataTraceAddon'
@@ -231,6 +267,7 @@ export function generateCallList(env: EnvKey, payload: string) {
         // Base case: Detecting an operation step
         if (item[0] === 5 && typeof item[1] === 'string') {
           const methodName = item[1] as OperationKey
+          if (IGNORED_CALLS.includes(methodName as any)) continue
           const args = item.slice(2).map(arg => transformArg(arg))
           calls.push([methodName, args])
         } else {
