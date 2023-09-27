@@ -26,7 +26,7 @@ import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import MetaMessengerAPI from './mm-api'
-import MetaMessengerWebSocket, { ThreadRemoveType } from './socket'
+import MetaMessengerWebSocket, { RequestResolverType, ThreadRemoveType } from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
@@ -36,6 +36,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import { PromiseQueue } from './p-queue'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
+import { getTimeValues } from './util'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -139,7 +140,41 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.onEvent = onEvent
   }
 
-  searchUsers = (typed: string) => this.api.initPromise.then(() => this.socket.searchUsers(typed))
+  searchUsers = async (query: string) => {
+    await this.api.initPromise
+    const { timestamp } = getTimeValues()
+    const payload = JSON.stringify({
+      query,
+      supported_types: [1, 3, 4, 2, 6, 7, 8, 9, 14],
+      session_id: null,
+      surface_type: this.env === 'IG' ? 15 : 1,
+      group_id: null,
+      community_id: this.env !== 'IG' ? null : undefined,
+      thread_id: null,
+    })
+
+    const [primary, secondary] = await Promise.all([
+      this.socket.publishTask(RequestResolverType.SEARCH_USERS_PRIMARY, [{
+        label: '30',
+        payload,
+        queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }]),
+      this.socket.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, [{
+        label: '31',
+        payload,
+        queue_name: JSON.stringify(['search_secondary']),
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }]),
+    ])
+
+    return [
+      ...(primary?.insertSearchResult ?? []),
+      ...(secondary?.insertSearchResult ?? []),
+    ].filter(user => user.type === 'user')
+  }
 
   getThreads = async (inbox: ThreadFolderName, pagination?: PaginationArg): PAPIReturn<'getThreads'> => {
     if (inbox !== InboxName.NORMAL && inbox !== InboxName.REQUESTS) throw Error('not implemented')
@@ -150,7 +185,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     const result = await (this.env === 'IG'
       ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
-      : this.socket.fetchMoreThreadsV3(inbox))
+      : this.api.fetchMoreThreadsV3(inbox))
 
     this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam }, { result })
 
@@ -219,7 +254,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       ranges,
     })
 
-    await this.socket.fetchMessages(threadID, ranges)
+    await this.api.fetchMessages(threadID, ranges)
 
     let hasMore = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
     try {
@@ -280,7 +315,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     // type check username
     this.logger.debug('getUser', ids)
     if ('userID' in ids && typeof ids.userID === 'string') {
-      const a = await this.socket.requestContacts([ids.userID])
+      const a = await this.api.requestContacts([ids.userID])
       this.logger.debug('getUser got user', a)
     }
     const username = 'username' in ids && ids.username
@@ -298,7 +333,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     })
     if (userIDs.length === 1) {
       const [userID] = userIDs
-      await this.socket.getThread(userID)
+      await this.api.getThread(userID)
       const user = this.api.getContact(userID)
 
       const participants: Participant[] = [{
@@ -326,11 +361,11 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       } as const
     }
 
-    const resp = await this.socket.createGroupThread(userIDs)
+    const resp = await this.api.createGroupThread(userIDs)
     const users = await this.api.getContacts(userIDs)
     /// compare with userIDs to see if all users were found
     const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
-    await this.socket.requestContacts(missingUserIDs)
+    await this.api.requestContacts(missingUserIDs)
 
     this.logger.debug('createThread', {
       users,
@@ -380,19 +415,51 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.initPromise
 
     this.logger.debug('updateThread', threadID, updates)
-    const promises: Promise<void>[] = []
+    const promises: Promise<unknown>[] = []
 
     if ('title' in updates) {
-      promises.push(this.socket.setThreadName(threadID, updates.title))
+      promises.push(this.socket.publishTask(RequestResolverType.SET_THREAD_NAME, [{
+        label: '32',
+        payload: JSON.stringify({
+          thread_key: threadID,
+          thread_name: updates.title,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }]))
+      // listen for the response syncUpdateThreadName
     }
 
     if ('mutedUntil' in updates) {
-      promises.push(this.socket.muteThread(threadID, updates.mutedUntil === 'forever' ? -1 : 0))
+      promises.push(this.socket.publishTask(RequestResolverType.MUTE_THREAD, [{
+        label: '144',
+        payload: JSON.stringify({
+          thread_key: Number(threadID),
+          mailbox_type: 0, // 0 = inbox
+          mute_expire_time_ms: updates.mutedUntil === 'forever' ? -1 : 0,
+          sync_group: 1,
+        }),
+        queue_name: threadID.toString(),
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }]))
+      // listen for the response updateThreadMuteSetting
     }
 
     if ('folderName' in updates) {
       if (updates.folderName === InboxName.NORMAL) {
-        promises.push(this.socket.approveThread(threadID))
+        promises.push(this.socket.publishTask(RequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, [{
+          label: '66',
+          payload: JSON.stringify({
+            thread_key: threadID,
+            sync_group: 1,
+            ig_folder: 1,
+          }),
+          queue_name: 'message_request',
+          task_id: this.socket.genTaskId(),
+          failure_count: null,
+        }]))
       }
     }
 
@@ -401,15 +468,25 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   archiveThread = async (threadID: ThreadID, archived: boolean) => {
     if (archived) {
-      await this.socket.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAIN)
+      await this.api.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAIN)
     } else {
-      await this.socket.unarchiveThread(threadID)
+      if (!this.envOpts.supportsArchive) throw new Error('unarchive thread is not supported in this environment')
+      await this.socket.publishTask(RequestResolverType.UNARCHIVE_THREAD, [{
+        label: '242',
+        payload: JSON.stringify({
+          thread_id: threadID,
+          sync_group: SyncGroup.MAIN,
+        }),
+        queue_name: 'unarchive_thread',
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }])
     }
   }
 
   deleteThread = async (threadID: string) => {
     await this.api.initPromise
-    await this.socket.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAIN)
+    await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAIN)
   }
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
@@ -436,7 +513,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       }
       return [userMessage]
     }
-    const { timestamp, messageId } = await this.socket.sendMessage(threadID, { text }, { pendingMessageID, quotedMessageID })
+    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text }, { pendingMessageID, quotedMessageID })
     return [{
       id: messageId,
       timestamp,
@@ -451,22 +528,110 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.initPromise
     this.logger.debug('sendActivityIndicator', threadID, type)
     if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
-    return this.socket.sendTypingIndicator(threadID, type === ActivityType.TYPING)
+    const { promise, request_id } = this.socket.createRequest(RequestResolverType.SEND_TYPING_INDICATOR)
+    this.logger.debug(`sending typing indicator ${threadID}`)
+    await this.socket.send({
+      cmd: 'publish',
+      messageId: 9,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: this.kv.get('appId'),
+        payload: JSON.stringify({
+          label: '3',
+          payload: JSON.stringify({
+            thread_key: threadID,
+            is_group_thread: 0,
+            is_typing: type === ActivityType.TYPING ? 1 : 0,
+            attribution: 0,
+          }),
+          version: '6243569662359088',
+        }),
+        request_id,
+        type: 4,
+      }),
+    } as any)
+
+    await promise
   }
 
-  deleteMessage = (_threadID: string, messageID: string, _forEveryone?: boolean) => this.api.initPromise.then(() => this.socket.unsendMessage(messageID))
+  deleteMessage = async (_threadID: string, messageID: string, _forEveryone?: boolean) => {
+    await this.api.initPromise
+    await this.socket.publishTask(RequestResolverType.UNSEND_MESSAGE, [{
+      label: '33',
+      payload: JSON.stringify({
+        message_id: messageID,
+      }),
+      queue_name: 'unsend_message',
+      task_id: this.socket.genTaskId(),
+      failure_count: null,
+    }])
+  }
 
-  sendReadReceipt = (threadID: string, _messageID: string, _messageCursor?: string) => this.api.initPromise.then(() => this.socket.sendReadReceipt(threadID, Date.now()))
+  sendReadReceipt = async (threadID: string, _messageID: string, _messageCursor?: string) => {
+    await this.api.initPromise
+    await this.socket.publishTask(RequestResolverType.SEND_READ_RECEIPT, [{
+      label: '21',
+      payload: JSON.stringify({
+        thread_id: threadID,
+        last_read_watermark_ts: Date.now(),
+        sync_group: SyncGroup.MAIN,
+      }),
+      queue_name: threadID,
+      task_id: this.socket.genTaskId(),
+      failure_count: null,
+    }])
+  }
 
-  addReaction = (threadID: string, messageID: string, reactionKey: string) => this.api.initPromise.then(() => this.socket.addReaction(threadID, messageID, reactionKey))
+  addReaction = (threadID: string, messageID: string, reactionKey: string) => this.api.initPromise.then(() => this.api.mutateReaction(threadID, messageID, reactionKey))
 
-  removeReaction = (threadID: string, messageID: string, _reactionKey: string) => this.api.initPromise.then(() => this.socket.addReaction(threadID, messageID, ''))
+  removeReaction = (threadID: string, messageID: string, _reactionKey: string) => this.api.initPromise.then(() => this.api.mutateReaction(threadID, messageID, ''))
 
-  addParticipant = (threadID: string, participantID: string) => this.api.initPromise.then(() => this.socket.addParticipants(threadID, [participantID]))
+  addParticipant = async (threadID: string, participantID: string) => {
+    await this.api.initPromise
+    await this.socket.publishTask(RequestResolverType.ADD_PARTICIPANTS, [{
+      label: '23',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        contact_ids: [participantID],
+        sync_group: 1,
+      }),
+      queue_name: threadID.toString(),
+      task_id: this.socket.genTaskId(),
+      failure_count: null,
+    }])
+    // listen for the response addParticipantIdToGroupThread
+  }
 
-  removeParticipant = (threadID: string, participantID: string) => this.api.initPromise.then(() => this.socket.removeParticipant(threadID, participantID))
+  removeParticipant = async (threadID: string, participantID: string) => {
+    await this.api.initPromise
+    await this.socket.publishTask(RequestResolverType.REMOVE_PARTICIPANT, [{
+      label: '140',
+      payload: JSON.stringify({
+        thread_id: threadID,
+        contact_id: participantID,
+      }),
+      queue_name: 'remove_participant_v2',
+      task_id: this.socket.genTaskId(),
+      failure_count: null,
+    }])
+    // listen for the response removeParticipantFromThread
+  }
 
-  changeParticipantRole = (threadID: string, participantID: string, role: 'admin' | 'regular') => this.api.initPromise.then(() => this.socket.changeAdminStatus(threadID, participantID, role === 'admin'))
+  changeParticipantRole = async (threadID: string, participantID: string, role: 'admin' | 'regular') => {
+    await this.api.initPromise
+    await this.socket.publishTask(RequestResolverType.SET_ADMIN_STATUS, [{
+      label: '25',
+      payload: JSON.stringify({
+        thread_key: threadID,
+        contact_id: participantID,
+        is_admin: role === 'admin' ? 1 : 0,
+      }),
+      queue_name: 'admin_status',
+      task_id: this.socket.genTaskId(),
+      failure_count: null,
+    }])
+    // listen for the response updateThreadParticipantAdminStatus
+  }
 
   getOriginalObject = async (objName: 'thread' | 'message', objectID: ThreadID | MessageID) => {
     await this.api.initPromise
@@ -541,9 +706,31 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
   }
 
-  forwardMessage = async (_threadID: ThreadID, messageID: MessageID, threadIDs: ThreadID[]) => {
+  forwardMessage = async (_threadID: ThreadID, forwarded_msg_id: MessageID, threadIDs: ThreadID[]) => {
     await this.api.initPromise
-    await Promise.all(threadIDs.map(tid => this.socket.forwardMessage(tid, messageID)))
+
+    await Promise.all(threadIDs.map(async thread_id => {
+      if (!thread_id) throw new Error('thread_id is required')
+      if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('forwarded_msg_id is required')
+
+      const { otid } = getTimeValues()
+      await this.socket.publishTask(RequestResolverType.FORWARD_MESSAGE, [{
+        label: '46',
+        payload: JSON.stringify({
+          thread_id,
+          otid: otid.toString(),
+          source: (2 ** 16) + 8,
+          send_type: 5,
+          sync_group: 1,
+          forwarded_msg_id,
+          strip_forwarded_msg_caption: 0,
+          initiating_source: 1,
+        }),
+        queue_name: thread_id,
+        task_id: this.socket.genTaskId(),
+        failure_count: null,
+      }])
+    }))
   }
 
   registerForPushNotifications = async (type: keyof NotificationsInfo, token: string) => {
