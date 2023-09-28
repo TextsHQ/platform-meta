@@ -296,7 +296,6 @@ export default class MetaMessengerWebSocket {
       username: this.mqttConfig.username,
     })
 
-    this.isInitialConnection = false
     // @TODO: need to send rtc_multi
     await this.sendAppSettings()
     this.startPing()
@@ -350,8 +349,10 @@ export default class MetaMessengerWebSocket {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
-      await this.afterInitialHandshake()
-      // this.getThreads()
+      await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
+      if (this.isInitialConnection) {
+        await this.afterInitialHandshake()
+      }
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
@@ -363,11 +364,11 @@ export default class MetaMessengerWebSocket {
   // - we get ack for requesting app settings
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
-    await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
     await Promise.all([
       this.subscribeToAllDatabases(),
       this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
     ])
+    this.isInitialConnection = false
   }
 
   private async parseNon0x42Data(data: any) {
