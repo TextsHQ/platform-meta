@@ -12,11 +12,6 @@ const info: PlatformInfo = {
     url: 'https://instagram.com',
     authCookieName: 'sessionid',
   },
-  notifications: {
-    web: {
-      vapidKey: 'BIBn3E_rWTci8Xn6P9Xj3btShT85Wdtne0LtwNUyRQ5XjFNkuTq9j4MPAVLvAFhXrUU1A9UxyxBA7YIOjqDIDHI', // browser_push_pub_key
-    },
-  },
   getUserProfileLink: ({ username }) =>
     `https://www.instagram.com/${username}/`,
 }
