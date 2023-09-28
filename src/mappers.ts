@@ -37,10 +37,10 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
   return {
     id: a.attachmentFbid,
     type,
-    size: {
+    size: attachment.previewWidth && attachment.previewHeight ? {
       width: mapSize(attachment.previewWidth),
       height: mapSize(attachment.previewHeight),
-    },
+    } : undefined,
     mimeType: attachment.playableUrlMimeType || attachment.previewUrlMimeType,
     fileSize: attachment.playableDurationMs,
     fileName: attachment.filename,
