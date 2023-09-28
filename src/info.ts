@@ -16,6 +16,11 @@ const infoDefaults = {
     Attribute.SORT_MESSAGES_ON_PUSH,
     Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
+  notifications: {
+    web: {
+      vapidKey: 'BIBn3E_rWTci8Xn6P9Xj3btShT85Wdtne0LtwNUyRQ5XjFNkuTq9j4MPAVLvAFhXrUU1A9UxyxBA7YIOjqDIDHI', // browser_push_pub_key / BrowserPushPubKey
+    },
+  },
   reactions: {
     supported: {
       '❤️': { title: '❤️', render: '❤️' },
