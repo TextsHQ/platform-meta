@@ -9,6 +9,22 @@ export const genClientContext = () => {
   return BigInt(`0b${dateBinary}${randomBinary}`)
 }
 
+export class AutoIncrementStore {
+  private i: number
+
+  constructor(private readonly start = 0) {
+    this.i = start
+  }
+
+  public gen() {
+    return this.i++
+  }
+
+  public get current() {
+    return this.i
+  }
+}
+
 export const getTimeValues = () => {
   // console.log(typing.toString("hex").match(/../g).join(" "));
   // https://intuitiveexplanations.com/tech/messenger

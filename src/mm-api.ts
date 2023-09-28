@@ -34,7 +34,7 @@ import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
 import EnvOptions, { type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
-import { RequestResolverType, ThreadRemoveType } from './socket'
+import { RequestResolverReject, RequestResolverType, ThreadRemoveType } from './socket'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -197,17 +197,7 @@ export default class MetaMessengerAPI {
       await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
     }
 
-    switch (this.papi.env) {
-      case 'IG':
-        await this.getSnapshotPayloadForIGD()
-        break
-      case 'MESSENGER':
-      case 'FB':
-        await this.getSnapshotPayloadForFB()
-        break
-      default:
-        break
-    }
+    await this.envSwitch(() => this.getSnapshotPayloadForIGD(), () => this.getSnapshotPayloadForFB())()
 
     await this.papi.socket.connect()
 
@@ -216,6 +206,13 @@ export default class MetaMessengerAPI {
 
   getCookies() {
     return this.jar.getCookieStringSync(`https://${this.papi.envOpts.domain}/`)
+  }
+
+  envSwitch = <T>(valueForInstagram: T, valueForFacebookOrMessenger: T, defaultValue?: T) => {
+    if (this.papi.env === 'IG') return valueForInstagram
+    if (this.papi.envOpts.isFacebook) return valueForFacebookOrMessenger
+    if (defaultValue) return defaultValue
+    throw new Error('Invalid environment')
   }
 
   // they have different gql endpoints will merge these later
@@ -554,7 +551,7 @@ export default class MetaMessengerAPI {
               sync_group: SyncGroup.MAIN,
             }),
             queue_name: 'trq',
-            task_id: this.papi.socket.genTaskId(),
+            task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
           {
@@ -570,7 +567,7 @@ export default class MetaMessengerAPI {
               sync_group: SyncGroup.UNKNOWN,
             }),
             queue_name: 'trq',
-            task_id: this.papi.socket.genTaskId(),
+            task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
         ], publishTaskOpts)
@@ -590,7 +587,7 @@ export default class MetaMessengerAPI {
               sync_group: SyncGroup.MAIN,
             }),
             queue_name: 'trq',
-            task_id: this.papi.socket.genTaskId(),
+            task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
           {
@@ -606,14 +603,14 @@ export default class MetaMessengerAPI {
               sync_group: SyncGroup.UNKNOWN,
             }),
             queue_name: 'trq',
-            task_id: this.papi.socket.genTaskId(),
+            task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
           this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') && {
             label: '313',
             payload: JSON.stringify({
               cursor: this.papi.kv.get('cursor-1-1'),
-              filter: ThreadFilter.PRIMARY,
+              filter: ThreadFilter.IGD_PRO_PRIMARY,
               is_after: 0,
               parent_thread_key: ParentThreadKey.GENERAL,
               reference_activity_timestamp: INT64_MAX_AS_STRING,
@@ -623,15 +620,15 @@ export default class MetaMessengerAPI {
               sync_group: SyncGroup.MAIN,
             }),
             queue_name: 'trq',
-            task_id: this.papi.socket.genTaskId(),
+            task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
         ], publishTaskOpts)
       }
       if (this.papi.kv.get('hasTabbedInbox')) {
         return Promise.all([
-          ThreadFilter.PRIMARY,
-          ThreadFilter.GENERAL,
+          ThreadFilter.IGD_PRO_PRIMARY,
+          ThreadFilter.IGD_PRO_GENERAL,
         ].map(async filter => {
           const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
 
@@ -650,7 +647,7 @@ export default class MetaMessengerAPI {
                 sync_group: SyncGroup.MAIN,
               }),
               queue_name: 'trq',
-              task_id: this.papi.socket.genTaskId(),
+              task_id: this.papi.socket.taskIds.gen(),
               failure_count: null,
             },
           ], publishTaskOpts)
@@ -681,7 +678,7 @@ export default class MetaMessengerAPI {
             sync_group: SyncGroup.MAIN,
           }),
           queue_name: 'trq',
-          task_id: this.papi.socket.genTaskId(),
+          task_id: this.papi.socket.taskIds.gen(),
           failure_count: null,
         },
         {
@@ -697,7 +694,7 @@ export default class MetaMessengerAPI {
             sync_group: SyncGroup.UNKNOWN,
           }),
           queue_name: 'trq',
-          task_id: this.papi.socket.genTaskId(),
+          task_id: this.papi.socket.taskIds.gen(),
           failure_count: null,
         },
       ], publishTaskOpts)
@@ -711,15 +708,11 @@ export default class MetaMessengerAPI {
     return { fetched: true } as const
   }
 
-  getContact(contactId: string) {
-    const contact = this.papi.preparedQueries.getContact.get({ contactId })
-    if (contact?.id) return contact
-    this.papi.pQueue.addPromise(this.requestContacts([contactId]).then(() => {}))
-    return null
-  }
+  async getOrRequestContactsIfNotExist(contactIds: string[]) {
+    this.logger.debug(`getOrFetchContactsIfNotExist called with ${contactIds.length} contacts`, contactIds)
+    if (contactIds.length === 0) return { contacts: [], missing: [] }
 
-  getContacts(contactIds: string[]) {
-    return this.papi.db.query.contacts.findMany({
+    const contacts = await this.papi.db.query.contacts.findMany({
       columns: {
         id: true,
         profilePictureUrl: true,
@@ -729,23 +722,14 @@ export default class MetaMessengerAPI {
       },
       where: inArray(schema.contacts.id, contactIds),
     })
-  }
 
-  async fetchContactsIfNotExist(contactIds: string[]) {
-    this.logger.debug(`fetchContactsIfNotExist called with ${contactIds.length} contacts`, contactIds)
-    if (contactIds.length === 0) return
+    if (contacts.length === contactIds.length) return { contacts, missing: [] }
 
-    const existing = (await this.papi.db.query.contacts.findMany({
-      columns: {
-        id: true,
-      },
-      where: inArray(schema.contacts.id, contactIds),
-    })).map(c => c.id)
+    const loadedContactIds = new Set(contacts.map(c => c.id))
+    const missing = contactIds.filter(id => !loadedContactIds.has(id))
+    await this.requestContacts(missing)
 
-    const missing = contactIds.filter(id => !existing.includes(id))
-    if (missing.length > 0) {
-      this.papi.pQueue.addPromise(this.requestContacts(missing).then(() => {}))
-    }
+    return { contacts, missing }
   }
 
   private async uploadFile(threadID: string, filePath: string, fileName?: string) {
@@ -868,7 +852,7 @@ export default class MetaMessengerAPI {
     const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.env, this.papi.kv.get('fbid'), parseMessageRanges(t.ranges)))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
-    await this.fetchContactsIfNotExist(participantIDs)
+    await this.getOrRequestContactsIfNotExist(participantIDs)
     return threads
   }
 
@@ -926,7 +910,7 @@ export default class MetaMessengerAPI {
 
   async resolveMessageRanges(r: IGMessageRanges) {
     const resolverKey = `messageRanges-${r.threadKey}` as const
-    const promiseEntries = this.papi.socket.messageRangesResolver.get(resolverKey) || []
+    const promiseEntries = this.messageRangesResolver.get(resolverKey) || []
     promiseEntries.forEach(p => {
       p.resolve(r)
     })
@@ -1013,13 +997,13 @@ export default class MetaMessengerAPI {
           sync_group,
         }),
         queue_name: thread_key.toString(),
-        task_id: this.papi.socket.genTaskId(),
+        task_id: this.papi.socket.taskIds.gen(),
         failure_count: null,
       }],
     )
   }
 
-  async getThread(threadKey: string) {
+  async requestThread(threadKey: string) {
     return this.papi.socket.publishTask(RequestResolverType.GET_NEW_THREAD, [{
       label: '209',
       payload: JSON.stringify({
@@ -1031,19 +1015,20 @@ export default class MetaMessengerAPI {
         preview_only: 0,
       }),
       queue_name: threadKey.toString(),
-      task_id: this.papi.socket.genTaskId(),
+      task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }])
   }
 
   async requestContacts(contactIDs: string[]) {
+    if (contactIDs.length === 0) return
     return this.papi.socket.publishTask(RequestResolverType.REQUEST_CONTACTS, contactIDs.map(contact_id => ({
       label: '207',
       payload: JSON.stringify({
         contact_id,
       }),
       queue_name: 'cpq_v2',
-      task_id: this.papi.socket.genTaskId(),
+      task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     })))
     // @TODO: code above seems to work for messenger (it was made for ig)
@@ -1079,7 +1064,7 @@ export default class MetaMessengerAPI {
         'reaction',
         messageID,
       ]),
-      task_id: this.papi.socket.genTaskId(),
+      task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }])
   }
@@ -1099,7 +1084,7 @@ export default class MetaMessengerAPI {
         },
       }),
       queue_name: thread_id.toString(),
-      task_id: this.papi.socket.genTaskId(),
+      task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }])
     this.logger.debug('create group thread response', response)
@@ -1123,11 +1108,11 @@ export default class MetaMessengerAPI {
         direction: 0,
         reference_timestamp_ms: Number(ranges.minTimestamp),
         reference_message_id: ranges.minMessageId,
-        sync_group: 1,
+        sync_group: SyncGroup.MAIN,
         cursor: this.papi.kv.get('cursor-1-1'),
       }),
       queue_name: `mrq.${threadID}`,
-      task_id: this.papi.socket.genTaskId(),
+      task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }])
   }
@@ -1151,7 +1136,7 @@ export default class MetaMessengerAPI {
           otid: otid.toString(),
           source: (2 ** 16) + 1,
           send_type: hasAttachment ? 3 : 1,
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
           text: !hasAttachment ? text : null,
           initiating_source: hasAttachment ? undefined : 1,
           skip_url_preview_gen: hasAttachment ? undefined : 0,
@@ -1160,7 +1145,7 @@ export default class MetaMessengerAPI {
           attachment_fbids: hasAttachment ? attachmentFbids : undefined,
         }),
         queue_name: threadID.toString(),
-        task_id: this.papi.socket.genTaskId(),
+        task_id: this.papi.socket.taskIds.gen(),
         failure_count: null,
       },
       {
@@ -1168,10 +1153,10 @@ export default class MetaMessengerAPI {
         payload: JSON.stringify({
           thread_id: threadID,
           last_read_watermark_ts: Number(timestamp),
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
         }),
         queue_name: threadID.toString(),
-        task_id: this.papi.socket.genTaskId(),
+        task_id: this.papi.socket.taskIds.gen(),
         failure_count: null,
       },
     ])
@@ -1218,7 +1203,7 @@ export default class MetaMessengerAPI {
           sync_group: syncGroup,
         }),
         queue_name: 'trq',
-        task_id: this.papi.socket.genTaskId(),
+        task_id: this.papi.socket.taskIds.gen(),
         failure_count: null,
       }
     }).filter(Boolean)
@@ -1232,6 +1217,46 @@ export default class MetaMessengerAPI {
     task.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
     this.fetchMoreThreadsV3Promises.set(inbox, task)
     return task
+  }
+
+  messageRangesResolver = new Map<`messageRanges-${string}`, {
+    promise: Promise<unknown>
+    resolve:((r: IGMessageRanges) => void)
+    reject: RequestResolverReject
+  }[]>()
+
+  waitForMessageRange(threadKey: string) {
+    const resolverKey = `messageRanges-${threadKey}` as const
+
+    const p = createPromise()
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('WAIT_FOR_MESSAGE_RANGE_TIMEOUT'))
+        // Optionally remove the promise from the array if it times out
+        const existingPromises = this.messageRangesResolver.get(resolverKey) || []
+        const index = existingPromises.findIndex(entry => entry.promise === p.promise)
+        if (index !== -1) {
+          existingPromises.splice(index, 1)
+        }
+      }, 10000)
+    })
+
+    const racedPromise = Promise.race([p.promise, timeoutPromise])
+
+    const promiseEntry = {
+      promise: racedPromise,
+      resolve: p.resolve,
+      reject: p.reject,
+    }
+
+    if (this.messageRangesResolver.has(resolverKey)) {
+      this.messageRangesResolver.get(resolverKey).push(promiseEntry)
+    } else {
+      this.messageRangesResolver.set(resolverKey, [promiseEntry])
+    }
+
+    return racedPromise
   }
 
   // does not work for moving threads out of the message requests folder

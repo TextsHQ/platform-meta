@@ -8,7 +8,6 @@ import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } 
 import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
 import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './types'
 import { mapParticipants } from './mappers'
-import { PromiseQueue } from './p-queue'
 import { QueryWhereSpecial } from './store/helpers'
 import { MetaMessengerError } from './errors'
 
@@ -39,7 +38,7 @@ export default class MetaMessengerPayloadHandler {
 
   private readonly __logger: ReturnType<typeof getLogger>
 
-  private readonly __pQueue: PromiseQueue
+  private __promises: Promise<unknown>[] = []
 
   private __afterCallbacks: (() => Promise<void> | void)[] = []
 
@@ -62,7 +61,6 @@ export default class MetaMessengerPayloadHandler {
   ) {
     this.__logger = getLogger(this.__papi.env, `payload:${this.__requestId}:${Date.now()}`)
     this.__calls = generateCallList(this.__papi.env, __data)
-    this.__pQueue = new PromiseQueue(this.__papi.env)
   }
 
   async __handle() {
@@ -111,6 +109,10 @@ export default class MetaMessengerPayloadHandler {
       this.__logger.debug(`resolved request for type ${requestType}`, this.__responses)
       resolve(this.__responses)
     }
+
+    // if (this.__promises.length > 0) {
+    //   await Promise.allSettled(this.__promises)
+    // }
   }
 
   private __run = async () => {
@@ -283,11 +285,14 @@ export default class MetaMessengerPayloadHandler {
       target: [schema.participants.threadKey, schema.participants.userId],
       set: { ...p },
     }).run()
-    const contact = this.__papi.api.getContact(p.userId)
 
-    return () => {
+    return async () => {
       if (this.__threadsToSync.has(p.threadKey)) return
 
+      const { contacts } = await this.__papi.api.getOrRequestContactsIfNotExist([p.userId])
+      if (contacts.length === 0) return
+
+      const contact = contacts[0]
       this.__events.push({
         type: ServerEventType.STATE_SYNC,
         objectIDs: { threadID: p.threadKey },
@@ -2015,9 +2020,7 @@ export default class MetaMessengerPayloadHandler {
     })
     if (!thread) {
       this.__logger.info('thread does not exist, skipping payload and calling getThread')
-      this.__pQueue.addPromise(this.__papi.getThread(threadId).then(d => {
-        this.__logger.debug('getThread finished', d)
-      }))
+      this.__promises.push(this.__papi.api.requestThread(threadId))
     }
   }
 

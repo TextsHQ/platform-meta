@@ -5,6 +5,7 @@ import { setTimeout as sleep } from 'timers/promises'
 
 import { InboxName } from '@textshq/platform-sdk'
 import {
+  AutoIncrementStore,
   createPromise,
   getMqttSid,
   getRetryTimeout,
@@ -13,7 +14,7 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { IGMessageRanges, SyncGroup } from './types'
+import { SyncGroup } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
@@ -91,56 +92,51 @@ export default class MetaMessengerWebSocket {
     this.logger = getLogger(this.papi.env, 'socket')
   }
 
-  private mqttSid: number
-
   private isInitialConnection = true
-
-  private readyPromise = createPromise<void>()
-
-  private depends = <T>(valueForInstagram: T, valueForFacebookOrMessenger: T, defaultValue?: T) => {
-    if (this.papi.env === 'IG') return valueForInstagram
-    if (this.papi.envOpts.isFacebook) return valueForFacebookOrMessenger
-    if (defaultValue) return defaultValue
-    throw new Error('Invalid environment')
-  }
 
   private subscribedTopics = new Set<string>()
 
-  private getUsername = (isInitialConnection: boolean) => JSON.stringify({
-    // u: "17841418030588216", // doesnt seem to matter
-    u: this.papi.kv.get('fbid'),
-    s: this.mqttSid,
-    cp: Number(this.papi.kv.get('mqttClientCapabilities')),
-    ecp: Number(this.papi.kv.get('mqttCapabilities')),
-    chat_on: this.depends<boolean>(true, false),
-    fg: this.depends<boolean>(true, false),
-    d: this.papi.kv.get('clientId'),
-    ct: this.depends<string>('cookie_auth', 'websocket'),
-    mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
-    aid: Number(this.papi.kv.get('appId')),
-    st: [...this.subscribedTopics],
-    pm: isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536 }],
-    dc: '',
-    no_auto_fg: true,
-    gas: null,
-    pack: [],
-    php_override: '',
-    p: null,
-    a: this.papi.api.ua, // user agent
-    aids: null,
-  })
+  taskIds = new AutoIncrementStore()
 
-  private getWebSocketConfig = () => {
+  private requestIds = new AutoIncrementStore()
+
+  private messageIds = new AutoIncrementStore(2) // this appears to be Math.random() in meta's code
+
+  private generateMQTTConfig = () => {
+    const mqttSid = getMqttSid()
     const endpoint = new URL(this.papi.api.config.mqttEndpoint)
     const endpointParams = new URLSearchParams(endpoint.searchParams)
-    endpointParams.append('sid', this.mqttSid.toString())
+    endpointParams.append('sid', mqttSid.toString())
     endpointParams.append('cid', this.papi.kv.get('clientId'))
     endpoint.search = endpointParams.toString()
     const { domain } = this.papi.envOpts
     const origin = `https://${domain}`
-    return {
+    const username = JSON.stringify({
+      // u: "17841418030588216", // doesnt seem to matter
+      u: this.papi.kv.get('fbid'),
+      s: mqttSid,
+      cp: Number(this.papi.kv.get('mqttClientCapabilities')),
+      ecp: Number(this.papi.kv.get('mqttCapabilities')),
+      chat_on: this.papi.api.envSwitch<boolean>(true, false),
+      fg: this.papi.api.envSwitch<boolean>(true, false),
+      d: this.papi.kv.get('clientId'),
+      ct: this.papi.api.envSwitch<string>('cookie_auth', 'websocket'),
+      mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
+      aid: Number(this.papi.kv.get('appId')),
+      st: [...this.subscribedTopics],
+      pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536 }],
+      dc: '',
+      no_auto_fg: true,
+      gas: null,
+      pack: [],
+      php_override: '',
+      p: null,
+      a: this.papi.api.ua, // user agent
+      aids: null,
+    })
+    const config = {
       endpoint,
-      options: {
+      wsOptions: {
         origin,
         headers: {
           Host: endpoint.host,
@@ -156,33 +152,34 @@ export default class MetaMessengerWebSocket {
           Cookie: this.papi.api.getCookies(),
         },
       },
+      username,
+      mqttSid,
     }
+    this.mqttConfig = config
+    return config
   }
+
+  private mqttConfig: ReturnType<typeof this.generateMQTTConfig> = null
 
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       this.logger.warn('[ws] already connected')
       return
     }
-    this.logger.info('[ws] connecting (will wait for api to be ready)')
-    // await this.papi.api.initPromise // wait for api to be ready
+
     this.logger.debug('[ws]', 'connecting to ws', {
-      mqttSid: this.mqttSid,
-      lastTaskId: this.lastTaskId,
-      lastRequestId: this.lastRequestId,
+      lastTaskId: this.taskIds.current,
+      lastRequestId: this.requestIds.current,
     })
 
     try {
       this.ws?.close()
     } catch (err) {
       this.logger.error(err, {
-        mqttSid: this.mqttSid,
-        lastTaskId: this.lastTaskId,
-        lastRequestId: this.lastRequestId,
+        lastTaskId: this.taskIds.current,
+        lastRequestId: this.requestIds.current,
       }, '[ws]', 'failed to close previous on connect error')
     }
-
-    this.mqttSid = getMqttSid()
 
     // ig web on reconnections does not reset last task id and last request id
     // but on initial connection (page load) they are 0, since we keep these in memory
@@ -190,20 +187,13 @@ export default class MetaMessengerWebSocket {
     // this.lastTaskId = 0
     // this.lastRequestId = 0
 
-    const { endpoint, options: { origin, headers } } = this.getWebSocketConfig()
+    const { endpoint, wsOptions } = this.generateMQTTConfig()
     this.ws = new WebSocket(
       endpoint.toString(),
-      {
-        origin,
-        headers,
-      },
+      wsOptions,
     )
 
     this.ws.on('message', data => this.onMessage(data))
-
-    process.on('SIGINT', () => {
-      this.dispose()
-    })
 
     const retry = debounce(() => {
       this.logger.debug('[ws]', {
@@ -248,8 +238,6 @@ export default class MetaMessengerWebSocket {
       this.pingInterval = null
       if (!this.stop) retry()
     }
-
-    // return this.readyPromise.promise
   }
 
   dispose() {
@@ -274,6 +262,7 @@ export default class MetaMessengerWebSocket {
   private connectTimeout: ReturnType<typeof setTimeout>
 
   private readonly waitAndSend = async (p: Packet) => {
+    // @TODO: there should be a queue for this
     while (this.ws?.readyState !== WebSocket.OPEN && !this.stop) {
       this.logger.debug('[ws] waiting 5ms to send')
       await sleep(5)
@@ -292,30 +281,25 @@ export default class MetaMessengerWebSocket {
   }
 
   private async onOpen() {
-    await this.afterConnect()
-    // @TODO: need to send rtc_multi
-    await this.sendAppSettings()
-    this.startPing()
-  }
-
-  private afterConnect() {
     this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
       subscribedTopics: this.subscribedTopics,
     })
 
-    const p = this.send({
+    await this.send({
       cmd: 'connect',
       protocolId: 'MQIsdp',
       clientId: 'mqttwsclient',
       protocolVersion: 3,
       clean: true,
       keepalive: 10,
-      username: this.getUsername(this.isInitialConnection),
+      username: this.mqttConfig.username,
     })
 
     this.isInitialConnection = false
-    return p
+    // @TODO: need to send rtc_multi
+    await this.sendAppSettings()
+    this.startPing()
   }
 
   private pingInterval: NodeJS.Timeout
@@ -356,7 +340,7 @@ export default class MetaMessengerWebSocket {
             qos: 0,
           },
         ],
-        messageId: 3, // TODO: Auto increment messageID
+        messageId: this.messageIds.gen(),
       } as any)
       this.subscribedTopics.add(topic)
     }
@@ -366,7 +350,6 @@ export default class MetaMessengerWebSocket {
     if (data.toString('hex') === '42020001') {
       // ack for app settings
 
-      await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
       await this.afterInitialHandshake()
       // this.getThreads()
     } else if ((data as any)[0] !== 0x42) {
@@ -380,11 +363,11 @@ export default class MetaMessengerWebSocket {
   // - we get ack for requesting app settings
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
-    await this.subscribeToAllDatabases()
-    if (['MESSENGER', 'FB'].includes(this.papi.env)) {
-      await this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL)
-    }
-    this.readyPromise.resolve()
+    await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
+    await Promise.all([
+      this.subscribeToAllDatabases(),
+      this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
+    ])
   }
 
   private async parseNon0x42Data(data: any) {
@@ -407,28 +390,10 @@ export default class MetaMessengerWebSocket {
     await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
   }
 
-  private lastTaskId = 0
-
-  genTaskId() {
-    return ++this.lastTaskId
-  }
-
-  private lastRequestId = 0
-
-  private genRequestId() {
-    return ++this.lastRequestId
-  }
-
   requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolve, RequestResolverReject]>()
 
-  messageRangesResolver = new Map<`messageRanges-${string}`, {
-    promise: Promise<unknown>
-    resolve:((r: IGMessageRanges) => void)
-    reject: RequestResolverReject
-  }[]>()
-
   createRequest(type: RequestResolverType) {
-    const request_id = this.genRequestId()
+    const request_id = this.requestIds.gen()
     const { promise, resolve, reject } = createPromise<MetaMessengerPayloadHandlerResponse>()
     const logPrefix = `[REQUEST #${request_id}][${type}]`
     this.logger.debug(logPrefix, 'sent')
@@ -448,6 +413,31 @@ export default class MetaMessengerWebSocket {
     return { request_id, promise }
   }
 
+  async publishLightspeedRequest({
+    payload,
+    request_id,
+    type,
+  }: {
+    payload: string
+    request_id: number
+    type: number
+  }) {
+    return this.send({
+      cmd: 'publish',
+      messageId: this.messageIds.gen(),
+      qos: 1,
+      dup: false,
+      retain: false,
+      topic: '/ls_req',
+      payload: JSON.stringify({
+        app_id: this.papi.kv.get('appId'),
+        payload,
+        request_id,
+        type,
+      }),
+    })
+  }
+
   async publishTask(type: RequestResolverType, tasks: MMSocketTask[], {
     timeout,
     throwOnTimeout,
@@ -458,23 +448,14 @@ export default class MetaMessengerWebSocket {
     const { epoch_id } = getTimeValues()
     const { promise, request_id } = this.createRequest(type)
 
-    await this.send({
-      cmd: 'publish',
-      messageId: 6,
-      qos: 1,
-      dup: false,
-      retain: false,
-      topic: '/ls_req',
+    await this.publishLightspeedRequest({
       payload: JSON.stringify({
-        app_id: this.papi.kv.get('appId'),
-        payload: JSON.stringify({
-          tasks,
-          epoch_id,
-          version_id: EnvOptions[this.papi.env].defaultVersionId,
-        }),
-        request_id,
-        type: 3,
+        tasks,
+        epoch_id,
+        version_id: EnvOptions[this.papi.env].defaultVersionId,
       }),
+      request_id,
+      type: 3,
     })
 
     if (typeof timeout === 'number' && timeout > 0) {
@@ -495,16 +476,70 @@ export default class MetaMessengerWebSocket {
   // my guess is it "subscribes to database 1"?
   // may need similar code to get messages.
   private subscribeToDB(database: number, cursor: `cursor-${number}-${SyncGroup}` = null, syncParams: string = null) {
-    const request_id = this.genRequestId()
-    return this.send({
-      cmd: 'publish',
-      messageId: 6, // @TODO: pretty sure this is wrong
-      qos: 1,
-      dup: false,
-      retain: false,
-      topic: '/ls_req',
+    const request_id = this.requestIds.gen()
+    return this.publishLightspeedRequest({
       payload: JSON.stringify({
-        app_id: this.papi.kv.get('appId'),
+        database,
+        epoch_id: getTimeValues().epoch_id,
+        failure_count: null,
+        last_applied_cursor: cursor ? this.papi.kv.get(cursor) : null,
+        sync_params: syncParams,
+        version: EnvOptions[this.papi.env].defaultVersionId,
+      }),
+      request_id,
+      type: 1,
+    })
+  }
+
+  private async subscribeToAllDatabases() {
+    // this.subscribeToDB(1, 'cursor-1-1', null)
+    const promises = [
+      this.publishLightspeedRequest({
+        payload: JSON.stringify({
+          database: 1,
+          epoch_id: getTimeValues().epoch_id,
+          failure_count: null,
+          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
+          sync_params: null,
+          version: EnvOptions[this.papi.env].defaultVersionId,
+        }),
+        request_id: this.requestIds.gen(),
+        type: 2,
+      }),
+    ]
+
+    // this.subscribeToDB(2, 'cursor-2') // @TODO add
+
+    const syncParamsString = this.papi.kv.get('syncParams-1')
+    const subs: [number, `cursor-${number}-${SyncGroup}`, string][] = this.papi.api.envSwitch([
+      [6, null, syncParamsString],
+      [7, null, JSON.stringify({
+        mnet_rank_types: [44],
+      })],
+      [16, null, syncParamsString],
+      [28, null, syncParamsString],
+      [196, null, syncParamsString],
+      [198, null, syncParamsString],
+    ], [
+      [2, 'cursor-1-1', null],
+      [5, null, syncParamsString],
+      [16, null, syncParamsString],
+      [26, null, syncParamsString],
+      [28, null, syncParamsString],
+      [95, 'cursor-1-1', syncParamsString],
+      [104, null, syncParamsString],
+      [140, null, syncParamsString],
+      [141, null, syncParamsString],
+      [142, null, syncParamsString],
+      [143, null, syncParamsString],
+      [196, null, syncParamsString],
+      [198, null, syncParamsString],
+    ])
+
+    for (let i = 0; i < subs.length; i++) {
+      const [database, cursor, syncParams] = subs[i]
+      const request_id = this.requestIds.gen()
+      promises.push(this.publishLightspeedRequest({
         payload: JSON.stringify({
           database,
           epoch_id: getTimeValues().epoch_id,
@@ -515,92 +550,8 @@ export default class MetaMessengerWebSocket {
         }),
         request_id,
         type: 1,
-      }),
-    })
-  }
-
-  private async subscribeToAllDatabases() {
-    // this.subscribeToDB(1, 'cursor-1-1', null)
-    await this.send({
-      cmd: 'publish',
-      messageId: 5,
-      qos: 1,
-      dup: false,
-      retain: false,
-      topic: '/ls_req',
-      payload: JSON.stringify({
-        app_id: Number(this.papi.kv.get('appId')),
-        payload: JSON.stringify({
-          database: 1,
-          epoch_id: getTimeValues().epoch_id,
-          failure_count: null,
-          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-          sync_params: null,
-          version: EnvOptions[this.papi.env].defaultVersionId,
-        }),
-        request_id: this.genRequestId(),
-        type: 2,
-      }),
-    })
-    // this.subscribeToDB(2, 'cursor-2') // @TODO add
-    const syncParamsString = this.papi.kv.get('syncParams-1')
-    if (this.papi.env === 'IG') {
-      await this.subscribeToDB(6, null, syncParamsString)
-      await this.subscribeToDB(7, null, JSON.stringify({
-        mnet_rank_types: [44],
       }))
-      await this.subscribeToDB(16, null, syncParamsString)
-      await this.subscribeToDB(28, null, syncParamsString)
-      await this.subscribeToDB(196, null, syncParamsString)
-      await this.subscribeToDB(198, null, syncParamsString)
-    } else if (this.papi.envOpts.isFacebook) {
-      await this.subscribeToDB(2, 'cursor-1-1', null)
-      await this.subscribeToDB(5, null, syncParamsString)
-      await this.subscribeToDB(16, null, syncParamsString)
-      await this.subscribeToDB(26, null, syncParamsString)
-      await this.subscribeToDB(28, null, syncParamsString)
-      await this.subscribeToDB(95, 'cursor-1-1', syncParamsString)
-      await this.subscribeToDB(104, null, syncParamsString)
-      await this.subscribeToDB(140, null, syncParamsString)
-      await this.subscribeToDB(141, null, syncParamsString)
-      await this.subscribeToDB(142, null, syncParamsString)
-      await this.subscribeToDB(143, null, syncParamsString)
-      await this.subscribeToDB(196, null, syncParamsString)
-      await this.subscribeToDB(198, null, syncParamsString)
     }
-  }
-
-  waitForMessageRange(threadKey: string) {
-    const resolverKey = `messageRanges-${threadKey}` as const
-
-    const p = createPromise()
-
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('WAIT_FOR_MESSAGE_RANGE_TIMEOUT'))
-        // Optionally remove the promise from the array if it times out
-        const existingPromises = this.messageRangesResolver.get(resolverKey) || []
-        const index = existingPromises.findIndex(entry => entry.promise === p.promise)
-        if (index !== -1) {
-          existingPromises.splice(index, 1)
-        }
-      }, 10000)
-    })
-
-    const racedPromise = Promise.race([p.promise, timeoutPromise])
-
-    const promiseEntry = {
-      promise: racedPromise,
-      resolve: p.resolve,
-      reject: p.reject,
-    }
-
-    if (this.messageRangesResolver.has(resolverKey)) {
-      this.messageRangesResolver.get(resolverKey).push(promiseEntry)
-    } else {
-      this.messageRangesResolver.set(resolverKey, [promiseEntry])
-    }
-
-    return racedPromise
+    await Promise.allSettled(promises)
   }
 }

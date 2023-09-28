@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
-import * as s from './schema'
+import * as schema from './schema'
 import { messages as messagesSchema, threads as threadsSchema } from './schema'
 import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
 
@@ -120,21 +120,21 @@ export type QueryMessagesResult = Awaited<ReturnType<typeof queryMessages>>
 
 export function preparedQueries(db: DrizzleDB) {
   return {
-    getAllKeyValues: db.select().from(s.keyValues).prepare(),
+    getAllKeyValues: db.select().from(schema.keyValues).prepare(),
     getKeyValue: db.select({
-      value: s.keyValues.value,
-    }).from(s.keyValues).where(eq(s.keyValues.key, sql.placeholder('key'))).prepare(),
+      value: schema.keyValues.value,
+    }).from(schema.keyValues).where(eq(schema.keyValues.key, sql.placeholder('key'))).prepare(),
     getContact: db
       .select({
-        id: s.contacts.id,
-        profilePictureUrl: s.contacts.profilePictureUrl,
-        name: s.contacts.name,
-        username: s.contacts.username,
-        contact: s.contacts.contact,
+        id: schema.contacts.id,
+        profilePictureUrl: schema.contacts.profilePictureUrl,
+        name: schema.contacts.name,
+        username: schema.contacts.username,
+        contact: schema.contacts.contact,
       })
-      .from(s.contacts)
+      .from(schema.contacts)
       .limit(1)
-      .where(eq(s.contacts.id, sql.placeholder('contactId')))
+      .where(eq(schema.contacts.id, sql.placeholder('contactId')))
       .prepare(),
   } as const
 }

@@ -34,7 +34,6 @@ import { ParentThreadKey, SyncGroup } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
-import { PromiseQueue } from './p-queue'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
 import { getTimeValues } from './util'
 
@@ -51,8 +50,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   kv: KeyValueStore
 
-  pQueue: PromiseQueue
-
   socket: MetaMessengerWebSocket
 
   envOpts: EnvOptionsValue
@@ -63,7 +60,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger = getLogger(env)
     this.api = new MetaMessengerAPI(this, env)
     this.kv = new KeyValueStore(this)
-    this.pQueue = new PromiseQueue(env)
     this.socket = new MetaMessengerWebSocket(this)
   }
 
@@ -158,14 +154,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         label: '30',
         payload,
         queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]),
       this.socket.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, [{
         label: '31',
         payload,
         queue_name: JSON.stringify(['search_secondary']),
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]),
     ])
@@ -258,7 +254,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     let hasMore = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
     try {
-      await this.socket.waitForMessageRange(threadID)
+      await this.api.waitForMessageRange(threadID)
       const _ranges = await this.api.getMessageRanges(threadID)
       if (typeof _ranges?.hasMoreBeforeFlag !== 'undefined') {
         hasMore = _ranges.hasMoreBeforeFlag // refetch ranges from db
@@ -333,9 +329,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     })
     if (userIDs.length === 1) {
       const [userID] = userIDs
-      await this.api.getThread(userID)
-      const user = this.api.getContact(userID)
-
+      await this.api.requestThread(userID)
+      const { contacts } = await this.api.getOrRequestContactsIfNotExist([userID])
+      const user = contacts[0]
       const participants: Participant[] = [{
         id: userID,
         fullName: user?.name || user?.username || this.envOpts.defaultContactName,
@@ -362,19 +358,16 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
 
     const resp = await this.api.createGroupThread(userIDs)
-    const users = await this.api.getContacts(userIDs)
-    /// compare with userIDs to see if all users were found
-    const missingUserIDs = userIDs.filter(id => !users.find(u => u.id === id))
-    await this.api.requestContacts(missingUserIDs)
+    const { contacts, missing } = await this.api.getOrRequestContactsIfNotExist(userIDs)
 
     this.logger.debug('createThread', {
-      users,
-      missingUserIDs,
+      contacts,
+      missing,
       resp,
     })
     const fbid = this.kv.get('fbid')
     const participants = [
-      ...users.map(user => ({
+      ...contacts.map(user => ({
         id: user.id,
         fullName: user?.name || user?.username || this.envOpts.defaultContactName,
         imgURL: user.profilePictureUrl,
@@ -382,7 +375,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         isSelf: user.id === fbid,
         isAdmin: user.id === fbid,
       })),
-      ...missingUserIDs.map(userID => ({
+      ...missing.map(userID => ({
         id: userID,
         isSelf: userID === fbid,
         isAdmin: userID === fbid,
@@ -425,7 +418,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           thread_name: updates.title,
         }),
         queue_name: threadID.toString(),
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]))
       // listen for the response syncUpdateThreadName
@@ -438,10 +431,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           thread_key: Number(threadID),
           mailbox_type: 0, // 0 = inbox
           mute_expire_time_ms: updates.mutedUntil === 'forever' ? -1 : 0,
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
         }),
         queue_name: threadID.toString(),
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]))
       // listen for the response updateThreadMuteSetting
@@ -453,11 +446,11 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           label: '66',
           payload: JSON.stringify({
             thread_key: threadID,
-            sync_group: 1,
+            sync_group: SyncGroup.MAIN,
             ig_folder: 1,
           }),
           queue_name: 'message_request',
-          task_id: this.socket.genTaskId(),
+          task_id: this.socket.taskIds.gen(),
           failure_count: null,
         }]))
       }
@@ -478,7 +471,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           sync_group: SyncGroup.MAIN,
         }),
         queue_name: 'unarchive_thread',
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }])
     }
@@ -530,26 +523,20 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
     const { promise, request_id } = this.socket.createRequest(RequestResolverType.SEND_TYPING_INDICATOR)
     this.logger.debug(`sending typing indicator ${threadID}`)
-    await this.socket.send({
-      cmd: 'publish',
-      messageId: 9,
-      topic: '/ls_req',
+    await this.socket.publishLightspeedRequest({
       payload: JSON.stringify({
-        app_id: this.kv.get('appId'),
+        label: '3',
         payload: JSON.stringify({
-          label: '3',
-          payload: JSON.stringify({
-            thread_key: threadID,
-            is_group_thread: 0,
-            is_typing: type === ActivityType.TYPING ? 1 : 0,
-            attribution: 0,
-          }),
-          version: '6243569662359088',
+          thread_key: threadID,
+          is_group_thread: 0,
+          is_typing: type === ActivityType.TYPING ? 1 : 0,
+          attribution: 0,
         }),
-        request_id,
-        type: 4,
+        version: '6243569662359088',
       }),
-    } as any)
+      request_id,
+      type: 4,
+    })
 
     await promise
   }
@@ -562,7 +549,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         message_id: messageID,
       }),
       queue_name: 'unsend_message',
-      task_id: this.socket.genTaskId(),
+      task_id: this.socket.taskIds.gen(),
       failure_count: null,
     }])
   }
@@ -577,7 +564,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         sync_group: SyncGroup.MAIN,
       }),
       queue_name: threadID,
-      task_id: this.socket.genTaskId(),
+      task_id: this.socket.taskIds.gen(),
       failure_count: null,
     }])
   }
@@ -593,10 +580,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       payload: JSON.stringify({
         thread_key: threadID,
         contact_ids: [participantID],
-        sync_group: 1,
+        sync_group: SyncGroup.MAIN,
       }),
       queue_name: threadID.toString(),
-      task_id: this.socket.genTaskId(),
+      task_id: this.socket.taskIds.gen(),
       failure_count: null,
     }])
     // listen for the response addParticipantIdToGroupThread
@@ -611,7 +598,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         contact_id: participantID,
       }),
       queue_name: 'remove_participant_v2',
-      task_id: this.socket.genTaskId(),
+      task_id: this.socket.taskIds.gen(),
       failure_count: null,
     }])
     // listen for the response removeParticipantFromThread
@@ -627,7 +614,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         is_admin: role === 'admin' ? 1 : 0,
       }),
       queue_name: 'admin_status',
-      task_id: this.socket.genTaskId(),
+      task_id: this.socket.taskIds.gen(),
       failure_count: null,
     }])
     // listen for the response updateThreadParticipantAdminStatus
@@ -721,13 +708,13 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           otid: otid.toString(),
           source: (2 ** 16) + 8,
           send_type: 5,
-          sync_group: 1,
+          sync_group: SyncGroup.MAIN,
           forwarded_msg_id,
           strip_forwarded_msg_caption: 0,
           initiating_source: 1,
         }),
         queue_name: thread_id,
-        task_id: this.socket.genTaskId(),
+        task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }])
     }))
