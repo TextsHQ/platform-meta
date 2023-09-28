@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import crypto from 'crypto'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import {
@@ -287,7 +288,7 @@ export default class MetaMessengerAPI {
             'x-asbd-id': '129477',
             'x-csrftoken': this.getCSRFToken(),
             'x-ig-app-id': this.papi.kv.get('appId'),
-            'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
+            'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
             'x-requested-with': 'XMLHttpRequest',
             Referer: baseURL,
             'x-instagram-ajax': '1007993177',
@@ -806,25 +807,26 @@ export default class MetaMessengerAPI {
   async webPushRegister(endpoint: string, p256dh: string, auth: string) {
     if (this.papi.env !== 'IG') throw new Error('webPushRegister is only supported on IG')
     const { domain } = EnvOptions.IG
-    const formData = new FormData()
-    formData.append('device_token', endpoint)
-    formData.append('device_type', 'web_vapid')
-    formData.append('mid', crypto.randomUUID()) // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
-    formData.append('subscription_keys', JSON.stringify({
+    const formData = new URLSearchParams()
+    formData.set('device_token', endpoint)
+    formData.set('device_type', 'web_vapid')
+    formData.set('mid', crypto.randomUUID()) // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
+    formData.set('subscription_keys', JSON.stringify({
       auth,
       p256dh,
     }))
     const { json } = await this.httpJSONRequest(`https://${domain}/api/v1/web/push/register/`, {
       method: 'POST',
-      body: formData,
+      body: formData.toString(),
       // todo: refactor headers
       headers: {
         accept: '*/*',
         ...SHARED_HEADERS,
+        'content-type': 'application/x-www-form-urlencoded',
         'x-asbd-id': '129477',
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': this.papi.kv.get('appId'),
-        'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
+        'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
         'x-requested-with': 'XMLHttpRequest',
         Referer: `https://${this.papi.envOpts.domain}/`,
         'Referrer-Policy': 'strict-origin-when-cross-origin',
