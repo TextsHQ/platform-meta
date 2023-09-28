@@ -256,7 +256,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     try {
       await this.api.waitForMessageRange(threadID)
       const _ranges = await this.api.getMessageRanges(threadID)
-      if (typeof _ranges?.hasMoreBeforeFlag !== 'undefined') {
+      if (typeof _ranges?.hasMoreBeforeFlag === 'boolean') {
         hasMore = _ranges.hasMoreBeforeFlag // refetch ranges from db
       }
     } catch (e) {
