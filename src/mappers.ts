@@ -125,13 +125,13 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const attachments = m.attachments.map(a => mapAttachment(a))
   const attachmentWithText = attachments.find(a => !!a.extra?.text)?.extra?.text
   const attachmentsWithMedia = attachments?.filter(att => !!att.srcURL)
-  const reelWithTitle = attachments?.find(att => att.extra?.mmType === '7' && !!att.extra?.headerTitle)
+  const reelWithTitle = !message.links && attachments?.find(att => att.extra?.mmType === '7' && !!att.extra?.headerTitle)
 
   if (reelWithTitle?.extra?.headerTitle) {
     message.textHeading = `Shared a reel from @${reelWithTitle.extra.headerTitle}`
   }
 
-  if (message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText) {
+  if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText) {
     message.textHeading = 'No longer available'
   }
 
