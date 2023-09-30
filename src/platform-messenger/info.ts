@@ -42,7 +42,7 @@ const info: PlatformInfo = {
     Attribute.CAN_MESSAGE_USERNAME,
     // Attribute.DEFINES_MESSAGE_CURSOR,
     Attribute.SUBSCRIBE_TO_ONLINE_OFFLINE_ACTIVITY,
-    // Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
+    Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
   attachments: {
     gifMimeType: 'image/gif',

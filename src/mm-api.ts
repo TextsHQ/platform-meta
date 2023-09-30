@@ -125,11 +125,14 @@ export default class MetaMessengerAPI {
       //   runJSOnNavigate: CLOSE_ON_AUTHENTICATED_JS,
       // })
     }
-
+    const FOR_LOOP_PREFIX = 'for (;;);'
+    const json = res.body.startsWith(FOR_LOOP_PREFIX)
+      ? res.body.slice(FOR_LOOP_PREFIX.length)
+      : res.body
     return {
       statusCode: res.statusCode,
       headers: res.headers,
-      json: JSON.parse(res.body),
+      json: JSON.parse(json),
     }
   }
 
@@ -788,8 +791,53 @@ export default class MetaMessengerAPI {
     return this.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
   }
 
-  async webPushRegister(endpoint: string, p256dh: string, auth: string) {
-    if (this.papi.env !== 'IG') throw new Error('webPushRegister is only supported on IG')
+  private async messengerWebPushRegister(endpoint: string, p256dh: string, auth: string) {
+    // todo: add missing fields
+    const formData = new URLSearchParams({
+      app_id: '1443096165982425',
+      push_endpoint: endpoint,
+      subscription_keys: JSON.stringify({ p256dh, auth }),
+      __user: this.papi.kv.get('fbid'),
+      __a: '1',
+      __req: '9',
+      // __hs: '19630.HYP:messengerdotcom_comet_pkg.2.1..0.1',
+      dpr: '2',
+      // __ccg: '',
+      // __rev: '',
+      // __s: '',
+      // __hsi: '',
+      // __dyn: '',
+      // __csr: '',
+      // __comet_req: '',
+      fb_dtsg: this.papi.kv.get('fb_dtsg'),
+      jazoest: '25226',
+      lsd: this.papi.kv.get('lsd'),
+      // __spin_r: '',
+      // __spin_b: '',
+      // __spin_t: '',
+      // __jsses: '',
+    })
+
+    const { json } = await this.httpJSONRequest('https://www.messenger.com/push/register/service_worker/', {
+      method: 'POST',
+      body: formData.toString(),
+      // todo: refactor headers
+      headers: {
+        Accept: '*/*',
+        ...SHARED_HEADERS,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-asbd-id': '129477',
+        'x-fb-lsd': this.papi.kv.get('lsd'),
+        Referer: 'https://www.messenger.com/',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+      },
+    })
+    if (!json.payload.sucess) {
+      throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
+    }
+  }
+
+  private async instagramWebPushRegister(endpoint: string, p256dh: string, auth: string) {
     const { domain } = EnvOptions.IG
     const formData = new URLSearchParams()
     formData.set('device_token', endpoint)
@@ -819,6 +867,12 @@ export default class MetaMessengerAPI {
     if (json.status !== 'ok') {
       throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
     }
+  }
+
+  async webPushRegister(endpoint: string, p256dh: string, auth: string) {
+    if (this.papi.env === 'MESSENGER') return this.messengerWebPushRegister(endpoint, p256dh, auth)
+    if (this.papi.env === 'IG') return this.instagramWebPushRegister(endpoint, p256dh, auth)
+    throw new Error('not implemented')
   }
 
   async queryThreads(threadIdsOrWhere: string[] | QueryWhereSpecial | QueryThreadsArgs['where'], extraArgs: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit'>> = {}) {
