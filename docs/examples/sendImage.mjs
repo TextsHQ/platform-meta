@@ -29,7 +29,7 @@ async function uploadPhoto() {
       headers: {
         authority: "www.instagram.com",
         accept: "*/*",
-        "accept-language": "en-US,en;q=0.9",
+        "accept-language": "en",
         "content-type":
           "multipart/form-data; boundary=----WebKitFormBoundaryK8furxKOo3188usO",
         cookie: cookies,

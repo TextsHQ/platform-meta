@@ -38,7 +38,7 @@ import { RequestResolverReject, RequestResolverType, ThreadRemoveType } from './
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
-  'accept-language': 'en-US,en;q=0.9',
+  'accept-language': 'en',
   'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
   'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
   'sec-ch-ua-mobile': '?0',
@@ -406,7 +406,7 @@ export default class MetaMessengerAPI {
         headers: {
           'User-Agent': this.ua,
           Accept: '*/*',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Language': 'en',
           'X-CSRFToken': this.getCSRFToken(),
           'X-IG-App-ID': this.papi.kv.get('appId'),
           'X-ASBD-ID': PolarisBDHeaderConfig.ASBD_ID,

@@ -76,7 +76,7 @@ export const ws = new WebSocket(
       Origin: "https://www.instagram.com",
       "Sec-WebSocket-Version": "13",
       "Accept-Encoding": "gzip, deflate, br",
-      "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+      "Accept-Language": "en",
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
       Cookie: cookies,
