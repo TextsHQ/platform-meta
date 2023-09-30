@@ -1,5 +1,9 @@
 import { MigrateStrategy } from './store/helpers'
 
+export const PolarisBDHeaderConfig = {
+  ASBD_ID: '129477', // loaded as hard coded value in meta's code, same for both envs
+} as const
+
 const EnvOptions = {
   IG: {
     id: 'instagramdotcom',

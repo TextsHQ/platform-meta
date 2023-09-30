@@ -44,7 +44,7 @@ type XIGSharedDataRawConfigViewer = {
   username: string
 }
 
-interface Config {
+export interface Config {
   DTSGInitialData: {
     token: string
   }
@@ -229,6 +229,18 @@ interface Config {
     WorkSyncedGroupAutoCreateEnabled: boolean
     WorkSyncedGroupEntryPointEnabled: boolean
   }
+  SprinkleConfig: {
+    param_name: string
+    version: number
+    should_randomize: boolean
+  }
+}
+
+export function getNumericValue(config: Config['SprinkleConfig'], str: string) {
+  let sum = 0
+  for (let i = 0; i < str.length; i++) sum += str.charCodeAt(i)
+  const result = sum.toString()
+  return config.should_randomize ? result : `${config.version}${result}`
 }
 
 function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvKey {
@@ -333,6 +345,7 @@ export function parseMessengerInitialPage(html: string) {
     LSD: definesMap.get('LSD') as Config['LSD'],
     LSPlatformMessengerSyncParams,
     MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
+    SprinkleConfig: definesMap.get('SprinkleConfig') as Config['SprinkleConfig'],
     MercuryConfig,
     MqttWebConfig,
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
@@ -362,6 +375,7 @@ export function getMessengerConfig(html: string) {
     initialPayloads: parsed.initialPayloads,
     gqlEndpointPath: parsed.RelayAPIConfigDefaults.graphURI,
     gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
+    sprinkleConfig: parsed.SprinkleConfig,
   }
 }
 

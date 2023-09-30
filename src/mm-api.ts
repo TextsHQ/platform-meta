@@ -32,7 +32,7 @@ import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
-import EnvOptions, { type EnvKey } from './env'
+import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
 import { RequestResolverReject, RequestResolverType, ThreadRemoveType } from './socket'
 
@@ -227,7 +227,7 @@ export default class MetaMessengerAPI {
       headers: {
         accept: '*/*',
         ...SHARED_HEADERS,
-        'x-asbd-id': '129477',
+        'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
@@ -274,6 +274,14 @@ export default class MetaMessengerAPI {
     return { data: json }
   }
 
+  private getSprinkleParam(token = this.papi.kv.get('fb_dtsg')) {
+    const { should_randomize, version, param_name } = this.config.sprinkleConfig
+    let sum = 0
+    for (let i = 0; i < token.length; i++) sum += token.charCodeAt(i)
+    const result = sum.toString()
+    return [param_name, should_randomize ? result : `${version}${result}`]
+  }
+
   async logout() {
     const baseURL = `https://${this.papi.envOpts.domain}/`
     switch (this.papi.env) {
@@ -285,13 +293,13 @@ export default class MetaMessengerAPI {
           headers: {
             accept: '*/*',
             ...SHARED_HEADERS,
-            'x-asbd-id': '129477',
+            'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
             'x-csrftoken': this.getCSRFToken(),
             'x-ig-app-id': this.papi.kv.get('appId'),
             'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
             'x-requested-with': 'XMLHttpRequest',
             Referer: baseURL,
-            'x-instagram-ajax': '1007993177',
+            'x-instagram-ajax': '1008967676', // todo this comes from `InstagramWebPushInfo.rollout_hash`
             'content-type': 'application/x-www-form-urlencoded',
           },
         })
@@ -301,9 +309,11 @@ export default class MetaMessengerAPI {
         break
       }
       case 'MESSENGER': {
+        const token = this.papi.kv.get('fb_dtsg')
+        const [param, value] = this.getSprinkleParam(token)
         const response = await this.httpRequest(`${baseURL}logout/`, {
           method: 'POST',
-          body: `fb_dtsg=${this.papi.kv.get('fb_dtsg')}&jazoest=25869`,
+          body: `fb_dtsg=${token}&${param}=${value}`,
           headers: {
             accept: '*/*',
             ...SHARED_HEADERS,
@@ -347,7 +357,7 @@ export default class MetaMessengerAPI {
     }
   }
 
-  getCSRFToken() {
+  getCSRFToken() { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
     return this.jar
       .getCookiesSync(`https://${this.papi.envOpts.domain}/`)
       .find(c => c.key === 'csrftoken')?.value
@@ -399,7 +409,7 @@ export default class MetaMessengerAPI {
           'Accept-Language': 'en-US,en;q=0.5',
           'X-CSRFToken': this.getCSRFToken(),
           'X-IG-App-ID': this.papi.kv.get('appId'),
-          'X-ASBD-ID': '129477',
+          'X-ASBD-ID': PolarisBDHeaderConfig.ASBD_ID,
           'X-IG-WWW-Claim': this.papi.kv.get('wwwClaim') || '0',
           'X-Requested-With': 'XMLHttpRequest',
           'Sec-Fetch-Dest': 'empty',
@@ -765,7 +775,7 @@ export default class MetaMessengerAPI {
         'sec-fetch-mode': 'cors',
         'sec-fetch-site': 'same-origin',
         'viewport-width': '1280',
-        'x-asbd-id': '129477',
+        'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-fb-lsd': this.papi.kv.get('lsd'),
       },
     })
@@ -793,6 +803,10 @@ export default class MetaMessengerAPI {
 
   private async messengerWebPushRegister(endpoint: string, p256dh: string, auth: string) {
     // todo: add missing fields
+
+    const token = this.papi.kv.get('fb_dtsg')
+    const [param, value] = this.getSprinkleParam(token)
+
     const formData = new URLSearchParams({
       app_id: '1443096165982425',
       push_endpoint: endpoint,
@@ -809,8 +823,8 @@ export default class MetaMessengerAPI {
       // __dyn: '',
       // __csr: '',
       // __comet_req: '',
-      fb_dtsg: this.papi.kv.get('fb_dtsg'),
-      jazoest: '25226',
+      fb_dtsg: token,
+      [param]: value,
       lsd: this.papi.kv.get('lsd'),
       // __spin_r: '',
       // __spin_b: '',
@@ -826,7 +840,7 @@ export default class MetaMessengerAPI {
         Accept: '*/*',
         ...SHARED_HEADERS,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'x-asbd-id': '129477',
+        'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-fb-lsd': this.papi.kv.get('lsd'),
         Referer: 'https://www.messenger.com/',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -855,7 +869,7 @@ export default class MetaMessengerAPI {
         accept: '*/*',
         ...SHARED_HEADERS,
         'content-type': 'application/x-www-form-urlencoded',
-        'x-asbd-id': '129477',
+        'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': this.papi.kv.get('appId'),
         'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
