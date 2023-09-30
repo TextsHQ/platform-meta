@@ -846,7 +846,7 @@ export default class MetaMessengerAPI {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     })
-    if (!json.payload.sucess) {
+    if (!json.payload.success) {
       throw new Error(`webPushRegister failed: ${JSON.stringify(json, null, 2)}`)
     }
   }

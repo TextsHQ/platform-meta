@@ -49,11 +49,6 @@ const info: PlatformInfo = {
     recordedAudioMimeType: 'audio/wav',
     maxSize: infoDefaults.attachments.maxSize,
   },
-  notifications: {
-    // web: {
-    //   vapidKey: '',
-    // },
-  },
   extra: {
     macOSAppBundleIDs: ['com.facebook.archon.developerID'],
   },
