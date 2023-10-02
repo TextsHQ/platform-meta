@@ -1612,6 +1612,14 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('updateOptimisticEphemeralMediaState (ignored)', a)
   }
 
+  private deleteThenInsertProactiveWarningSettings(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertProactiveWarningSettings (ignored)', a)
+  }
+
+  private deleteBannersByIds(a: SimpleArgType[]) {
+    this.__logger.debug('deleteBannersByIds (ignored)', a)
+  }
+
   private deleteThenInsertAttachmentConversion(a: SimpleArgType[]) {
     this.__logger.debug('deleteThenInsertAttachmentConversion (ignored)', a)
   }
