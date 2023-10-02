@@ -34,7 +34,8 @@ import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler from './payload-handler'
 import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
-import { RequestResolverReject, RequestResolverType, ThreadRemoveType } from './socket'
+import { RequestResolverType, ThreadRemoveType } from './socket'
+import { PromiseStore } from './PromiseStore'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -70,6 +71,12 @@ export default class MetaMessengerAPI {
     this.initPromise.then(() => {
       this.initResolved = true
     })
+    this.messageRangeResolvers = new PromiseStore({
+      env,
+      keyPrefix: 'messageRangeResolver',
+      startAt: 1,
+      timeoutMs: 15_000,
+    })
   }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
@@ -79,6 +86,8 @@ export default class MetaMessengerAPI {
   ua: SerializedSession['ua'] = texts.constants.USER_AGENT
 
   config: ReturnType<typeof getMessengerConfig>
+
+  messageRangeResolvers: PromiseStore<IGMessageRanges>
 
   private readonly http = texts.createHttpClient()
 
@@ -163,17 +172,7 @@ export default class MetaMessengerAPI {
       throw new Error(`No valid configuration was detected: ${err.message}`)
     }
 
-    this.papi.kv.setMany({
-      'syncParams-1': JSON.stringify(this.config.syncParams),
-      _fullConfig: JSON.stringify(this.config),
-      appId: String(this.config.appId),
-      clientId: this.config.clientID,
-      fb_dtsg: this.config.fbDTSG,
-      fbid: this.config.fbid,
-      lsd: this.config.lsdToken,
-      mqttCapabilities: String(this.config.mqttCapabilities),
-      mqttClientCapabilities: String(this.config.mqttClientCapabilities),
-    })
+    this.papi.kv.set('syncParams-1', JSON.stringify(this.config.syncParams))
 
     this.papi.currentUser = {
       id: this.config.fbid,
@@ -185,15 +184,12 @@ export default class MetaMessengerAPI {
         throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
       }
 
-      this.papi.kv.setMany({
-        hasTabbedInbox: this.config.igViewerConfig.has_tabbed_inbox,
-        igUserId: this.config.igViewerConfig.id,
-      })
+      this.papi.kv.set('hasTabbedInbox', this.config.igViewerConfig?.has_tabbed_inbox)
 
       // config.id, is the instagram id but fbid is instead used for chat
-      this.papi.currentUser.fullName = this.config.igViewerConfig.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name) : null
+      this.papi.currentUser.fullName = this.config.igViewerConfig?.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name) : null
       this.papi.currentUser.imgURL = this.config.igViewerConfig?.profile_pic_url_hd ? fixUrl(this.config.igViewerConfig.profile_pic_url_hd) : null
-      this.papi.currentUser.username = this.config.igViewerConfig.username
+      this.papi.currentUser.username = this.config.igViewerConfig?.username
     }
 
     for (const payload of this.config.initialPayloads) {
@@ -229,7 +225,7 @@ export default class MetaMessengerAPI {
         ...SHARED_HEADERS,
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': this.papi.kv.get('appId'),
+        'x-ig-app-id': this.config.appId,
         'x-ig-www-claim': this.papi.kv.get('wwwClaim'),
         'x-requested-with': 'XMLHttpRequest',
         Referer: `https://${domain}/${username}/`,
@@ -265,7 +261,7 @@ export default class MetaMessengerAPI {
       // todo: maybe use FormData instead:
       body: new URLSearchParams({
         ...bodyParams,
-        fb_dtsg: this.papi.kv.get('fb_dtsg'),
+        fb_dtsg: this.config.fb_dtsg,
         variables: JSON.stringify(variables),
         doc_id,
       }).toString(),
@@ -274,7 +270,7 @@ export default class MetaMessengerAPI {
     return { data: json }
   }
 
-  private getSprinkleParam(token = this.papi.kv.get('fb_dtsg')) {
+  private getSprinkleParam(token = this.config.fb_dtsg) {
     const { should_randomize, version, param_name } = this.config.sprinkleConfig
     let sum = 0
     for (let i = 0; i < token.length; i++) sum += token.charCodeAt(i)
@@ -289,13 +285,13 @@ export default class MetaMessengerAPI {
         const { json } = await this.httpJSONRequest(`${baseURL}api/v1/web/accounts/logout/ajax/`, {
           // todo: refactor headers
           method: 'POST',
-          body: `one_tap_app_login=1&user_id=${this.papi.kv.get('igUserId')}`,
+          body: `one_tap_app_login=1&user_id=${this.config.igUserId}`,
           headers: {
             accept: '*/*',
             ...SHARED_HEADERS,
             'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
             'x-csrftoken': this.getCSRFToken(),
-            'x-ig-app-id': this.papi.kv.get('appId'),
+            'x-ig-app-id': this.config.appId,
             'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
             'x-requested-with': 'XMLHttpRequest',
             Referer: baseURL,
@@ -304,12 +300,12 @@ export default class MetaMessengerAPI {
           },
         })
         if (json.status !== 'ok') {
-          throw new Error(`logout ${this.papi.kv.get('igUserId')} failed: ${JSON.stringify(json, null, 2)}`)
+          throw new Error(`logout ${this.config.igUserId} failed: ${JSON.stringify(json, null, 2)}`)
         }
         break
       }
       case 'MESSENGER': {
-        const token = this.papi.kv.get('fb_dtsg')
+        const token = this.config.fb_dtsg
         const [param, value] = this.getSprinkleParam(token)
         const response = await this.httpRequest(`${baseURL}logout/`, {
           method: 'POST',
@@ -322,7 +318,7 @@ export default class MetaMessengerAPI {
           },
         })
         if (response.statusCode !== 302) {
-          throw new Error(`logout ${this.papi.kv.get('fbid')} failed: ${JSON.stringify(response.body, null, 2)}`)
+          throw new Error(`logout ${this.config.fbid} failed: ${JSON.stringify(response.body, null, 2)}`)
         }
       }
         break
@@ -366,7 +362,7 @@ export default class MetaMessengerAPI {
   async getSnapshotPayloadForIGD() {
     if (this.papi.env !== 'IG') throw new Error(`getSnapshotPayloadForIGD is only supported on IG but called on ${this.papi.env}`)
     const response = await this.graphqlCall('6195354443842040', {
-      deviceId: this.papi.kv.get('clientId'),
+      deviceId: this.config.clientId,
       requestId: 0,
       requestPayload: JSON.stringify({
         database: 1,
@@ -383,7 +379,7 @@ export default class MetaMessengerAPI {
   async getSnapshotPayloadForFB() {
     if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error(`getSnapshotPayloadForFB is only supported on FB/MESSENGER but called on ${this.papi.env}`)
     const response = await this.graphqlCall('7357432314358409', {
-      deviceId: this.papi.kv.get('clientId'),
+      deviceId: this.config.clientId,
       includeChatVisibility: false,
       requestId: 2,
       requestPayload: JSON.stringify({
@@ -408,7 +404,7 @@ export default class MetaMessengerAPI {
           Accept: '*/*',
           'Accept-Language': 'en',
           'X-CSRFToken': this.getCSRFToken(),
-          'X-IG-App-ID': this.papi.kv.get('appId'),
+          'X-IG-App-ID': this.config.appId,
           'X-ASBD-ID': PolarisBDHeaderConfig.ASBD_ID,
           'X-IG-WWW-Claim': this.papi.kv.get('wwwClaim') || '0',
           'X-Requested-With': 'XMLHttpRequest',
@@ -755,7 +751,7 @@ export default class MetaMessengerAPI {
     formData.append('farr', file, { filename: fileName })
     const res = await this.httpRequest(`https://${domain}/ajax/mercury/upload.php?` + new URLSearchParams({
       __a: '1',
-      fb_dtsg: this.papi.kv.get('fb_dtsg'),
+      fb_dtsg: this.config.fb_dtsg,
     }).toString(), {
       method: 'POST',
       body: formData,
@@ -776,7 +772,7 @@ export default class MetaMessengerAPI {
         'sec-fetch-site': 'same-origin',
         'viewport-width': '1280',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
-        'x-fb-lsd': this.papi.kv.get('lsd'),
+        'x-fb-lsd': this.config.lsdToken,
       },
     })
 
@@ -804,14 +800,14 @@ export default class MetaMessengerAPI {
   private async messengerWebPushRegister(endpoint: string, p256dh: string, auth: string) {
     // todo: add missing fields
 
-    const token = this.papi.kv.get('fb_dtsg')
+    const token = this.config.fb_dtsg
     const [param, value] = this.getSprinkleParam(token)
 
     const formData = new URLSearchParams({
       app_id: '1443096165982425',
       push_endpoint: endpoint,
       subscription_keys: JSON.stringify({ p256dh, auth }),
-      __user: this.papi.kv.get('fbid'),
+      __user: this.config.fbid,
       __a: '1',
       __req: '9',
       // __hs: '19630.HYP:messengerdotcom_comet_pkg.2.1..0.1',
@@ -825,7 +821,7 @@ export default class MetaMessengerAPI {
       // __comet_req: '',
       fb_dtsg: token,
       [param]: value,
-      lsd: this.papi.kv.get('lsd'),
+      lsd: this.config.lsdToken,
       // __spin_r: '',
       // __spin_b: '',
       // __spin_t: '',
@@ -841,7 +837,7 @@ export default class MetaMessengerAPI {
         ...SHARED_HEADERS,
         'Content-Type': 'application/x-www-form-urlencoded',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
-        'x-fb-lsd': this.papi.kv.get('lsd'),
+        'x-fb-lsd': this.config.lsdToken,
         Referer: 'https://www.messenger.com/',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
@@ -871,7 +867,7 @@ export default class MetaMessengerAPI {
         'content-type': 'application/x-www-form-urlencoded',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
-        'x-ig-app-id': this.papi.kv.get('appId'),
+        'x-ig-app-id': this.config.appId,
         'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
         'x-requested-with': 'XMLHttpRequest',
         Referer: `https://${this.papi.envOpts.domain}/`,
@@ -917,7 +913,7 @@ export default class MetaMessengerAPI {
     if (limit) args.limit = limit
     if (orderBy) args.orderBy = orderBy
 
-    const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.env, this.papi.kv.get('fbid'), parseMessageRanges(t.ranges)))
+    const threads = (await queryThreads(this.papi.db, args)).map(t => mapThread(t, this.papi.env, this.config.fbid, parseMessageRanges(t.ranges)))
 
     const participantIDs = threads.flatMap(t => t.participants.items.map(p => p.id))
     await this.getOrRequestContactsIfNotExist(participantIDs)
@@ -953,35 +949,38 @@ export default class MetaMessengerAPI {
     if (limit) args.limit = limit
     if (orderBy) args.orderBy = orderBy
 
-    return mapMessages(await queryMessages(this.papi.db, args), this.papi.env, this.papi.kv.get('fbid'))
+    return mapMessages(await queryMessages(this.papi.db, args), this.papi.env, this.config.fbid)
   }
 
-  async getMessageRanges(threadKey: string, _ranges?: string) {
-    const thread = _ranges ? { ranges: _ranges } : await this.papi.db.query.threads.findFirst({
+  async getMessageRanges(threadKey: string): Promise<IGMessageRanges> {
+    const thread = await this.papi.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadKey),
       columns: { ranges: true },
+      with: {
+        messages: {
+          columns: {
+            messageId: true,
+            timestampMs: true,
+          },
+          orderBy: desc(schema.messages.primarySortKey),
+          limit: 1,
+        },
+      },
     })
-    if (!thread?.ranges) return
-    return parseMessageRanges(thread.ranges)
-  }
-
-  async setMessageRanges(r: IGMessageRanges) {
-    const ranges = {
-      ...await this.getMessageRanges(r.threadKey!),
-      ...r,
+    if (!thread?.ranges) {
+      const lastMessage = thread?.messages?.[0]
+      return Promise.resolve({
+        threadKey,
+        minTimestamp: lastMessage.timestampMs ? String(lastMessage.timestampMs.getTime()) : undefined,
+        minMessageId: lastMessage.messageId,
+        maxTimestamp: undefined,
+        hasMoreBeforeFlag: true,
+        hasMoreAfterFlag: true,
+      })
     }
-
-    this.papi.db.update(schema.threads).set({
-      ranges: JSON.stringify(ranges),
-    }).where(eq(schema.threads.threadKey, r.threadKey)).run()
-  }
-
-  async resolveMessageRanges(r: IGMessageRanges) {
-    const resolverKey = `messageRanges-${r.threadKey}` as const
-    const promiseEntries = this.messageRangesResolver.get(resolverKey) || []
-    promiseEntries.forEach(p => {
-      p.resolve(r)
-    })
+    const ranges = parseMessageRanges(thread.ranges)
+    ranges.hasMoreBeforeFlag = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
+    return ranges
   }
 
   async upsertAttachment(a: IGAttachment) {
@@ -1123,7 +1122,7 @@ export default class MetaMessengerAPI {
         thread_key: threadID,
         timestamp_ms: Number(message.timestampMs.getTime()),
         message_id: messageID,
-        actor_id: this.papi.kv.get('fbid'),
+        actor_id: this.config.fbid,
         reaction,
         reaction_style: null,
         sync_group: SyncGroup.MAIN,
@@ -1159,15 +1158,15 @@ export default class MetaMessengerAPI {
     return { now, offlineThreadingId: response?.replaceOptimisticThread?.offlineThreadingId, threadId: response?.replaceOptimisticThread?.threadId }
   }
 
-  async fetchMessages(threadID: string, _ranges?: Awaited<ReturnType<typeof this.getMessageRanges>>) {
-    const ranges = _ranges || await this.getMessageRanges(threadID)
+  async fetchMessages(threadID: string) {
+    const ranges = await this.getMessageRanges(threadID)
 
     this.logger.debug('fetchMessages', {
       threadID,
       ranges,
     })
 
-    if (!ranges) return
+    if (!ranges?.minTimestamp && !ranges?.minMessageId) return
 
     return this.papi.socket.publishTask(RequestResolverType.FETCH_MESSAGES, [{
       label: '228',
@@ -1280,51 +1279,11 @@ export default class MetaMessengerAPI {
     if (tasks.length === 0) return
     const task = this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks, {
       timeout: 15000,
-      throwOnTimeout: true,
+      throwOnTimeout: false,
     })
     task.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
     this.fetchMoreThreadsV3Promises.set(inbox, task)
     return task
-  }
-
-  messageRangesResolver = new Map<`messageRanges-${string}`, {
-    promise: Promise<unknown>
-    resolve:((r: IGMessageRanges) => void)
-    reject: RequestResolverReject
-  }[]>()
-
-  waitForMessageRange(threadKey: string) {
-    const resolverKey = `messageRanges-${threadKey}` as const
-
-    const p = createPromise()
-
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error('WAIT_FOR_MESSAGE_RANGE_TIMEOUT'))
-        // Optionally remove the promise from the array if it times out
-        const existingPromises = this.messageRangesResolver.get(resolverKey) || []
-        const index = existingPromises.findIndex(entry => entry.promise === p.promise)
-        if (index !== -1) {
-          existingPromises.splice(index, 1)
-        }
-      }, 10000)
-    })
-
-    const racedPromise = Promise.race([p.promise, timeoutPromise])
-
-    const promiseEntry = {
-      promise: racedPromise,
-      resolve: p.resolve,
-      reject: p.reject,
-    }
-
-    if (this.messageRangesResolver.has(resolverKey)) {
-      this.messageRangesResolver.get(resolverKey).push(promiseEntry)
-    } else {
-      this.messageRangesResolver.set(resolverKey, [promiseEntry])
-    }
-
-    return racedPromise
   }
 
   // does not work for moving threads out of the message requests folder

@@ -107,22 +107,22 @@ export default class MetaMessengerWebSocket {
     const endpoint = new URL(this.papi.api.config.mqttEndpoint)
     const endpointParams = new URLSearchParams(endpoint.searchParams)
     endpointParams.append('sid', mqttSid.toString())
-    endpointParams.append('cid', this.papi.kv.get('clientId'))
+    endpointParams.append('cid', this.papi.api.config.clientId)
     endpoint.search = endpointParams.toString()
     const { domain } = this.papi.envOpts
     const origin = `https://${domain}`
     const username = JSON.stringify({
       // u: "17841418030588216", // doesnt seem to matter
-      u: this.papi.kv.get('fbid'),
+      u: this.papi.api.config.fbid,
       s: mqttSid,
-      cp: Number(this.papi.kv.get('mqttClientCapabilities')),
-      ecp: Number(this.papi.kv.get('mqttCapabilities')),
+      cp: Number(this.papi.api.config.mqttClientCapabilities),
+      ecp: Number(this.papi.api.config.mqttCapabilities),
       chat_on: this.papi.api.envSwitch<boolean>(true, false),
       fg: this.papi.api.envSwitch<boolean>(true, false),
-      d: this.papi.kv.get('clientId'),
+      d: this.papi.api.config.clientId,
       ct: this.papi.api.envSwitch<string>('cookie_auth', 'websocket'),
       mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
-      aid: Number(this.papi.kv.get('appId')),
+      aid: Number(this.papi.api.config.appId),
       st: [...this.subscribedTopics],
       pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536 }],
       dc: '',
@@ -431,7 +431,7 @@ export default class MetaMessengerWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: this.papi.kv.get('appId'),
+        app_id: this.papi.api.config.appId,
         payload,
         request_id,
         type,

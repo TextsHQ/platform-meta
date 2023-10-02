@@ -361,12 +361,13 @@ export function getMessengerConfig(html: string) {
   const igViewerConfig = parsed.XIGSharedData?.raw?.config?.viewer // instagram-only
   return {
     env: parsed.CurrentEnvironment,
-    appId: parsed.MessengerWebInitData?.appId,
-    clientID: parsed.MqttWebDeviceID?.clientID,
-    fbDTSG: parsed.DTSGInitialData?.token,
+    appId: String(parsed.MessengerWebInitData?.appId),
+    clientId: parsed.MqttWebDeviceID?.clientID,
+    fb_dtsg: parsed.DTSGInitialData?.token,
     fbid: parsed.CurrentUserInitialData?.IG_USER_EIMU || parsed.CurrentUserInitialData?.ACCOUNT_ID, // if not instagram
     name: parsed.CurrentUserInitialData?.NAME,
     igViewerConfig,
+    igUserId: igViewerConfig?.id,
     lsdToken: parsed.LSD?.token,
     mqttEndpoint: parsed.MqttWebConfig?.endpoint,
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,

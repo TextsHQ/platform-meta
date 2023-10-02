@@ -5,8 +5,16 @@ import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
-import { fixEmoji, getAsDate, getAsMS, getOriginalURL } from './util'
-import { type IGAttachment, type IGMessage, type IGReadReceipt, IGThread, ParentThreadKey, SyncGroup } from './types'
+import { fixEmoji, getAsDate, getAsMS, getOriginalURL, parseMessageRanges } from './util'
+import {
+  type IGAttachment,
+  type IGMessage,
+  IGMessageRanges,
+  type IGReadReceipt,
+  IGThread,
+  ParentThreadKey,
+  SyncGroup,
+} from './types'
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
 import { MetaMessengerError } from './errors'
@@ -33,12 +41,16 @@ export interface MetaMessengerPayloadHandlerResponse {
   }[]
 }
 
+type DbTransaction = Parameters<PlatformMetaMessenger['db']['transaction']>[0]
+
 export default class MetaMessengerPayloadHandler {
   private readonly __calls: CallList
 
   private readonly __logger: ReturnType<typeof getLogger>
 
   private __promises: Promise<unknown>[] = []
+
+  private __sql: ((db: Parameters<DbTransaction>[0]) => ReturnType<DbTransaction>)[] = []
 
   private __afterCallbacks: (() => Promise<void> | void)[] = []
 
@@ -158,6 +170,16 @@ export default class MetaMessengerPayloadHandler {
         }
       }
     }
+
+    try {
+      await this.__papi.db.transaction(async tx => {
+        await Promise.all(this.__sql.map(sql => sql(tx)))
+      }, {
+        behavior: 'exclusive',
+      })
+    } catch (e) {
+      this.__logger.error(e)
+    }
   }
 
   private __sync = async (): Promise<void> => {
@@ -190,6 +212,30 @@ export default class MetaMessengerPayloadHandler {
     if (finalEvents.length > 0) {
       this.__papi.onEvent(finalEvents)
       this.__events = []
+    }
+  }
+
+  private __syncMessageRanges = async (r: IGMessageRanges) => {
+    const { threadKey, ...newRanges } = r
+    this.__logger.debug('__syncMessageRanges', threadKey, newRanges)
+
+    await this.__papi.db.transaction(async tx => {
+      const currentRanges = tx.select({
+        ranges: schema.threads.ranges,
+      }).from(schema.threads).where(eq(schema.threads.threadKey, threadKey)).get()
+
+      const ranges = {
+        ...parseMessageRanges(currentRanges?.ranges),
+        ...r,
+      }
+
+      tx.update(schema.threads).set({
+        ranges: JSON.stringify(ranges),
+      }).where(eq(schema.threads.threadKey, threadKey)).run()
+    })
+
+    if (this.__papi.api.messageRangeResolvers.hasKey(threadKey)) {
+      this.__papi.api.messageRangeResolvers.resolveByKey(threadKey, newRanges)
     }
   }
 
@@ -236,7 +282,7 @@ export default class MetaMessengerPayloadHandler {
       },
     })
     if (participants.length === 0) return
-    const fbid = this.__papi.kv.get('fbid')
+    const { fbid } = this.__papi.api.config
     participants.forEach(p => {
       const isSelf = fbid === contactId
       const isSingle = p.threadKey === contactId
@@ -281,10 +327,11 @@ export default class MetaMessengerPayloadHandler {
       lastDeliveredActionTimestampMs: a[5] ? getAsDate(a[5] as string) : null,
       isAdmin: Boolean(a[6]),
     }
-    this.__papi.db.insert(schema.participants).values(p).onConflictDoUpdate({
+
+    this.__sql.push(tx => tx.insert(schema.participants).values(p).onConflictDoUpdate({
       target: [schema.participants.threadKey, schema.participants.userId],
       set: { ...p },
-    }).run()
+    }).run())
 
     return async () => {
       if (this.__threadsToSync.has(p.threadKey)) return
@@ -369,25 +416,25 @@ export default class MetaMessengerPayloadHandler {
   private async deleteExistingMessageRanges(a: SimpleArgType[]) {
     const threadKey = a[0] as string
     this.__logger.debug('deleteExistingMessageRanges', threadKey)
-    const threadExists = await this.__papi.db.query.threads.findFirst({
-      where: eq(schema.threads.threadKey, a[0] as string),
-      columns: {
-        threadKey: true,
-        ranges: true,
-      },
-    })
-    if (!threadExists || (threadExists && !threadExists.ranges)) return
-    this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+    // const threadExists = await this.__papi.db.query.threads.findFirst({
+    //   where: eq(schema.threads.threadKey, a[0] as string),
+    //   columns: {
+    //     threadKey: true,
+    //     ranges: true,
+    //   },
+    // })
+    // if (!threadExists || (threadExists && !threadExists.ranges)) return
+    // this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
   }
 
   private deleteMessage(a: SimpleArgType[]) {
     const threadID = a[0] as string
     const messageID = a[1] as string
     this.__logger.debug('deleteMessage', a, { threadID, messageID })
-    this.__papi.db.delete(schema.messages).where(and(
+    this.__sql.push(tx => tx.delete(schema.messages).where(and(
       eq(schema.messages.threadKey, threadID),
       eq(schema.messages.messageId, messageID),
-    )).run()
+    )).run())
 
     return () => {
       this.__events.push({
@@ -411,11 +458,11 @@ export default class MetaMessengerPayloadHandler {
       actorID,
     })
 
-    this.__papi.db.delete(schema.reactions).where(and(
+    this.__sql.push(tx => tx.delete(schema.reactions).where(and(
       eq(schema.reactions.threadKey, threadID),
       eq(schema.reactions.messageId, messageID),
       eq(schema.reactions.actorId, actorID),
-    )).run()
+    )).run())
 
     return () => {
       this.__events.push({
@@ -482,27 +529,31 @@ export default class MetaMessengerPayloadHandler {
 
     this.__logger.debug('deleteThenInsertContact', a, parsed)
 
-    this.__papi.db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
-    this.__papi.db.insert(schema.contacts).values({
-      id,
-      name,
-      profilePictureUrl,
-      username,
-      contact: JSON.stringify(contact),
-    } as const).run()
-
-    this.__events.push({
-      type: ServerEventType.STATE_SYNC,
-      objectName: 'participant',
-      objectIDs: { threadID: id },
-      mutationType: 'upsert',
-      entries: [{
+    this.__sql.push(db => {
+      db.delete(schema.contacts).where(eq(schema.contacts.id, id)).run()
+      db.insert(schema.contacts).values({
         id,
+        name,
+        profilePictureUrl,
         username,
-        fullName: name || username || this.__papi.envOpts.defaultContactName,
-        imgURL: profilePictureUrl,
-      }],
+        contact: JSON.stringify(contact),
+      } as const).run()
     })
+
+    return () => {
+      this.__events.push({
+        type: ServerEventType.STATE_SYNC,
+        objectName: 'participant',
+        objectIDs: { threadID: id },
+        mutationType: 'upsert',
+        entries: [{
+          id,
+          username,
+          fullName: name || username || this.__papi.envOpts.defaultContactName,
+          imgURL: profilePictureUrl,
+        }],
+      })
+    }
   }
 
   private deleteThenInsertContactPresence(a: SimpleArgType[]) {
@@ -533,23 +584,23 @@ export default class MetaMessengerPayloadHandler {
 
     // we don't keep it in a separate table, just in the contacts table
     // since we overwrite the profile, no need to delete first
-    this.__papi.db.insert(schema.contacts).values({
+    this.__sql.push(tx => tx.insert(schema.contacts).values({
       id: contactId,
       igContact,
     }).onConflictDoUpdate({
       target: schema.contacts.id,
       set: { igContact },
-    }).run()
+    }).run())
   }
 
   private deleteThenInsertIgThreadInfo(a: SimpleArgType[]) {
     const threadKey = a[0] as string
     const igThreadId = a[1] as string
-    this.__papi.db.update(schema.threads).set({
+    this.__logger.debug('deleteThenInsertIgThreadInfo', { threadKey, igThreadId })
+    this.__sql.push(tx => tx.update(schema.threads).set({
       threadKey,
       igThread: JSON.stringify({ igThreadId }),
-    }).where(eq(schema.threads.threadKey, threadKey)).run()
-    this.__logger.debug('deleteThenInsertIgThreadInfo', { threadKey, igThreadId })
+    }).where(eq(schema.threads.threadKey, threadKey)).run())
   }
 
   private deleteThenInsertMessage(a: SimpleArgType[]) {
@@ -714,14 +765,16 @@ export default class MetaMessengerPayloadHandler {
     const threadKey = a[7] as string
     this.__logger.debug('deleteThenInsertThread', a, { threadKey, thread })
 
-    this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
-    this.__papi.db.insert(schema.threads).values({
-      threadKey,
-      folderName: thread.folderName,
-      parentThreadKey: thread.parentThreadKey,
-      lastActivityTimestampMs: new Date(thread.lastActivityTimestampMs),
-      thread: JSON.stringify(thread),
-    }).run()
+    this.__sql.push(db => {
+      db.delete(schema.threads).where(eq(schema.threads.threadKey, threadKey)).run()
+      db.insert(schema.threads).values({
+        threadKey,
+        folderName: thread.folderName,
+        parentThreadKey: thread.parentThreadKey,
+        lastActivityTimestampMs: new Date(thread.lastActivityTimestampMs),
+        thread: JSON.stringify(thread),
+      }).run()
+    })
 
     this.__threadsToSync.add(threadKey)
 
@@ -744,10 +797,12 @@ export default class MetaMessengerPayloadHandler {
   private deleteThread(a: SimpleArgType[]) {
     const threadID = a[0] as string
 
-    this.__papi.db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadID)).run()
-    this.__papi.db.delete(schema.messages).where(eq(schema.messages.threadKey, threadID)).run()
-    this.__papi.db.delete(schema.participants).where(eq(schema.participants.threadKey, threadID)).run()
-    this.__papi.db.delete(schema.threads).where(eq(schema.threads.threadKey, threadID)).run()
+    this.__sql.push(db => {
+      db.delete(schema.attachments).where(eq(schema.attachments.threadKey, threadID)).run()
+      db.delete(schema.messages).where(eq(schema.messages.threadKey, threadID)).run()
+      db.delete(schema.participants).where(eq(schema.participants.threadKey, threadID)).run()
+      db.delete(schema.threads).where(eq(schema.threads.threadKey, threadID)).run()
+    })
 
     return () => {
       this.__events.push({
@@ -912,7 +967,7 @@ export default class MetaMessengerPayloadHandler {
       const newMessage = JSON.stringify(parsedMessage)
       this.__logger.debug('insertAttachmentCta newMessage', newMessage)
 
-      this.__papi.db.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run()
+      this.__sql.push(tx => tx.update(schema.messages).set({ message: newMessage }).where(eq(schema.messages.messageId, r.messageId!)).run())
 
       // if (r.actionUrl.startsWith('/')) {
       //   mparse.links = [{ url: `https://www.instagram.com${r.actionUrl}/` }]
@@ -1144,9 +1199,7 @@ export default class MetaMessengerPayloadHandler {
       hasMoreBeforeFlag: Boolean(a[7]),
       hasMoreAfterFlag: Boolean(a[8]),
     }
-    this.__logger.debug('insertNewMessageRange', a, msgRange)
-    await this.__papi.api.setMessageRanges(msgRange)
-    await this.__papi.api.resolveMessageRanges(msgRange)
+    await this.__syncMessageRanges(msgRange)
   }
 
   private insertSearchResult(a: SimpleArgType[]) {
@@ -1414,10 +1467,10 @@ export default class MetaMessengerPayloadHandler {
     const threadID = a[0] as string
     const userId = a[1] as string
 
-    this.__papi.db.delete(schema.participants).where(and(
+    this.__sql.push(tx => tx.delete(schema.participants).where(and(
       eq(schema.participants.threadKey, threadID),
       eq(schema.participants.userId, userId),
-    )).run()
+    )).run())
 
     return () => {
       this.__events.push({
@@ -1574,9 +1627,7 @@ export default class MetaMessengerPayloadHandler {
       minTimestamp: !isMaxTimestamp ? timestamp : undefined,
     }
 
-    this.__logger.debug('updateExistingMessageRange', a, msgRange)
-    await this.__papi.api.setMessageRanges(msgRange)
-    await this.__papi.api.resolveMessageRanges(msgRange)
+    await this.__syncMessageRanges(msgRange)
   }
 
   private updateExtraAttachmentColumns(a: SimpleArgType[]) {
@@ -1658,14 +1709,14 @@ export default class MetaMessengerPayloadHandler {
 
     this.__logger.debug('updateReadReceipt', a, r)
 
-    this.__papi.db.update(schema.participants).set({
+    this.__sql.push(tx => tx.update(schema.participants).set({
       readActionTimestampMs: r.readActionTimestampMs,
       readWatermarkTimestampMs: r.readWatermarkTimestampMs,
     })
       .where(and(
         eq(schema.participants.threadKey, r.threadKey),
         eq(schema.participants.userId, r.contactId),
-      )).run()
+      )).run())
     if (!r.readActionTimestampMs) return
 
     return async () => {
@@ -1909,14 +1960,13 @@ export default class MetaMessengerPayloadHandler {
       actorId: a[3] as string,
       reaction: fixEmoji(a[4] as string),
     }
-    this.__papi.db
+    this.__sql.push(tx => tx
       .insert(schema.reactions)
       .values(r)
       .onConflictDoUpdate({
         target: [schema.reactions.threadKey, schema.reactions.messageId, schema.reactions.actorId],
         set: { ...r },
-      })
-      .run()
+      }).run())
 
     return () => {
       if (this.__threadsToSync.has(r.threadKey) || this.__messagesToSync.has(r.messageId)) return
@@ -2006,10 +2056,10 @@ export default class MetaMessengerPayloadHandler {
       contact: JSON.stringify(contact),
     } as const
 
-    this.__papi.db.insert(schema.contacts).values(c).onConflictDoUpdate({
+    this.__sql.push(tx => tx.insert(schema.contacts).values(c).onConflictDoUpdate({
       target: schema.contacts.id,
       set: { ...c },
-    }).run()
+    }).run())
 
     return () => {
       // this._syncContact(contactId)
@@ -2020,13 +2070,16 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('verifyHybridThreadExists (ignored)', a)
   }
 
-  private verifyThreadExists(a: SimpleArgType[]) {
+  private async verifyThreadExists(a: SimpleArgType[]) {
     this.__logger.debug('verifyThreadExists', a)
     const threadId = a[0] as string
-    const thread = this.__papi.db.query.threads.findFirst({
+    const thread = await this.__papi.db.query.threads.findFirst({
       where: eq(schema.threads.threadKey, threadId),
+      columns: {
+        threadKey: true,
+      },
     })
-    if (!thread) {
+    if (!thread?.threadKey) {
       this.__logger.info('thread does not exist, skipping payload and calling getThread')
       this.__promises.push(this.__papi.api.requestThread(threadId))
     }

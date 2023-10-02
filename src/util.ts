@@ -60,7 +60,7 @@ export function parseMqttPacket(data: WebSocket.RawData) {
 
 export const getMqttSid = () => parseInt(Math.random().toFixed(16).split('.')[1], 10)
 
-export const parseMessageRanges = (ranges: string) => JSON.parse(ranges) as IGMessageRanges
+export const parseMessageRanges = (ranges: string) => ranges?.length > 0 && JSON.parse(ranges) as IGMessageRanges
 
 export function createPromise<T>() {
   const p: {

@@ -243,25 +243,23 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   getMessages = async (threadID: string, pagination: PaginationArg): PAPIReturn<'getMessages'> => {
     await this.api.initPromise
-    const ranges = await this.api.getMessageRanges(threadID)
     this.logger.debug('getMessages [papi]', {
       threadID,
       pagination,
-      ranges,
     })
+    const ranges = await this.api.getMessageRanges(threadID)
 
-    await this.api.fetchMessages(threadID, ranges)
-
-    let hasMore = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
-    try {
-      await this.api.waitForMessageRange(threadID)
-      const _ranges = await this.api.getMessageRanges(threadID)
-      if (typeof _ranges?.hasMoreBeforeFlag === 'boolean') {
-        hasMore = _ranges.hasMoreBeforeFlag // refetch ranges from db
+    const { hasMoreBeforeFlag } = ranges
+    if (hasMoreBeforeFlag) {
+      try {
+        const { promise } = this.api.messageRangeResolvers.getOrCreate(threadID)
+        await Promise.allSettled([
+          this.api.fetchMessages(threadID),
+          promise,
+        ])
+      } catch (e) {
+        this.logger.error(e)
       }
-    } catch (e) {
-      this.logger.error(e)
-      hasMore = true
     }
 
     let where = eq(schema.messages.threadKey, threadID)
@@ -288,9 +286,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       orderBy: [order(schema.messages.primarySortKey)],
       // limit: 20,
     })
+
     return {
       items,
-      hasMore,
+      hasMore: hasMoreBeforeFlag,
     }
   }
 
@@ -365,7 +364,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       missing,
       resp,
     })
-    const fbid = this.kv.get('fbid')
+    const { fbid } = this.api.config
     const participants = [
       ...contacts.map(user => ({
         id: user.id,
@@ -495,7 +494,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       const userMessage: Message = {
         id: messageId || pendingMessageID,
         timestamp,
-        senderID: this.kv.get('fbid'),
+        senderID: this.api.config.fbid,
         isSender: true,
         linkedMessageID: quotedMessageID,
         attachments: [{
@@ -512,7 +511,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       timestamp,
       text,
       linkedMessageID: quotedMessageID,
-      senderID: this.kv.get('fbid'),
+      senderID: this.api.config.fbid,
       isSender: true,
     }]
   }

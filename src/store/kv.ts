@@ -6,15 +6,15 @@ type DbId = number
 
 type Key =
   | '_fullConfig' // not used, for debugging
-  | 'appId'
-  | 'clientId'
-  | 'fb_dtsg'
-  | 'fbid'
+  // | 'appId'
+  // | 'clientId'
+  // | 'fb_dtsg'
+  // | 'fbid'
   | 'hasTabbedInbox'
-  | 'igUserId'
-  | 'lsd'
-  | 'mqttCapabilities'
-  | 'mqttClientCapabilities'
+  // | 'igUserId'
+  // | 'lsd'
+  // | 'mqttCapabilities'
+  // | 'mqttClientCapabilities'
   | 'wwwClaim'
   | `_lastReceivedCursor-${DbId}-${SyncGroup}` // not used, for debugging
   | `cursor-${DbId}-${SyncGroup}`
