@@ -473,25 +473,6 @@ export default class MetaMessengerWebSocket {
     return promise
   }
 
-  // not sure exactly what this does, but it's required.
-  // my guess is it "subscribes to database 1"?
-  // may need similar code to get messages.
-  private subscribeToDB(database: number, cursor: `cursor-${number}-${SyncGroup}` = null, syncParams: string = null) {
-    const request_id = this.requestIds.gen()
-    return this.publishLightspeedRequest({
-      payload: JSON.stringify({
-        database,
-        epoch_id: getTimeValues().epoch_id,
-        failure_count: null,
-        last_applied_cursor: cursor ? this.papi.kv.get(cursor) : null,
-        sync_params: syncParams,
-        version: EnvOptions[this.papi.env].defaultVersionId,
-      }),
-      request_id,
-      type: 1,
-    })
-  }
-
   private async subscribeToAllDatabases() {
     // this.subscribeToDB(1, 'cursor-1-1', null)
     const promises = [
