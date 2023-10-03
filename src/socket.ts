@@ -99,7 +99,7 @@ export default class MetaMessengerWebSocket {
 
   taskIds = new AutoIncrementStore()
 
-  private requestIds = new AutoIncrementStore()
+  requestIds = new AutoIncrementStore()
 
   private messageIds = new AutoIncrementStore(2) // this appears to be Math.random() in meta's code
 

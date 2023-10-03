@@ -520,7 +520,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.initPromise
     this.logger.debug('sendActivityIndicator', threadID, type)
     if (![ActivityType.TYPING, ActivityType.NONE].includes(type)) return
-    const { promise, request_id } = this.socket.createRequest(RequestResolverType.SEND_TYPING_INDICATOR)
     this.logger.debug(`sending typing indicator ${threadID}`)
     await this.socket.publishLightspeedRequest({
       payload: JSON.stringify({
@@ -533,11 +532,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         }),
         version: '6243569662359088',
       }),
-      request_id,
+      request_id: this.socket.requestIds.gen(),
       type: 4,
     })
-
-    await promise
   }
 
   deleteMessage = async (_threadID: string, messageID: string, _forEveryone?: boolean) => {
