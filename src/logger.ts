@@ -6,21 +6,22 @@ import { EnvKey } from './env'
 export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error'
-export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError
+export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError | string
 
 const onError = (env: EnvKey, err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
-  const message = feature ? `${feature} ${err.message}` : err.message
-  const stack = (err instanceof Error) ? err.stack : err.type
+  const isError = err instanceof Error
+  const errorMessage = isError ? err.message : err
+  const message = feature ? `${feature} ${errorMessage}` : errorMessage
+  const stack = isError ? err.stack : ((err as any).type ? (err as any).type : undefined)
   texts.error(message, err, extra, stack)
   console.error(message, err, extra, stack)
-  const isWSError = 'target' in err && err.target instanceof WebSocket
   texts.Sentry.captureException(err, {
     extra: {
       feature,
       ...extra,
       ...((err instanceof MetaMessengerError) ? err.getErrorData?.() : {}),
       ...{
-        socketStatus: isWSError ? err.target.readyState : undefined,
+        socketStatus: isError && 'target' in err && err.target instanceof WebSocket ? err.target.readyState : undefined,
       },
       metaMessengerType: env === 'IG' ? 'instagram' : env,
     },
@@ -48,7 +49,7 @@ export const getLogger = (env: EnvKey, feature = '') => {
       warn('log', 'warn')
     },
     error: (err: ErrorAlt | string, extra: SentryExtra = {}, ...args: any[]) => {
-      onError(env, typeof err === 'string' ? new Error(err) : err, feature, extra)
+      onError(env, err, feature, extra)
       texts.error(formatMessage('error', ...args, typeof err === 'string' ? err : err.message))
     },
   }
