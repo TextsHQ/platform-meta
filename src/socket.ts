@@ -248,7 +248,9 @@ export default class MetaMessengerWebSocket {
     // @TODO: need to send rtc_multi
     await this.sendAppSettings()
     this.startPing()
-    resolver()
+    if (this.isInitialConnection) {
+      resolver()
+    }
   }
 
   private pingInterval: NodeJS.Timeout
@@ -360,6 +362,11 @@ export default class MetaMessengerWebSocket {
     }
     this.requestResolvers.set(request_id, [type, resolver, _reject])
     return { request_id, promise }
+  }
+
+  async reconnect() {
+    this.logger.debug('[ws] reconnecting')
+    this.ws?.reconnect()
   }
 
   async publishLightspeedRequest({

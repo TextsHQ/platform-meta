@@ -585,6 +585,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     // listen for the response addParticipantIdToGroupThread
   }
 
+  reconnectRealtime = async () => {
+    await this.socket.reconnect()
+  }
+
   removeParticipant = async (threadID: string, participantID: string) => {
     await this.api.initPromise
     await this.socket.publishTask(RequestResolverType.REMOVE_PARTICIPANT, [{

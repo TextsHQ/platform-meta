@@ -22,18 +22,6 @@ export type Options = {
   debug?: boolean
 }
 
-const DEFAULT = {
-  maxReconnectionDelay: 10000,
-  minReconnectionDelay: 1000 + Math.random() * 4000,
-  minUptime: 5000,
-  reconnectionDelayGrowFactor: 1.3,
-  connectionTimeout: 4000,
-  maxRetries: Infinity,
-  maxEnqueuedMessages: Infinity,
-  startClosed: false,
-  debug: false,
-}
-
 export type Message = Parameters<WebSocket['send']>[0]
 
 export type ListenersMap = {
@@ -78,7 +66,18 @@ export default class ReconnectingWebSocket {
     private readonly _getConfig: () => MetaMessengerWebSocketMQTTConfig,
     options: Options = {},
   ) {
-    this._options = options
+    this._options = {
+      maxReconnectionDelay: 10000,
+      minReconnectionDelay: 1000 + Math.random() * 1000,
+      minUptime: 5000,
+      reconnectionDelayGrowFactor: 1.3,
+      connectionTimeout: 2000,
+      maxRetries: Infinity,
+      maxEnqueuedMessages: Infinity,
+      startClosed: false,
+      debug: false,
+      ...options,
+    }
     this._logger = getLogger(env, 'ReconnectingWebSocket')
     if (this._options.startClosed) {
       this._shouldReconnect = false
@@ -170,23 +169,23 @@ export default class ReconnectingWebSocket {
   /**
    * An event listener to be called when the WebSocket connection's readyState changes to CLOSED
    */
-  public onclose: ((event: Events.CloseEvent) => void) | null = null
+  public onclose: ((event: Events.CloseEvent) => void) = null
 
   /**
    * An event listener to be called when an error occurs
    */
-  public onerror: ((event: Events.ErrorEvent) => void) | null = null
+  public onerror: ((event: Events.ErrorEvent) => void) = null
 
   /**
    * An event listener to be called when a message is received from the server
    */
-  public onmessage: ((event: WebSocket.RawData) => void) | null = null
+  public onmessage: ((event: WebSocket.RawData) => void) = null
 
   /**
    * An event listener to be called when the WebSocket connection's readyState changes to OPEN;
    * this indicates that the connection is ready to send and receive data
    */
-  public onopen: ((event: Event) => void) | null = null
+  public onopen: ((event: Event) => void) = null
 
   /**
    * Closes the WebSocket connection or connection attempt, if any. If the connection is already
@@ -231,7 +230,7 @@ export default class ReconnectingWebSocket {
       this._logger.debug('send', data)
       this._ws.send(data)
     } else {
-      const { maxEnqueuedMessages = DEFAULT.maxEnqueuedMessages } = this._options
+      const { maxEnqueuedMessages } = this._options
       if (this._messageQueue.length < maxEnqueuedMessages) {
         this._logger.debug('enqueue', data)
         this._messageQueue.push(data)
@@ -277,9 +276,9 @@ export default class ReconnectingWebSocket {
 
   private _getNextDelay() {
     const {
-      reconnectionDelayGrowFactor = DEFAULT.reconnectionDelayGrowFactor,
-      minReconnectionDelay = DEFAULT.minReconnectionDelay,
-      maxReconnectionDelay = DEFAULT.maxReconnectionDelay,
+      reconnectionDelayGrowFactor,
+      minReconnectionDelay,
+      maxReconnectionDelay,
     } = this._options
     let delay = 0
     if (this._retryCount > 0) {
@@ -305,8 +304,8 @@ export default class ReconnectingWebSocket {
     this._connectLock = true
 
     const {
-      maxRetries = DEFAULT.maxRetries,
-      connectionTimeout = DEFAULT.connectionTimeout,
+      maxRetries,
+      connectionTimeout,
     } = this._options
 
     if (this._retryCount >= maxRetries) {
@@ -379,7 +378,7 @@ export default class ReconnectingWebSocket {
 
   private _handleOpen = (event: Event) => {
     this._logger.debug('open event')
-    const { minUptime = DEFAULT.minUptime } = this._options
+    const { minUptime } = this._options
 
     clearTimeout(this._connectTimeout)
     this._uptimeTimeout = setTimeout(() => this._acceptOpen(), minUptime)
@@ -391,6 +390,7 @@ export default class ReconnectingWebSocket {
     if (this.onopen) {
       this.onopen(event)
     }
+
     this._listeners.open.forEach(listener => this._callEventListener(event, listener))
   }
 
