@@ -72,7 +72,7 @@ export default class ReconnectingWebSocket {
       minUptime: 5000,
       reconnectionDelayGrowFactor: 1.3,
       connectionTimeout: 2000,
-      maxRetries: Infinity,
+      maxRetries: 12,
       maxEnqueuedMessages: Infinity,
       startClosed: false,
       debug: false,
@@ -121,30 +121,11 @@ export default class ReconnectingWebSocket {
     return ReconnectingWebSocket.CLOSED
   }
 
-  // get binaryType() {
-  //   return this._ws ? this._ws.binaryType : this._binaryType
-  // }
-
-  // set binaryType(value: BinaryType) {
-  //   this._binaryType = value
-  //   if (this._ws) {
-  //     this._ws.binaryType = value
-  //   }
-  // }
-
   /**
    * Returns the number or connection retries
    */
   get retryCount(): number {
     return Math.max(this._retryCount, 0)
-  }
-
-  /**
-   * The extensions selected by the server. This is currently only the empty string or a list of
-   * extensions as negotiated by the connection
-   */
-  get extensions(): string {
-    return this._ws ? this._ws.extensions : ''
   }
 
   /**
