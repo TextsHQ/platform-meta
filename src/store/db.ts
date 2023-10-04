@@ -64,6 +64,7 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
   try {
     if (retryAttempt > 0 || shouldRecreate) await removeDatabaseFile(sqlitePath, logger)
     const sqlite = new Database(sqlitePath)
+    sqlite.pragma('journal_mode = WAL')
     const db = drizzle(sqlite, {
       schema,
       logger: {
