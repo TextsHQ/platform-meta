@@ -1255,7 +1255,39 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private insertStickerAttachment(a: SimpleArgType[]) {
-    this.__logger.debug('insertStickerAttachment (ignored)', a)
+    const sticker = {
+      threadKey: a[14],
+      messageId: a[18],
+      attachmentFbid: a[19],
+      hasMedia: true,
+      isSharable: false,
+      playableUrl: a[0],
+      playableUrlFallback: a[1],
+      playableUrlExpirationTimestampMs: a[2],
+      playableUrlMimeType: a[3],
+      previewUrl: a[4],
+      previewUrlFallback: a[5],
+      previewUrlExpirationTimestampMs: a[6],
+      previewUrlMimeType: a[7],
+      previewWidth: a[9],
+      previewHeight: a[10],
+      imageUrlMimeType: a[11],
+      attachmentIndex: a[12],
+      accessibilitySummaryText: a[13],
+      // attachmentType: b.i64.cast([0, 1]),
+      timestampMs: a[17],
+      hasXma: false,
+      imageUrl: a[20],
+      imageUrlFallback: a[21],
+      imageUrlExpirationTimestampMs: a[22],
+      faviconUrlExpirationTimestampMs: a[23],
+      avatarViewSize: a[25],
+      avatarCount: a[26],
+      targetId: a[27],
+      mustacheText: a[30],
+      authorityLevel: a[31],
+    }
+    this.__logger.debug('insertStickerAttachment (ignored)', sticker)
   }
 
   private async insertXmaAttachment(a: SimpleArgType[]) {
