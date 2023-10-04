@@ -121,14 +121,21 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
-  // @TODO: we should only loop over attachments once here
-  const attachments = m.attachments.map(a => mapAttachment(a))
-  const attachmentWithText = attachments.find(a => !!a.extra?.text)?.extra?.text
-  const attachmentsWithMedia = attachments?.filter(att => !!att.srcURL)
-  const reelWithTitle = !message.links && attachments?.find(att => att.extra?.mmType === '7' && !!att.extra?.headerTitle)
+  const { attachments } = m
+  let attachmentWithText: string
+  const attachmentsWithMedia: ReturnType<typeof mapAttachment>[] = []
+  let reelWithTitle: ReturnType<typeof mapAttachment>
+
+  for (const a of attachments) {
+    const mapped = mapAttachment(a)
+    if (!attachmentWithText && !!mapped.extra?.text) attachmentWithText = mapped.extra.text
+    if (mapped.srcURL) attachmentsWithMedia.push(mapped)
+    if (!message.links && mapped.extra?.mmType === '7' && !!mapped.extra?.headerTitle && !reelWithTitle) reelWithTitle = mapped
+  }
 
   if (reelWithTitle?.extra?.headerTitle) {
-    message.textHeading = `Shared a reel from @${reelWithTitle.extra.headerTitle}`
+    // const what = (reelWithTitle.extra.mmType === '7') ? 'story' : 'post'
+    message.textHeading = `Shared something from @${reelWithTitle.extra.headerTitle}`
   }
 
   if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText) {

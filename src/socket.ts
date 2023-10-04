@@ -70,8 +70,6 @@ export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResp
 export type RequestResolverReject = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
 export default class MetaMessengerWebSocket {
-  // private retryAttempt = 0
-
   private stop = false
 
   private ws: ReconnectingWebSocket
@@ -188,69 +186,36 @@ export default class MetaMessengerWebSocket {
     // this.lastTaskId = 0
     // this.lastRequestId = 0
 
-    const { endpoint, wsOptions } = this.generateMQTTConfig()
     this.ws = new ReconnectingWebSocket(
-      endpoint.toString(),
-      wsOptions,
+      this.papi.env,
+      () => this.generateMQTTConfig(),
+      undefined,
     )
+    const { promise, resolve } = createPromise<void>()
+
+    this.ws.addEventListener('open', () => {
+      this.onOpen(() => resolve())
+    })
 
     this.ws.addEventListener('message', event => {
       this.onMessage(event)
     })
 
-    // const retry = debounce(() => {
-    //   this.logger.debug('[ws]', {
-    //     retryAttempt: this.retryAttempt,
-    //     MAX_RETRY_ATTEMPTS,
-    //     stop: this.stop,
-    //   })
-    //   if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
-    //     clearTimeout(this.connectTimeout)
-    //     this.connectTimeout = setTimeout(this.connect, getRetryTimeout(this.retryAttempt))
-    //   } else {
-    //     this.stop = true
-    //     // trackEvent('error', {
-    //     //   context: 'ws-error',
-    //     //   message: 'Lost connection',
-    //     // })
-    //     // Sentry.captureMessage('Lost connection')
-    //   }
-    // }, 25)
-
-    this.ws.onopen = () => {
-      // this.logger.debug('[ws] onopen', {
-      //   retryAttempt: this.retryAttempt,
-      // })
-      // if (this.retryAttempt) this.onReconnected()
-      // this.retryAttempt = 0
-      this.onOpen()
-    }
-
-    this.ws.onerror = ev => {
+    this.ws.addEventListener('error', ev => {
       this.logger.error(ev, {}, '[ws] onerror', {
         error: ev.error,
         type: ev.type,
         message: ev.message,
       })
-      // if (!this.stop) retry()
-    }
+    })
 
-    // this.ws.onclose = ev => {
-    //   this.logger.debug('[ws] onclose', ev)
-    //   if (!this.stop) {
-    //     retry()
-    //     return
-    //   }
-    //   clearInterval(this.pingInterval)
-    //   this.pingInterval = null
-    // }
+    await promise
   }
 
   dispose() {
     this.logger.info('[ws] disposing', {
       stop: this.stop,
     })
-    // this.stop = true
     try {
       this.ws?.close()
     } catch (err) {
@@ -258,35 +223,13 @@ export default class MetaMessengerWebSocket {
         stop: this.stop,
       }, '[ws] failed to close on dispose')
     }
-    // clearTimeout(this.connectTimeout)
   }
 
-  // private onReconnected() {
-  //   this.logger.info('[ws] reconnected')
-  // }
-
-  // private connectTimeout: ReturnType<typeof setTimeout>
-
-  private readonly waitAndSend = async (p: Packet) => {
-    // @TODO: there should be a queue for this
-    while (this.ws?.readyState !== WebSocket.OPEN && !this.stop) {
-      this.logger.debug('[ws] waiting 5ms to send')
-      await sleep(5)
-    }
-    if (this.stop) {
-      this.logger.debug('[ws] stop is true, not sending', p.cmd.toString())
-      return
-    }
-    return this.send(p)
-  }
-
-  readonly send = (p: Packet): Promise<void> | void => {
-    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
-    this.logger.debug('sending', p)
+  readonly send = async (p: Packet) => {
     this.ws.send(mqttPacket.generate(p))
   }
 
-  private async onOpen() {
+  private async onOpen(resolver: () => void) {
     this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
       subscribedTopics: this.subscribedTopics,
@@ -305,6 +248,7 @@ export default class MetaMessengerWebSocket {
     // @TODO: need to send rtc_multi
     await this.sendAppSettings()
     this.startPing()
+    resolver()
   }
 
   private pingInterval: NodeJS.Timeout
@@ -312,14 +256,12 @@ export default class MetaMessengerWebSocket {
   private startPing() {
     this.logger.debug('ping started')
     // instagram.com does it every 10 seconds
-    this.pingInterval = setInterval(() => this.sendPing(), 10000 - 100)
-  }
-
-  private sendPing() {
-    if (this.ws?.readyState !== WebSocket.OPEN) return
-    return this.send({
-      cmd: 'pingreq',
-    })
+    this.pingInterval = setInterval(() => {
+      if (this.ws?.readyState !== this.ws.OPEN) return
+      this.send({
+        cmd: 'pingreq',
+      })
+    }, 10000 - 100)
   }
 
   private sendAppSettings() {
@@ -362,7 +304,7 @@ export default class MetaMessengerWebSocket {
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
-      this.logger.debug('unhandled message (1)', data)
+      this.logger.debug('unhandled message (1)', data.toString())
     }
   }
 
@@ -543,3 +485,5 @@ export default class MetaMessengerWebSocket {
     await Promise.allSettled(promises)
   }
 }
+
+export type MetaMessengerWebSocketMQTTConfig = ReturnType<MetaMessengerWebSocket['generateMQTTConfig']>

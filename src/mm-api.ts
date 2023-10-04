@@ -18,8 +18,8 @@ import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
-import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession } from './types'
-import { MetaThreadRanges, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
+import { ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import {
   createPromise,
   genClientContext,
@@ -968,11 +968,11 @@ export default class MetaMessengerAPI {
       },
     })
     if (!thread?.ranges) {
-      const lastMessage = thread?.messages?.[0]
+      const [lastMessage] = thread?.messages || []
       return Promise.resolve({
         threadKey,
-        minTimestamp: lastMessage.timestampMs ? String(lastMessage.timestampMs.getTime()) : undefined,
-        minMessageId: lastMessage.messageId,
+        minTimestamp: lastMessage?.timestampMs ? String(lastMessage.timestampMs.getTime()) : undefined,
+        minMessageId: lastMessage?.messageId,
         maxTimestamp: undefined,
         hasMoreBeforeFlag: true,
         hasMoreAfterFlag: true,
