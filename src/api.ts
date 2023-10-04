@@ -177,13 +177,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.initPromise
     const isSpam = inbox === InboxName.REQUESTS
 
-    this.logger.debug('getThreads', { inbox, pagination, isSpam })
-
-    const _result = (this.env === 'IG'
-      ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
-      : this.api.fetchMoreThreadsV3(inbox)).catch(e => this.logger.error(e))
-
-    this.logger.debug('getThreads w/ result', { inbox, pagination, isSpam })
+    this.logger.info('getThreads', { inbox, pagination, isSpam })
 
     const { direction = 'before' } = pagination || {}
     const cursorStr = pagination?.cursor
@@ -227,6 +221,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       let stamp = lastThread.extra.lastActivityTimestampMs
       if (!stamp?.toJSON()) stamp = new Date()
       oldestCursor = `${stamp.getTime()},${lastThread.id}`
+    } else {
+      await (this.env === 'IG'
+        ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
+        : this.api.fetchMoreThreadsV3(inbox)).catch(e => this.logger.error(e))
     }
     if (hasMore && (!items.length || !oldestCursor)) {
       // todo fix
