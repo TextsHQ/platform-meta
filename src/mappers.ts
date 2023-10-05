@@ -118,7 +118,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
-  const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
+  let text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
   const { attachments } = m
@@ -138,10 +138,13 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     message.textHeading = `Shared something from @${reelWithTitle.extra.headerTitle}`
   }
 
-  if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText) {
+  if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText && !message?.stickerId) {
     message.textHeading = 'No longer available'
+  } else if (message?.stickerId === '369239263222822' || message?.stickerId === '369239383222810' || message?.stickerId === '369239343222814') {
+    text = '👍' // @TODO: it should load the proper svgs and images
+  } else if (message?.stickerId) {
+    message.textHeading = 'Sent a sticker'
   }
-
   // else {
   //   const assetURL = message.extra?.assetURL
   //   if (assetURL?.includes('/ig_reel/')) {
