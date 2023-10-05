@@ -1004,16 +1004,18 @@ export default class MetaMessengerAPI {
       ),
     })
 
+    const newAttachment = {
+      ...(current?.attachment ? JSON.parse(current.attachment) : {}),
+      ...attachment,
+    }
+
     const aMapped = {
       threadKey,
       messageId,
       attachmentFbid,
       timestampMs: new Date(timestampMs),
       offlineAttachmentId,
-      attachment: JSON.stringify({
-        ...(current?.attachment ? JSON.parse(current.attachment) : {}),
-        ...attachment,
-      }),
+      attachment: JSON.stringify(newAttachment),
     }
 
     this.papi.db.insert(schema.attachments).values(aMapped).onConflictDoUpdate({

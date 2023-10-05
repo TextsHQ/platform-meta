@@ -336,6 +336,10 @@ export type IGAttachment = {
   captionBodyText?: string
   isPublicXma?: string
   cta1Title?: string
+  imageUrlMimeType?: string
+  avatarViewSize?: number
+  avatarCount?: number
+  mustacheText?: string
 }
 
 export type IGReadReceipt = {

@@ -273,7 +273,9 @@ export default class MetaMessengerWebSocket {
       cmd: 'publish',
       messageId: 1,
       ...this.lsAppSettings,
-    } as any)
+      dup: false,
+      retain: false,
+    })
   }
 
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
@@ -282,7 +284,7 @@ export default class MetaMessengerWebSocket {
       if (this.subscribedTopics.has(topic)) continue
       await this.send({
         cmd: 'subscribe',
-        qos: 1,
+        // qos: 1,
         subscriptions: [
           {
             topic,
@@ -290,15 +292,18 @@ export default class MetaMessengerWebSocket {
           },
         ],
         messageId: this.messageIds.gen(),
-      } as any)
+        // dup: false,
+        // retain: false,
+      })
       this.subscribedTopics.add(topic)
     }
   }
 
-  private async onMessage(data: WebSocket.RawData) {
-    if (data.toString('hex') === '42020001') {
+  private async onMessage(message: WebSocket.MessageEvent) {
+    const { data } = message
+    const dataAsHex = data.toString('hex')
+    if (dataAsHex === '42020001') {
       // ack for app settings
-
       await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
       if (this.isInitialConnection) {
         await this.afterInitialHandshake()
@@ -306,7 +311,7 @@ export default class MetaMessengerWebSocket {
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
-      this.logger.debug('unhandled message (1)', data.toString())
+      this.logger.debug('unhandled message (1)', dataAsHex, data.toString())
     }
   }
 

@@ -1,14 +1,11 @@
 // initially stolen from https://github.com/pladaria/reconnecting-websocket
 import WebSocket from 'ws'
-import * as Events from './ReconnectingWebSocketErrors'
+import * as Events from './ReconnectingWebSocketEvents'
 import type { MetaMessengerWebSocketMQTTConfig } from './socket'
 import { getLogger, Logger } from './logger'
 import { EnvKey } from './env'
 
 export type Event = Events.Event
-export type ErrorEvent = Events.ErrorEvent
-export type CloseEvent = Events.CloseEvent
-
 export type Options = {
   WebSocket?: any
   maxReconnectionDelay?: number
@@ -160,13 +157,13 @@ export default class ReconnectingWebSocket {
   /**
    * An event listener to be called when a message is received from the server
    */
-  public onmessage: ((event: WebSocket.RawData) => void) = null
+  public onmessage: ((event: WebSocket.MessageEvent) => void) = null
 
   /**
    * An event listener to be called when the WebSocket connection's readyState changes to OPEN;
    * this indicates that the connection is ready to send and receive data
    */
-  public onopen: ((event: Event) => void) = null
+  public onopen: () => void = null
 
   /**
    * Closes the WebSocket connection or connection attempt, if any. If the connection is already
@@ -208,12 +205,12 @@ export default class ReconnectingWebSocket {
    */
   public send(data: Message) {
     if (this._ws && this._ws.readyState === this.OPEN) {
-      this._logger.debug('send', data)
+      // this._logger.debug('send', data)
       this._ws.send(data)
     } else {
       const { maxEnqueuedMessages } = this._options
       if (this._messageQueue.length < maxEnqueuedMessages) {
-        this._logger.debug('enqueue', data)
+        // this._logger.debug('enqueue', data)
         this._messageQueue.push(data)
       }
     }
@@ -230,16 +227,6 @@ export default class ReconnectingWebSocket {
       // @ts-expect-error
       this._listeners[type].push(listener)
     }
-  }
-
-  public dispatchEvent(event: Event) {
-    const listeners = this._listeners[event.type as keyof Events.WebSocketEventListenerMap]
-    if (listeners) {
-      for (const listener of listeners) {
-        this._callEventListener(event, listener)
-      }
-    }
-    return true
   }
 
   /**
@@ -321,7 +308,7 @@ export default class ReconnectingWebSocket {
 
   private _handleTimeout() {
     this._logger.debug('timeout event')
-    this._handleError(new Events.ErrorEvent(Error('TIMEOUT'), this))
+    this._handleError(new Events.ErrorEvent(Error('TIMEOUT'), this._ws))
   }
 
   private _disconnect(code = 1000, reason?: string) {
@@ -343,21 +330,7 @@ export default class ReconnectingWebSocket {
     this._retryCount = 0
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  private _callEventListener<T extends keyof Events.WebSocketEventListenerMap>(
-    event: Events.WebSocketEventMap[T],
-    listener: Events.WebSocketEventListenerMap[T],
-  ) {
-    if ('handleEvent' in listener) {
-      // @ts-expect-error
-      listener.handleEvent(event)
-    } else {
-      // @ts-expect-error
-      listener(event)
-    }
-  }
-
-  private _handleOpen = (event: Event) => {
+  private _handleOpen = () => {
     this._logger.debug('open event')
     const { minUptime } = this._options
 
@@ -369,19 +342,19 @@ export default class ReconnectingWebSocket {
     this._messageQueue = []
 
     if (this.onopen) {
-      this.onopen(event)
+      this.onopen()
     }
 
-    this._listeners.open.forEach(listener => this._callEventListener(event, listener))
+    this._listeners.open.forEach(listener => listener())
   }
 
-  private _handleMessage = (event: WebSocket.RawData) => {
+  private _handleMessage = (event: WebSocket.MessageEvent) => {
     this._logger.debug('message event')
 
     if (this.onmessage) {
       this.onmessage(event)
     }
-    this._listeners.message.forEach(listener => this._callEventListener(event, listener))
+    this._listeners.message.forEach(listener => listener(event))
   }
 
   private _handleError = (event: Events.ErrorEvent) => {
@@ -389,7 +362,7 @@ export default class ReconnectingWebSocket {
     this._disconnect(undefined, event.message === 'TIMEOUT' ? 'timeout' : undefined)
 
     this._logger.debug('exec error listeners')
-    this._listeners.error.forEach(listener => this._callEventListener(event, listener))
+    this._listeners.error.forEach(listener => listener(event))
 
     this._connect()
   }
@@ -406,7 +379,7 @@ export default class ReconnectingWebSocket {
       this.onclose(event)
     }
 
-    this._listeners.close.forEach(listener => this._callEventListener(event, listener))
+    this._listeners.close.forEach(listener => listener(event))
   }
 
   private _removeListeners() {
@@ -414,10 +387,10 @@ export default class ReconnectingWebSocket {
       return
     }
     this._logger.debug('removeListeners')
-    this._ws.off('open', this._handleOpen)
-    this._ws.off('close', this._handleClose)
-    this._ws.off('message', this._handleMessage)
-    this._ws.off('error', this._handleError)
+    this._ws.removeEventListener('open', () => this._handleOpen())
+    this._ws.removeEventListener('close', event => this._handleClose(event))
+    this._ws.removeEventListener('message', event => this._handleMessage(event as any))
+    this._ws.removeEventListener('error', event => this._handleError(event))
   }
 
   private _addListeners() {
@@ -425,10 +398,10 @@ export default class ReconnectingWebSocket {
       return
     }
     this._logger.debug('addListeners')
-    this._ws.on('open', this._handleOpen)
-    this._ws.on('close', this._handleClose)
-    this._ws.on('message', this._handleMessage)
-    this._ws.on('error', this._handleError)
+    this._ws.addEventListener('open', _event => this._handleOpen())
+    this._ws.addEventListener('close', event => this._handleClose(event))
+    this._ws.addEventListener('message', event => this._handleMessage(event as any))
+    this._ws.addEventListener('error', event => this._handleError(event))
   }
 
   private _clearTimeouts() {

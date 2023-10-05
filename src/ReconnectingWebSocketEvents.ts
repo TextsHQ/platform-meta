@@ -12,7 +12,7 @@ export class Event {
   }
 }
 
-export class ErrorEvent extends Event {
+export class ErrorEvent extends Event implements WebSocket.ErrorEvent {
   public message: string
 
   public error: Error
@@ -24,7 +24,7 @@ export class ErrorEvent extends Event {
   }
 }
 
-export class CloseEvent extends Event {
+export class CloseEvent extends Event implements WebSocket.CloseEvent {
   public code: number
 
   public reason: string
@@ -37,16 +37,10 @@ export class CloseEvent extends Event {
     this.reason = reason
   }
 }
-export interface WebSocketEventMap {
-  close: CloseEvent
-  error: ErrorEvent
-  message: WebSocket.RawData
-  open: Event
-}
 
 export interface WebSocketEventListenerMap {
-  close: (event: CloseEvent) => void | { handleEvent: (event: CloseEvent) => void }
-  error: (event: ErrorEvent) => void | { handleEvent: (event: ErrorEvent) => void }
-  message: (event: WebSocket.RawData) => void | { handleEvent: (event: WebSocket.RawData) => void }
-  open: (event: Event) => void | { handleEvent: (event: Event) => void }
+  close: (event: CloseEvent) => void
+  error: (event: ErrorEvent) => void
+  message: (event: WebSocket.MessageEvent) => void
+  open: () => void
 }

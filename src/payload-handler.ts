@@ -1254,40 +1254,62 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('insertSearchSection (ignored)', a)
   }
 
-  private insertStickerAttachment(a: SimpleArgType[]) {
-    const sticker = {
-      threadKey: a[14],
-      messageId: a[18],
-      attachmentFbid: a[19],
+  private async insertStickerAttachment(a: SimpleArgType[]) {
+    const sticker: IGAttachment = {
+      attachmentType: undefined,
+      attributionAppIcon: undefined,
+      attributionAppIconFallback: undefined,
+      attributionAppIconUrlExpirationTimestampMs: 0,
+      attributionAppId: undefined,
+      attributionAppName: undefined,
+      descriptionText: undefined,
+      filename: undefined,
+      filesize: 0,
+      isBorderless: false,
+      offlineAttachmentId: undefined,
+      previewUrlLarge: undefined,
+      sourceText: undefined,
+      subtitleText: undefined,
+      titleText: undefined,
+      xmaLayoutType: undefined,
+      xmasTemplateType: undefined,
+      threadKey: a[14] as string,
+      messageId: a[18] as string,
+      attachmentFbid: a[19] as string,
       hasMedia: true,
       isSharable: false,
-      playableUrl: a[0],
-      playableUrlFallback: a[1],
-      playableUrlExpirationTimestampMs: a[2],
-      playableUrlMimeType: a[3],
-      previewUrl: a[4],
-      previewUrlFallback: a[5],
-      previewUrlExpirationTimestampMs: a[6],
-      previewUrlMimeType: a[7],
-      previewWidth: a[9],
-      previewHeight: a[10],
-      imageUrlMimeType: a[11],
-      attachmentIndex: a[12],
-      accessibilitySummaryText: a[13],
+      playableUrl: a[0] as string,
+      playableUrlFallback: a[1] as string,
+      playableUrlExpirationTimestampMs: a[2] as number,
+      playableUrlMimeType: a[3] as string,
+      previewUrl: a[4] as string,
+      previewUrlFallback: a[5] as string,
+      previewUrlExpirationTimestampMs: a[6] as number,
+      previewUrlMimeType: a[7] as string,
+      previewWidth: a[9] as number,
+      previewHeight: a[10] as number,
+      imageUrlMimeType: a[11] as string,
+      attachmentIndex: a[12] as string,
+      accessibilitySummaryText: a[13] as string,
       // attachmentType: b.i64.cast([0, 1]),
-      timestampMs: a[17],
+      timestampMs: a[17] as number,
       hasXma: false,
-      imageUrl: a[20],
-      imageUrlFallback: a[21],
-      imageUrlExpirationTimestampMs: a[22],
-      faviconUrlExpirationTimestampMs: a[23],
-      avatarViewSize: a[25],
-      avatarCount: a[26],
-      targetId: a[27],
-      mustacheText: a[30],
-      authorityLevel: a[31],
+      imageUrl: a[20] as string,
+      imageUrlFallback: a[21] as string,
+      imageUrlExpirationTimestampMs: a[22] as number,
+      faviconUrlExpirationTimestampMs: a[23] as number,
+      avatarViewSize: a[25] as number,
+      avatarCount: a[26] as number,
+      targetId: a[27] as string,
+      mustacheText: a[30] as string,
+      authorityLevel: a[31] as string,
     }
     this.__logger.debug('insertStickerAttachment (ignored)', sticker)
+
+    // const { messageId } = await this.__papi.api.upsertAttachment(sticker)
+    // return async () => {
+    //   await this.__syncAttachment(sticker.threadKey, messageId)
+    // }
   }
 
   private async insertXmaAttachment(a: SimpleArgType[]) {
