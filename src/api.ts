@@ -631,21 +631,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         },
         with: {
           participants: {
-            columns: {
-              userId: true,
-              isAdmin: true,
-              readWatermarkTimestampMs: true,
-            },
             with: {
-              contacts: {
-                columns: {
-                  id: true,
-                  name: true,
-                  username: true,
-                  profilePictureUrl: true,
-                  igContact: true,
-                },
-              },
+              contacts: true,
             },
           },
         },
@@ -659,33 +646,26 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     if (objName === 'message') {
       const message = await this.db.query.messages.findFirst({
         where: eq(schema.messages.messageId, objectID),
-        columns: {
-          message: true,
-          threadKey: true,
-          messageId: true,
-          offlineThreadingId: true,
-          primarySortKey: true,
-          timestampMs: true,
-          senderId: true,
-        },
         with: {
-          attachments: {
-            columns: {
-              attachmentFbid: true,
-              attachment: true,
+          attachments: true,
+          reactions: true,
+          thread: {
+            with: {
+              participants: {
+                with: {
+                  contacts: true,
+                },
+              },
             },
           },
-          reactions: true,
         },
       })
       return JSON.stringify({
         ...message,
         message: JSON.parse(message.message),
-        // raw: JSON.parse(message.raw),
         attachments: message.attachments?.map(a => ({
           ...a,
           attachment: JSON.parse(a.attachment),
-          // raw: JSON.parse(a.raw),
         })),
       }, null, 2)
     }
