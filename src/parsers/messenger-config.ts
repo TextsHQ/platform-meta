@@ -1,3 +1,4 @@
+import { ReAuthError } from '@textshq/platform-sdk'
 import { EnvKey } from '../env'
 
 type InnerObject = {
@@ -252,11 +253,34 @@ function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvKey {
   throw new Error('Unknown Meta Messenger environment')
 }
 
+const findCurrentUserInitialData = (htmlString: string) => {
+  const regex = /,\["CurrentUserInitialData",\[\],(.*?),\d+\]/
+  const match = htmlString.match(regex)
+  if (match && match[1]) {
+    return JSON.parse(match[1]) as Config['CurrentUserInitialData']
+  }
+  return null
+}
+
 export function parseMessengerInitialPage(html: string) {
   const scriptTags = html.match(/type="application\/json"[\s\S]*?>[\s\S]*?<\/script>/g) || []
 
   const definesMap = new Map<string, unknown>()
   const initialPayloads: string[] = []
+
+  if (scriptTags.length === 0) { // probably the login page
+    // this is only parsed to see different cases of zero script tags (for debugging)
+    const currentUser = findCurrentUserInitialData(html)
+    const hasIgUserId = currentUser?.NON_FACEBOOK_USER_ID?.toString()?.length > 1
+    // this would break for Zuck (4), Chris Hughes (5), Dustin Moskovitz (6), and Eduardo Saverin (7) :)
+    const hasUserId = currentUser?.USER_ID?.toString()?.length > 1
+    const hasAnyId = hasIgUserId || hasUserId
+    if (hasAnyId) {
+      throw new ReAuthError(`Session expired, fbid: ${currentUser?.USER_ID}, igid: ${currentUser?.NON_FACEBOOK_USER_ID}`)
+    }
+    throw new ReAuthError('Session expired')
+  }
+
   scriptTags.forEach(scriptTag => {
     const startIndex = scriptTag.indexOf('{')
     const endIndex = scriptTag.lastIndexOf('}')
