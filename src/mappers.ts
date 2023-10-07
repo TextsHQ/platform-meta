@@ -9,7 +9,7 @@ import {
 } from '@textshq/platform-sdk'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
-import { IGMessageRanges, ParentThreadKey } from './types'
+import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
 import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 import EnvOptions, { EnvKey } from './env'
 
@@ -118,7 +118,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
-  let text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
+  const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
   const { attachments } = m
@@ -140,10 +140,25 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText && !message?.stickerId) {
     message.textHeading = 'No longer available'
-  } else if (message?.stickerId === '369239263222822' || message?.stickerId === '369239383222810' || message?.stickerId === '369239343222814') {
-    text = '👍' // @TODO: it should load the proper svgs and images
-  } else if (message?.stickerId) {
-    message.textHeading = 'Sent a sticker'
+  } else if (message.stickerId) {
+    if (message.stickerId === StickerConstants.HOT_LIKE_SMALL_STICKER_ID
+      || message.stickerId === StickerConstants.HOT_LIKE_MEDIUM_STICKER_ID
+      || message.stickerId === StickerConstants.HOT_LIKE_LARGE_STICKER_ID) {
+      // This is only for hardcoded stickers (not the ones where the sticker comes as an attachment)
+      const fileName = 'blue-thumbs-up'
+      // Replace the existing attachment with a new one to use the SVG file
+      attachmentsWithMedia.splice(0, 1, {
+        fileSize: undefined,
+        fileName: undefined,
+        isGif: false,
+        extra: undefined,
+        id: fileName,
+        type: AttachmentType.IMG,
+        mimeType: 'image/svg+xml',
+        srcURL: `asset://$accountID/sticker/${m.threadKey}/${m.messageId}/${fileName}`,
+        size: { width: 64, height: 64 },
+      })
+    }
   }
   // else {
   //   const assetURL = message.extra?.assetURL

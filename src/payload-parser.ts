@@ -27,7 +27,6 @@ const IGNORED_CALLS = [
   'insertAttachmentItem',
   'insertIcebreakerData',
   'insertSearchSection',
-  'insertStickerAttachment',
   'mailboxTaskCompletionApiOnTaskCompletion',
   'mciTraceLog',
   'removeTask',
@@ -80,6 +79,7 @@ export type OperationKey =
   | 'insertNewMessageRange'
   | 'insertSearchResult'
   | 'insertSearchSection'
+  | 'insertStickerAttachment'
   | 'insertXmaAttachment'
   | 'issueError'
   | 'issueInsertPersistentMenuCtasForThreadTask'

@@ -1304,12 +1304,10 @@ export default class MetaMessengerPayloadHandler {
       mustacheText: a[30] as string,
       authorityLevel: a[31] as string,
     }
-    this.__logger.debug('insertStickerAttachment (ignored)', sticker)
+    this.__logger.debug('insertStickerAttachment', sticker)
 
-    // const { messageId } = await this.__papi.api.upsertAttachment(sticker)
-    // return async () => {
-    //   await this.__syncAttachment(sticker.threadKey, messageId)
-    // }
+    const { messageId } = await this.__papi.api.upsertAttachment(sticker)
+    return () => this.__syncAttachment(sticker.threadKey, messageId)
   }
 
   private async insertXmaAttachment(a: SimpleArgType[]) {

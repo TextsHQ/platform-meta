@@ -25,6 +25,7 @@ import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/p
 import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
+import path from 'path'
 import MetaMessengerAPI from './mm-api'
 import MetaMessengerWebSocket, { RequestResolverType, ThreadRemoveType } from './socket'
 import { getLogger, type Logger } from './logger'
@@ -36,6 +37,7 @@ import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
 import { getTimeValues } from './util'
+import { STICKERS_DIR_PATH } from './constants'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -708,11 +710,19 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   getAsset = async (_: any, assetType: string, attachmentType: string, ...args: string[]) => {
     await this.api.initPromise
     this.logger.debug('getAsset', assetType, attachmentType, args)
-    if (assetType !== 'attachment' || attachmentType !== 'ig_reel') {
-      throw Error('not implemented')
+
+    if (assetType === 'attachment' && attachmentType === 'ig_reel') {
+      const [mediaId, reelId, username] = args
+      const reel = await this.api.getIGReels(mediaId, reelId, username)
+      return reel.url
     }
-    const [mediaId, reelId, username] = args
-    const reel = await this.api.getIGReels(mediaId, reelId, username)
-    return reel.url
+
+    if (assetType === 'sticker') {
+      const [,, filename] = args
+      const filePath = path.join(STICKERS_DIR_PATH, filename)
+      return url.pathToFileURL(filePath).href
+    }
+
+    throw Error('not implemented')
   }
 }
