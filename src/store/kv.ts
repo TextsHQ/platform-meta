@@ -4,6 +4,10 @@ import { ParentThreadKey, SyncGroup } from '../types'
 
 type DbId = number
 
+type ThreadRangesFolderName = string
+type ThreadRangesParentThreadKey = string
+type ThreadRangesThreadRangeFilter = string
+
 type Key =
   | '_fullConfig' // not used, for debugging
   // | 'appId'
@@ -20,6 +24,7 @@ type Key =
   | `cursor-${DbId}-${SyncGroup}`
   | `syncParams-${SyncGroup}`
   | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
+  | `threadsRangesV3-${ThreadRangesFolderName}-${ThreadRangesParentThreadKey}-${ThreadRangesThreadRangeFilter}` // meta calls it v3
 
 const CACHED_KEYS = [
   'appId',

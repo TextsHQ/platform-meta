@@ -234,8 +234,9 @@ export default class MetaMessengerWebSocket {
 
     this.ws.onclose = ev => {
       this.logger.debug('[ws] onclose', ev)
-      clearInterval(this.pingInterval)
-      this.pingInterval = null
+      if (this.pingInterval) {
+        clearInterval(this.pingInterval)
+      }
       if (!this.stop) retry()
     }
   }
@@ -303,17 +304,19 @@ export default class MetaMessengerWebSocket {
 
   private pingInterval: NodeJS.Timeout
 
+  private lastReceivedMessageAt: number
+
   private startPing() {
     this.logger.debug('ping started')
     // instagram.com does it every 10 seconds
-    this.pingInterval = setInterval(() => this.sendPing(), 10000 - 100)
-  }
-
-  private sendPing() {
-    if (this.ws?.readyState !== WebSocket.OPEN) return
-    return this.send({
-      cmd: 'pingreq',
-    })
+    if (this.pingInterval) clearInterval(this.pingInterval)
+    const intervalMs = 10000 - 100
+    this.pingInterval = setInterval(() => {
+      const timeSinceLastMsg = Date.now() - this.lastReceivedMessageAt
+      if (timeSinceLastMsg > intervalMs) {
+        this.send({ cmd: 'pingreq' })
+      }
+    }, intervalMs)
   }
 
   private sendAppSettings() {
@@ -346,7 +349,8 @@ export default class MetaMessengerWebSocket {
   }
 
   private async onMessage(data: WebSocket.RawData) {
-    if (data.toString('hex') === '42020001') {
+    const dataAsHex = data.toString('hex')
+    if (dataAsHex === '42020001') {
       // ack for app settings
 
       await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
@@ -356,8 +360,10 @@ export default class MetaMessengerWebSocket {
     } else if ((data as any)[0] !== 0x42) {
       await this.parseNon0x42Data(data)
     } else {
-      this.logger.debug('unhandled message (1)', data)
+      this.logger.debug('unhandled message (1)', dataAsHex, data.toString())
     }
+
+    this.lastReceivedMessageAt = Date.now()
   }
 
   // runs after

@@ -1033,6 +1033,7 @@ export default class MetaMessengerPayloadHandler {
       attachmentFbid,
       attachment,
     })
+
     //
     // const current = await this.__papi.db.query.attachments.findFirst({
     //   columns: {
@@ -1687,7 +1688,7 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private updateFilteredThreadsRanges(a: SimpleArgType[]) {
-    const b = {
+    const ranges = {
       folderName: a[0] as string,
       parentThreadKey: a[1] as string,
       threadRangeFilter: a[2] as string,
@@ -1696,7 +1697,8 @@ export default class MetaMessengerPayloadHandler {
       secondaryThreadRangeFilter: a[7] as string,
       threadRangeFilterValue: a[8] as string,
     }
-    this.__logger.debug('updateFilteredThreadsRanges (ignored)', a, b)
+    this.__papi.kv.set(`threadsRangesV3-${ranges.folderName}-${ranges.parentThreadKey}-${ranges.threadRangeFilter}`, JSON.stringify(ranges))
+    this.__logger.debug('updateFilteredThreadsRanges', ranges)
   }
 
   private updateForRollCallMessageDeleted(a: SimpleArgType[]) {

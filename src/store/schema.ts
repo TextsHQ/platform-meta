@@ -128,3 +128,19 @@ export const keyValues = sqliteTable('key_values', {
   key: text('key').notNull().primaryKey(),
   value: text('value'),
 })
+
+// export const filteredThreadRanges = sqliteTable('filtered_thread_ranges', {
+//   folderName: text('folderName'),
+//   parentThreadKey: text('parentThreadKey'),
+//   threadRangeFilter: text('threadRangeFilter'),
+//   minLastActivityTimestampMs: integer('minLastActivityTimestampMs'),
+//   maxThreadKey: text('minLastActivityTimestampMs'),
+//   maxLastActivityTimestampMs: integer('maxLastActivityTimestampMs'),
+//   minThreadKey: text('minThreadKey'),
+//   isLoadingBefore: integer('isLoadingBefore', { mode: 'boolean' }),
+//   isLoadingAfter: integer('isLoadingAfter', { mode: 'boolean' }),
+//   hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
+//   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
+//   secondaryThreadRangeFilter: text('secondaryThreadRangeFilter'),
+//   threadRangeFilterValue: text('threadRangeFilterValue'),
+// })
