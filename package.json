@@ -12,8 +12,7 @@
     "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "bun run lint --fix",
-    "watch": "tsc --watch",
-    "db:generate": "rimraf ./drizzle && drizzle-kit generate:sqlite && node ./create-migrations-ts.js"
+    "watch": "tsc --watch"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",

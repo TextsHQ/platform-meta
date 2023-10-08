@@ -10,6 +10,7 @@ import type { EnvKey } from '../env'
 import EnvOptions from '../env'
 import { MetaMessengerError } from '../errors'
 import { MigrateStrategy } from './helpers'
+import { DRIZZLE_DIR_PATH } from '../constants'
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>
 
@@ -87,7 +88,7 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
       case MigrateStrategy.DRIZZLE:
       case MigrateStrategy.RECREATE_DRIZZLE:
         migrate(db, {
-          migrationsFolder: resolve(__dirname, './drizzle'),
+          migrationsFolder: DRIZZLE_DIR_PATH,
         })
         break
       default: break

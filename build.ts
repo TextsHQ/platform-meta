@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import {join} from 'path'
 
 async function createMigrationsTsFile() {
-  const dir = './drizzle'
+  const dir = './binaries/drizzle'
   const file = (await fs.readdir(dir)).find(f => /^0000_.*\.sql$/.test(f))
   if (!file) throw new Error('No migration file found')
 
@@ -12,7 +12,7 @@ async function createMigrationsTsFile() {
     // ignore
   }
 
-  const content = (await Bun.file(`./drizzle/${file}`).text()).replace(/`/g, '\\`').replace(/\t/g, '  ')
+  const content = (await Bun.file(`./binaries/drizzle/${file}`).text()).replace(/`/g, '\\`').replace(/\t/g, '  ')
 
   const migrations = content.split('--> statement-breakpoint\n').map(c => `sql\`${c}\`,`).join('\n')
 
@@ -67,7 +67,6 @@ async function main() {
   }
 
   console.log('✅ tsc')
-  await copyDir('./drizzle', `./dist/store/drizzle`)
 
   await Promise.all([
     buildPlatform('instagram'),
