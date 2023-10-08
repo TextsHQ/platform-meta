@@ -135,7 +135,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   if (reelWithTitle?.extra?.headerTitle) {
     // const what = (reelWithTitle.extra.mmType === '7') ? 'story' : 'post'
-    message.textHeading = `Shared something from @${reelWithTitle.extra.headerTitle}`
+    message.textHeading = `Shared media from @${reelWithTitle.extra.headerTitle}`
   }
 
   if (!message.links && message.text === '' && !message.textHeading && attachmentsWithMedia?.length === 0 && !attachmentWithText && !message?.stickerId) {
