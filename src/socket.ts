@@ -124,7 +124,7 @@ export default class MetaMessengerWebSocket {
       mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
       aid: Number(this.papi.api.config.appId),
       st: [...this.subscribedTopics],
-      pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536 }],
+      pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536, isBase64Publish: false }],
       dc: '',
       no_auto_fg: true,
       gas: null,
@@ -203,7 +203,7 @@ export default class MetaMessengerWebSocket {
       })
       if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
         clearTimeout(this.connectTimeout)
-        this.connectTimeout = setTimeout(this.connect, getRetryTimeout(this.retryAttempt))
+        this.connectTimeout = setTimeout(() => this.connect(), getRetryTimeout(this.retryAttempt))
       } else {
         this.stop = true
         // trackEvent('error', {
@@ -298,7 +298,9 @@ export default class MetaMessengerWebSocket {
     })
 
     // @TODO: need to send rtc_multi
-    await this.sendAppSettings()
+    if (this.isInitialConnection) {
+      await this.sendAppSettings()
+    }
     this.startPing()
   }
 
