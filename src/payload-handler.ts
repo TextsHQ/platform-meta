@@ -2147,4 +2147,8 @@ export default class MetaMessengerPayloadHandler {
   private writeThreadCapabilities(a: SimpleArgType[]) {
     this.__logger.debug('writeThreadCapabilities (ignored)', a)
   }
+
+  private setBotResponseInfo(a: SimpleArgType[]) {
+    this.__logger.debug('setBotResponseInfo (ignored)', a)
+  }
 }

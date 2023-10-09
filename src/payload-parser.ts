@@ -100,6 +100,7 @@ export type OperationKey =
   | 'replaceOptimisticReaction'
   | 'replaceOptimisticThread'
   | 'replaceOptimsiticMessage'
+  | 'setBotResponseInfo'
   | 'setForwardScore'
   | 'setHMPSStatus'
   | 'setMessageDisplayedContentTypes'
