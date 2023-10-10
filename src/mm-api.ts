@@ -73,7 +73,6 @@ export default class MetaMessengerAPI {
     })
     this.messageRangeResolvers = new PromiseStore({
       env,
-      keyPrefix: 'messageRangeResolver',
       startAt: 1,
       timeoutMs: 15_000,
     })

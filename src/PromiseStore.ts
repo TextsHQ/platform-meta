@@ -9,9 +9,9 @@ export class PromiseStore<DefaultPromiseType = unknown> {
   private i: number
 
   constructor(
-    private readonly config: { env: EnvKey, keyPrefix: string, startAt: number, timeoutMs: number },
+    private readonly config: { env: EnvKey, startAt: number, timeoutMs: number },
   ) {
-    this.logger = getLogger(this.config.env, `ps:${this.config.keyPrefix}`)
+    this.logger = getLogger(this.config.env, 'ps')
     this.i = typeof this.config.startAt === 'number' ? this.config.startAt : 0
   }
 
@@ -45,7 +45,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
     })
 
     const id = this.i++
-    const generatedKey = String(key || `${this.config.keyPrefix}:${id}`)
+    const generatedKey = String(key || `#${id}`)
 
     if (timeoutMs > 0) {
       timeoutId = setTimeout(() => {
