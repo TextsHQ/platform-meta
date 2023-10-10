@@ -117,11 +117,12 @@ export default class MetaMessengerWebSocket {
       s: mqttSid,
       cp: Number(this.papi.api.config.mqttClientCapabilities),
       ecp: Number(this.papi.api.config.mqttCapabilities),
-      chat_on: this.papi.api.envSwitch<boolean>(true, false),
-      fg: this.papi.api.envSwitch<boolean>(true, false),
+      chat_on: true,
+      // fg: typeof document === "object" && document && document.hasFocus && document.hasFocus(), (original)
+      fg: true,
       d: this.papi.api.config.clientId,
       ct: this.papi.api.envSwitch<string>('cookie_auth', 'websocket'),
-      mqtt_sid: '', // this is empty in Mercury too // @TODO: should we use the one from the cookie?
+      mqtt_sid: '',
       aid: Number(this.papi.api.config.appId),
       st: [...this.subscribedTopics],
       pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536, isBase64Publish: false }],
