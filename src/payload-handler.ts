@@ -1,4 +1,10 @@
-import { type ServerEvent, StateSyncEvent, ServerEventType, UNKNOWN_DATE } from '@textshq/platform-sdk'
+import {
+  type ServerEvent,
+  StateSyncEvent,
+  ServerEventType,
+  UNKNOWN_DATE,
+  ThreadMessagesRefreshEvent,
+} from '@textshq/platform-sdk'
 import { and, eq } from 'drizzle-orm'
 import { pick } from 'lodash'
 import type PlatformMetaMessenger from './api'
@@ -64,7 +70,7 @@ export default class MetaMessengerPayloadHandler {
 
   private __errors: MetaMessengerError[] = []
 
-  private __events: StateSyncEvent[] = []
+  private __events: (StateSyncEvent | ThreadMessagesRefreshEvent)[] = []
 
   constructor(
     private readonly __papi: PlatformMetaMessenger,
@@ -2039,6 +2045,9 @@ export default class MetaMessengerPayloadHandler {
           participantID: r.actorId,
           emoji: true,
         }],
+      }, {
+        type: ServerEventType.THREAD_MESSAGES_REFRESH,
+        threadID: r.threadKey,
       })
     }
   }

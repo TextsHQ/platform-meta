@@ -208,7 +208,10 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     links: message.links,
     parseTemplate: isAction,
     extra: message.extra,
-    // sortKey: m.primarySortKey || message.secondarySortKey,
+    // extra: {
+    //   ...(message.extra || {}),
+    //   primarySortKey: m.primarySortKey,
+    // },
   }
 
   const extraMessages: Message[] = []
@@ -239,6 +242,9 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
         parseTemplate: true,
         isAction: true,
         isHidden: true,
+        // extra: {
+        //   primarySortKey: m.primarySortKey,
+        // },
       })
     }
   }
@@ -247,8 +253,12 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   return [mapped, ...extraMessages]
 }
 
+// export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] => messages.flatMap(m => mapMessage(m, env, fbid, t).filter(Boolean).sort((m1, m2) => {
+//   if (m1.extra?.primarySortKey === m2.extra?.primarySortKey) return 0
+//   return m1.extra?.primarySortKey > m2.extra?.primarySortKey ? 1 : -1
+// }))
 export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] =>
-  orderBy(messages.flatMap(m => mapMessage(m, env, fbid, t).filter(Boolean), 'primarySortKey'))
+  orderBy(messages.flatMap(m => mapMessage(m, env, fbid, t).filter(Boolean), 'timestamp'))
 
 export function mapThread(
   t: QueryThreadsResult[0],

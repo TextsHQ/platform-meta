@@ -212,6 +212,7 @@ export type IGMessage = {
   extra?: {
     mediaLink?: string
     assetURL?: string
+    primarySortKey?: number
   }
   textHeading?: string
 }
