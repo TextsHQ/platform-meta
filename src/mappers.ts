@@ -8,7 +8,7 @@ import {
   MessageActionType,
   UNKNOWN_DATE,
 } from '@textshq/platform-sdk'
-import { orderBy, truncate } from 'lodash'
+import { truncate } from 'lodash'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
 import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
@@ -207,11 +207,10 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     seen,
     links: message.links,
     parseTemplate: isAction,
-    extra: message.extra,
-    // extra: {
-    //   ...(message.extra || {}),
-    //   primarySortKey: m.primarySortKey,
-    // },
+    extra: {
+      ...(message.extra || {}),
+      primarySortKey: m.primarySortKey,
+    },
   }
 
   const extraMessages: Message[] = []
@@ -219,8 +218,10 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   if (m.reactions?.length > 0) {
     const truncated = truncate(mapped.text || mapped.textHeading || mapped.textFooter || '')
+    let lastSortKey = m.primarySortKey
     for (const r of m.reactions) {
       const reactionKey = fixEmoji(r.reaction)
+      lastSortKey += 1
       reactions.push({
         id: r.actorId,
         reactionKey,
@@ -242,9 +243,9 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
         parseTemplate: true,
         isAction: true,
         isHidden: true,
-        // extra: {
-        //   primarySortKey: m.primarySortKey,
-        // },
+        extra: {
+          primarySortKey: lastSortKey,
+        },
       })
     }
   }
@@ -258,7 +259,10 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 //   return m1.extra?.primarySortKey > m2.extra?.primarySortKey ? 1 : -1
 // }))
 export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] =>
-  orderBy(messages.flatMap(m => mapMessage(m, env, fbid, t).filter(Boolean), 'timestamp'))
+  messages.flatMap(m => mapMessage(m, env, fbid, t)).filter(Boolean).sort((m1, m2) => {
+    if (m1.extra?.primarySortKey === m2.extra?.primarySortKey) return 0
+    return m1.extra?.primarySortKey > m2.extra?.primarySortKey ? 1 : -1
+  })
 
 export function mapThread(
   t: QueryThreadsResult[0],
