@@ -34,7 +34,7 @@ const EnvOptions = {
     initialURL: 'https://www.messenger.com/' as const,
     defaultContactName: 'Facebook User' as const,
     defaultVersionId: 6345422228920134,
-    migrationStrategy: MigrateStrategy.DRIZZLE,
+    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: true,
     isFacebook: true,
   },
