@@ -1,7 +1,7 @@
 diff --git a/node_modules/mqtt-packet/parser.js b/node_modules/mqtt-packet/parser.js
 index 608c6f8..452bd5b 100644
---- a/node_modules/mqtt-packet/parser.js
-+++ b/node_modules/mqtt-packet/parser.js
+--- a/parser.js
++++ b/parser.js
 @@ -58,7 +58,7 @@ class Parser extends EventEmitter {
      this.packet.cmd = constants.types[cmdIndex]
      const headerFlags = zero & 0xf

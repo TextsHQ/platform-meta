@@ -3,7 +3,8 @@
   "version": "3.0.0",
   "main": "dist/index.js",
   "files": [
-    "dist"
+    "dist",
+    "patches"
   ],
   "scripts": {
     "ncc": "npx @vercel/ncc build -e better-sqlite3 -m --target es2019 -o _ncc dist/index.js",
@@ -12,8 +13,7 @@
     "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "bun run lint --fix",
-    "watch": "tsc --watch",
-    "postinstall": "patch-package"
+    "watch": "tsc --watch"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
@@ -23,8 +23,7 @@
     "form-data": "^4.0.0",
     "http-cookie-agent": "^5.0.4",
     "lodash": "4.17.21",
-    "mqtt-packet": "^8.2.0",
-    "patch-package": "^8.0.0",
+    "mqtt-packet": "patch:mqtt-packet@^8.2.0#patches/mqtt-packet+8.2.0.patch",
     "postinstall-postinstall": "^2.1.0",
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
