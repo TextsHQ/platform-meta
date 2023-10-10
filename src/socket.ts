@@ -18,8 +18,10 @@ import { SyncGroup } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
+import { MqttErrors } from './MetaMQTTErrors'
 
 const MAX_RETRY_ATTEMPTS = 12
+const SOCKET_CONNECTION_TIMEOUT_MS = 20 * 1e3
 
 type MMSocketTask = {
   label: string
@@ -182,6 +184,16 @@ export default class MetaMessengerWebSocket {
       }, '[ws]', 'failed to close previous on connect error')
     }
 
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout)
+      this.connectionTimeout = null
+    }
+
+    // @TODO: does not yet does anything
+    this.connectionTimeout = setTimeout(() => {
+      this.logger.error(MqttErrors.CONNECT_TIMEOUT)
+    }, SOCKET_CONNECTION_TIMEOUT_MS)
+
     // ig web on reconnections does not reset last task id and last request id
     // but on initial connection (page load) they are 0, since we keep these in memory
     // just not resetting mirrors the ig web behavior
@@ -248,6 +260,7 @@ export default class MetaMessengerWebSocket {
     })
     this.stop = true
     try {
+      if (this.ws?.readyState === WebSocket.OPEN) this.sendBrowserClosed()
       this.ws?.close()
     } catch (err) {
       this.logger.error(err, {
@@ -304,6 +317,8 @@ export default class MetaMessengerWebSocket {
     }
     this.startPing()
   }
+
+  private connectionTimeout: NodeJS.Timeout
 
   private pingInterval: NodeJS.Timeout
 
@@ -482,6 +497,18 @@ export default class MetaMessengerWebSocket {
     return promise
   }
 
+  private sendBrowserClosed() {
+    return this.send({
+      cmd: 'publish',
+      messageId: this.messageIds.gen(),
+      payload: '{}',
+      qos: 1,
+      dup: false,
+      retain: false,
+      topic: '/browser_close',
+    })
+  }
+
   private async subscribeToAllDatabases() {
     // this.subscribeToDB(1, 'cursor-1-1', null)
     const promises = [
@@ -544,5 +571,9 @@ export default class MetaMessengerWebSocket {
       }))
     }
     await Promise.allSettled(promises)
+  }
+
+  private clearTimeouts() {
+    clearTimeout(this.connectTimeout)
   }
 }

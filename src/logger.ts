@@ -2,11 +2,12 @@ import { texts } from '@textshq/platform-sdk'
 import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
 import { MetaMessengerError } from './errors'
 import { EnvKey } from './env'
+import { MqttError } from './MetaMQTTErrors'
 
 export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error'
-export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError | string
+export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError | MqttError | string
 
 const onError = (env: EnvKey, err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const isError = err instanceof Error
