@@ -19,6 +19,7 @@ import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
 import { MqttErrors } from './MetaMQTTErrors'
+import { PromiseStore } from './PromiseStore'
 
 const MAX_RETRY_ATTEMPTS = 12
 const SOCKET_CONNECTION_TIMEOUT_MS = 20 * 1e3
@@ -92,6 +93,11 @@ export default class MetaMessengerWebSocket {
 
   constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
+    this.messagePromises = new PromiseStore({
+      startAt: 2,
+      env: this.papi.env,
+      timeoutMs: 0,
+    })
   }
 
   private isInitialConnection = true
@@ -104,7 +110,9 @@ export default class MetaMessengerWebSocket {
 
   requestIds = new AutoIncrementStore()
 
-  private messageIds = new AutoIncrementStore(2) // this appears to be Math.random() in meta's code
+  private messagePromises: PromiseStore<void>
+
+  private packetQueue: Packet[] = []
 
   private generateMQTTConfig = () => {
     const mqttSid = getMqttSid()
@@ -188,6 +196,8 @@ export default class MetaMessengerWebSocket {
       }, '[ws]', 'failed to close previous on connect error')
     }
 
+    this.isConnected = false
+
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout)
       this.connectionTimeout = null
@@ -259,7 +269,6 @@ export default class MetaMessengerWebSocket {
       this.logger.debug('[ws] onopen', {
         retryAttempt: this.retryAttempt,
       })
-      this.isConnected = true
       if (this.retryAttempt) this.onReconnected()
       this.retryAttempt = 0
       this.onOpen()
@@ -307,23 +316,15 @@ export default class MetaMessengerWebSocket {
 
   private connectTimeout: ReturnType<typeof setTimeout>
 
-  private readonly waitAndSend = async (p: Packet) => {
-    // @TODO: there should be a queue for this
-    while (this.ws?.readyState !== WebSocket.OPEN && !this.stop) {
-      this.logger.debug('[ws] waiting 5ms to send')
-      await sleep(5)
-    }
-    if (this.stop) {
-      this.logger.debug('[ws] stop is true, not sending', p.cmd.toString())
+  readonly send = async (p: Packet, forceSend = false) => {
+    if (this.isConnected || forceSend) {
+      this.logger.debug('sending', p)
+      this.ws.send(mqttPacket.generate(p))
       return
     }
-    return this.send(p)
-  }
 
-  readonly send = (p: Packet): Promise<void> | void => {
-    if (this.ws?.readyState !== WebSocket.OPEN) return this.waitAndSend(p)
-    this.logger.debug('sending', p)
-    this.ws.send(mqttPacket.generate(p))
+    this.logger.debug('enqueuing', p)
+    this.packetQueue.push(p)
   }
 
   private async onOpen() {
@@ -340,12 +341,19 @@ export default class MetaMessengerWebSocket {
       clean: true,
       keepalive: 10,
       username: this.mqttConfig.username,
-    })
+    }, true)
 
-    // @TODO: need to send rtc_multi
     if (this.isInitialConnection) {
-      await this.sendAppSettings()
+      await this.send({
+        cmd: 'publish',
+        messageId: 1,
+        qos: 1,
+        dup: false,
+        retain: false,
+        ...this.lsAppSettings,
+      }, true)
     }
+
     this.startPing()
   }
 
@@ -368,23 +376,16 @@ export default class MetaMessengerWebSocket {
     }, intervalMs)
   }
 
-  private sendAppSettings() {
-    // send app settings
-    // need to wait for the ack before sending the subscribe
-    return this.send({
-      cmd: 'publish',
-      messageId: 1,
-      qos: 1,
-      dup: false,
-      retain: false,
-      ...this.lsAppSettings,
-    })
-  }
-
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
     for (let i = 0; i < topics.length; i++) {
       const topic = topics[i]
       if (this.subscribedTopics.has(topic)) continue
+      const { promise, id: messageId } = this.messagePromises.create()
+      promise.then(() => {
+        this.logger.debug(`suback for ${topic} (${messageId})`)
+        this.subscribedTopics.add(topic)
+      })
+
       await this.send({
         cmd: 'subscribe',
         qos: 1,
@@ -394,9 +395,8 @@ export default class MetaMessengerWebSocket {
             qos: 0,
           },
         ],
-        messageId: this.messageIds.gen(),
+        messageId,
       } as any)
-      this.subscribedTopics.add(topic)
     }
   }
 
@@ -414,10 +414,10 @@ export default class MetaMessengerWebSocket {
           clearTimeout(this.connectionTimeout)
           this.connectionTimeout = null
         }
+        this.isConnected = true
+        await this.runPacketQueue()
         await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
-        if (this.isInitialConnection) {
-          await this.afterInitialHandshake()
-        }
+        await this.afterInitialHandshake()
         break
       case 'publish':
         if (packet.topic === '/ls_resp') {
@@ -426,7 +426,9 @@ export default class MetaMessengerWebSocket {
         }
         break
       case 'suback':
-        // @TODO: `subscribeToTopicsIfNotSubscribed` should use this
+        if (this.messagePromises.has(packet.messageId)) {
+          this.messagePromises.resolve(packet.messageId)
+        }
         break
       case 'pingresp':
         this.logger.debug('pingresp')
@@ -435,6 +437,14 @@ export default class MetaMessengerWebSocket {
         this.logger.debug('unhandled packet', packet)
       }
     }
+  }
+
+  private async runPacketQueue() {
+    if (!this.packetQueue.length) return
+    const packet = this.packetQueue.shift()
+    await this.send(packet)
+    await sleep(Math.floor(Math.random() * (70 - 30 + 1)) + 30)
+    await this.runPacketQueue()
   }
 
   // runs after
@@ -482,7 +492,7 @@ export default class MetaMessengerWebSocket {
   }) {
     return this.send({
       cmd: 'publish',
-      messageId: this.messageIds.gen(),
+      messageId: this.messagePromises.createId(),
       qos: 1,
       dup: false,
       retain: false,
@@ -533,7 +543,7 @@ export default class MetaMessengerWebSocket {
   private sendBrowserClosed() {
     return this.send({
       cmd: 'publish',
-      messageId: this.messageIds.gen(),
+      messageId: this.messagePromises.createId(),
       payload: '{}',
       qos: 1,
       dup: false,
