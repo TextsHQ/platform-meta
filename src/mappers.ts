@@ -54,15 +54,6 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
   }
 }
 
-export function mapReaction(r: QueryMessagesResult[number]['reactions'][number]) {
-  return {
-    id: r.actorId,
-    reactionKey: fixEmoji(r.reaction),
-    participantID: r.actorId,
-    emoji: true,
-  }
-}
-
 export function mapParticipants(_participants: DBParticipantSelect[], env: EnvKey, fbid: string) {
   const participants: Participant[] = _participants.map(p => ({
     id: p.contacts.id,
@@ -209,7 +200,12 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
     attachments: attachmentsWithMedia,
-    reactions: m.reactions.map(r => mapReaction(r)),
+    reactions: m.reactions.map(r => ({
+      id: r.actorId,
+      reactionKey: fixEmoji(r.reaction),
+      participantID: r.actorId,
+      emoji: true,
+    })),
     textHeading,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     seen,
