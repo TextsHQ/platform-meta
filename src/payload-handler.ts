@@ -68,7 +68,7 @@ export default class MetaMessengerPayloadHandler {
 
   constructor(
     private readonly __papi: PlatformMetaMessenger,
-    private readonly __data: IGSocketPayload,
+    __data: IGSocketPayload,
     private readonly __requestId: number | 'initial' | 'snapshot',
   ) {
     this.__logger = getLogger(this.__papi.env, `payload:${this.__requestId}:${Date.now()}`)

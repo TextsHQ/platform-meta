@@ -5,8 +5,10 @@ import {
   type Thread,
   type Participant,
   type ThreadType,
+  MessageActionType,
   UNKNOWN_DATE,
 } from '@textshq/platform-sdk'
+import { orderBy, truncate } from 'lodash'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
 import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
@@ -79,7 +81,7 @@ export function mapParticipants(_participants: DBParticipantSelect[], env: EnvKe
   return participants.filter(p => !!p?.id)
 }
 
-export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], env: EnvKey, fbid: string, _thread?: QueryThreadsResult[number]): Message {
+export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], env: EnvKey, fbid: string, _thread?: QueryThreadsResult[number]) {
   // const thread = m.thread?.thread ? JSON.parse(m.thread.thread) as QueryMessagesResult[0]['thread'] : null
   const t = ('thread' in m) ? m.thread : _thread
 
@@ -188,7 +190,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const textFooter = !message.isUnsent && attachmentWithText
   const textHeading = (!linkedMessageID && (message.textHeading || message.replySnippet)) || textFooter
 
-  return {
+  const mapped: Message = {
     id: m.messageId,
     timestamp: m.timestampMs,
     senderID: m.senderId,
@@ -200,12 +202,6 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
     attachments: attachmentsWithMedia,
-    reactions: m.reactions.map(r => ({
-      id: r.actorId,
-      reactionKey: fixEmoji(r.reaction),
-      participantID: r.actorId,
-      emoji: true,
-    })),
     textHeading,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     seen,
@@ -214,14 +210,45 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     extra: message.extra,
     // sortKey: m.primarySortKey || message.secondarySortKey,
   }
+
+  const extraMessages: Message[] = []
+  const reactions: Message['reactions'] = []
+
+  if (m.reactions?.length > 0) {
+    const truncated = truncate(mapped.text || mapped.textHeading || mapped.textFooter || '')
+    for (const r of m.reactions) {
+      const reactionKey = fixEmoji(r.reaction)
+      reactions.push({
+        id: r.actorId,
+        reactionKey,
+        participantID: r.actorId,
+        emoji: true,
+      })
+      extraMessages.push({
+        id: r.actorId,
+        timestamp: new Date(+r.timestampMs),
+        senderID: mapped.senderID,
+        isSender: mapped.isSender,
+        text: `${mapped.isSender ? 'You' : '{{sender}}'} reacted with ${reactionKey}${truncated ? `: ${truncated}` : ''}`,
+        action: {
+          type: MessageActionType.MESSAGE_REACTION_CREATED,
+          messageID: mapped.id,
+          participantID: mapped.senderID,
+          reactionKey,
+        },
+        parseTemplate: true,
+        isAction: true,
+        isHidden: true,
+      })
+    }
+  }
+
+  mapped.reactions = reactions
+  return [mapped, ...extraMessages]
 }
 
-export function mapMessages(messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]) {
-  return messages.sort((m1, m2) => {
-    if (m1.primarySortKey === m2.primarySortKey) return 0
-    return m1.primarySortKey > m2.primarySortKey ? 1 : -1
-  }).map(m => mapMessage(m, env, fbid, t))
-}
+export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] =>
+  orderBy(messages.flatMap(m => mapMessage(m, env, fbid, t).filter(Boolean), 'primarySortKey'))
 
 export function mapThread(
   t: QueryThreadsResult[0],
