@@ -22,7 +22,7 @@ import type {
   User,
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/platform-sdk'
-import { and, asc, desc, eq, gte, inArray, lte, SQLWrapper } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, lt, lte, SQLWrapper } from 'drizzle-orm'
 import { CookieJar } from 'tough-cookie'
 
 import path from 'path'
@@ -263,20 +263,20 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
 
     let where = eq(schema.messages.threadKey, threadID)
-    const { primarySortKey } = await this.db.query.messages.findFirst({
-      where,
-      orderBy: [desc(schema.messages.primarySortKey)],
-      columns: {
-        primarySortKey: true,
-      },
-    }) || { primarySortKey: '0' }
-
     const { direction = 'before', cursor } = pagination || {}
     const directionIsBefore = direction === 'before'
     const order = directionIsBefore ? desc : asc
-    const filter = directionIsBefore ? lte : gte
+    const filter = directionIsBefore ? lt : gte
 
     if (cursor) {
+      const { primarySortKey } = await this.db.query.messages.findFirst({
+        where: and(where, eq(schema.messages.messageId, cursor)),
+        orderBy: [desc(schema.messages.primarySortKey)],
+        columns: {
+          primarySortKey: true,
+        },
+      }) || { primarySortKey: '0' }
+
       where = and(
         where,
         filter(schema.messages.primarySortKey, primarySortKey),
