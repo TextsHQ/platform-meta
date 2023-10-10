@@ -1,0 +1,13 @@
+diff --git a/node_modules/mqtt-packet/parser.js b/node_modules/mqtt-packet/parser.js
+index 608c6f8..452bd5b 100644
+--- a/node_modules/mqtt-packet/parser.js
++++ b/node_modules/mqtt-packet/parser.js
+@@ -58,7 +58,7 @@ class Parser extends EventEmitter {
+     this.packet.cmd = constants.types[cmdIndex]
+     const headerFlags = zero & 0xf
+     const requiredHeaderFlags = constants.requiredHeaderFlags[cmdIndex]
+-    if (requiredHeaderFlags != null && headerFlags !== requiredHeaderFlags) {
++    if (!this.packet.cmd && requiredHeaderFlags != null && headerFlags !== requiredHeaderFlags) {
+       // Where a flag bit is marked as “Reserved” in Table 2.2 - Flag Bits, it is reserved for future use and MUST be set to the value listed in that table [MQTT-2.2.2-1]. If invalid flags are received, the receiver MUST close the Network Connection [MQTT-2.2.2-2]
+       return this._emitError(new Error(constants.requiredHeaderFlagsErrors[cmdIndex]))
+     }

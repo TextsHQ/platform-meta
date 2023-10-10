@@ -12,7 +12,8 @@
     "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "bun run lint --fix",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
@@ -23,6 +24,8 @@
     "http-cookie-agent": "^5.0.4",
     "lodash": "4.17.21",
     "mqtt-packet": "^8.2.0",
+    "patch-package": "^8.0.0",
+    "postinstall-postinstall": "^2.1.0",
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
     "utf-8-validate": "^6.0.3",

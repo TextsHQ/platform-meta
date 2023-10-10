@@ -4,13 +4,13 @@ import mqttPacket, { type Packet } from 'mqtt-packet'
 import { setTimeout as sleep } from 'timers/promises'
 
 import { InboxName } from '@textshq/platform-sdk'
+import mqtt from 'mqtt-packet'
 import {
   AutoIncrementStore,
   createPromise,
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
-  parseMqttPacket,
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
@@ -96,6 +96,8 @@ export default class MetaMessengerWebSocket {
 
   private isInitialConnection = true
 
+  private isConnected = false
+
   private subscribedTopics = new Set<string>()
 
   taskIds = new AutoIncrementStore()
@@ -164,6 +166,8 @@ export default class MetaMessengerWebSocket {
 
   private mqttConfig: ReturnType<typeof this.generateMQTTConfig> = null
 
+  private mqttParser: mqtt.Parser = null
+
   readonly connect = async () => {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
       this.logger.warn('[ws] already connected')
@@ -194,6 +198,21 @@ export default class MetaMessengerWebSocket {
       this.logger.error(MqttErrors.CONNECT_TIMEOUT)
     }, SOCKET_CONNECTION_TIMEOUT_MS)
 
+    if (this.mqttParser) {
+      this.mqttParser.removeAllListeners()
+      this.mqttParser = null
+    }
+
+    this.mqttParser = mqtt.parser({
+      protocolVersion: 3,
+    })
+
+    this.mqttParser.on('packet', packet => this.onPacket(packet))
+
+    this.mqttParser.on('error', error => {
+      this.logger.error(error, {}, '[ws] mqtt parser error')
+    })
+
     // ig web on reconnections does not reset last task id and last request id
     // but on initial connection (page load) they are 0, since we keep these in memory
     // just not resetting mirrors the ig web behavior
@@ -206,7 +225,16 @@ export default class MetaMessengerWebSocket {
       wsOptions,
     )
 
-    this.ws.on('message', data => this.onMessage(data))
+    this.ws.binaryType = 'arraybuffer'
+
+    this.ws.addEventListener('message', data => {
+      const wsData = data.data
+      if (!(wsData instanceof ArrayBuffer)) {
+        this.logger.error('[ws] message is not an array buffer')
+        return
+      }
+      this.mqttParser.parse(Buffer.from(wsData))
+    })
 
     const retry = debounce(() => {
       this.logger.debug('[ws]', {
@@ -231,6 +259,7 @@ export default class MetaMessengerWebSocket {
       this.logger.debug('[ws] onopen', {
         retryAttempt: this.retryAttempt,
       })
+      this.isConnected = true
       if (this.retryAttempt) this.onReconnected()
       this.retryAttempt = 0
       this.onOpen()
@@ -247,6 +276,8 @@ export default class MetaMessengerWebSocket {
 
     this.ws.onclose = ev => {
       this.logger.debug('[ws] onclose', ev)
+      this.isConnected = false
+
       if (this.pingInterval) {
         clearInterval(this.pingInterval)
       }
@@ -343,8 +374,11 @@ export default class MetaMessengerWebSocket {
     return this.send({
       cmd: 'publish',
       messageId: 1,
+      qos: 1,
+      dup: false,
+      retain: false,
       ...this.lsAppSettings,
-    } as any)
+    })
   }
 
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
@@ -366,22 +400,41 @@ export default class MetaMessengerWebSocket {
     }
   }
 
-  private async onMessage(data: WebSocket.RawData) {
-    const dataAsHex = data.toString('hex')
-    if (dataAsHex === '42020001') {
-      // ack for app settings
-
-      await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
-      if (this.isInitialConnection) {
-        await this.afterInitialHandshake()
-      }
-    } else if ((data as any)[0] !== 0x42) {
-      await this.parseNon0x42Data(data)
-    } else {
-      this.logger.debug('unhandled message (1)', dataAsHex, data.toString())
+  private async onPacket(packet: Packet) {
+    if (!packet) {
+      this.logger.debug('empty packet', packet)
+      return
     }
 
     this.lastReceivedMessageAt = Date.now()
+
+    switch (packet.cmd) {
+      case 'connack':
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout)
+          this.connectionTimeout = null
+        }
+        await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
+        if (this.isInitialConnection) {
+          await this.afterInitialHandshake()
+        }
+        break
+      case 'publish':
+        if (packet.topic === '/ls_resp') {
+          const payload = JSON.parse(packet.payload.toString())
+          await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
+        }
+        break
+      case 'suback':
+        // @TODO: `subscribeToTopicsIfNotSubscribed` should use this
+        break
+      case 'pingresp':
+        this.logger.debug('pingresp')
+        break
+      default: {
+        this.logger.debug('unhandled packet', packet)
+      }
+    }
   }
 
   // runs after
@@ -393,26 +446,6 @@ export default class MetaMessengerWebSocket {
       this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
     ])
     this.isInitialConnection = false
-  }
-
-  private async parseNon0x42Data(data: any) {
-    // for some reason, fb sends wrongly formatted packets for PUBACK.
-    // this causes mqtt-packet to throw an error.
-    // this is a hacky way to fix it.
-    const payload = (await parseMqttPacket(data)) as any
-    if (!payload) {
-      this.logger.debug('empty message (1.1)', data)
-      return
-    }
-
-    // the broker sends 4 responses to the get messages command (request_id = 6)
-    // 1. ack
-    // 2. a response with a new cursor, the official client uses the new cursor to get more messages
-    // however, the new cursor is not needed to get more messages, as the old cursor still works
-    // not sure exactly what the new cursor is for, but it's not needed. the request_id is null
-    // 3. unknown response with a request_id of 6. has no information
-    // 4. the thread information. this is the only response that is needed. this packet has the text deleteThenInsertThread
-    await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
   }
 
   requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolve, RequestResolverReject]>()
