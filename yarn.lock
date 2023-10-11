@@ -1985,7 +1985,7 @@ __metadata:
     form-data: ^4.0.0
     http-cookie-agent: ^5.0.4
     lodash: 4.17.21
-    mqtt-packet: ^8.2.0
+    mqtt-packet: "patch:mqtt-packet@^8.2.0#patches/mqtt-packet+8.2.0.patch"
     postinstall-postinstall: ^2.1.0
     react: "https://github.com/TextsHQ/react-global-shim"
     rimraf: ^5.0.1
@@ -5328,6 +5328,17 @@ __metadata:
     debug: ^4.1.1
     process-nextick-args: ^2.0.1
   checksum: ea232dfe0de169ddcfa8749af21dcf2a2f3a38c88ff3fe70a68bb4f07041e5492141d032a9fac63db5624ff8d0e527a9ca7d0c9300817e3c475a02339e1baf35
+  languageName: node
+  linkType: hard
+
+"mqtt-packet@patch:mqtt-packet@^8.2.0#patches/mqtt-packet+8.2.0.patch::locator=%40textshq%2Fplatform-meta%40workspace%3A.":
+  version: 8.2.0
+  resolution: "mqtt-packet@patch:mqtt-packet@npm%3A8.2.0#patches/mqtt-packet+8.2.0.patch::version=8.2.0&hash=11cddc&locator=%40textshq%2Fplatform-meta%40workspace%3A."
+  dependencies:
+    bl: ^5.0.0
+    debug: ^4.1.1
+    process-nextick-args: ^2.0.1
+  checksum: ad99f794e599887d596b4da722ceb177db53c00e6a9a64d207cf69fa6b5e2a98e08c16fc01231f7684cc0119afef6aba87e1027dc624e208467dd5411b8dae10
   languageName: node
   linkType: hard
 
