@@ -812,22 +812,22 @@ export default class MetaMessengerAPI {
       __user: this.config.fbid,
       __a: '1',
       __req: '9',
-      // __hs: '19630.HYP:messengerdotcom_comet_pkg.2.1..0.1',
+      __hs: '19641.HYP:messengerdotcom_comet_pkg.2.1..0.1',
       dpr: '2',
-      // __ccg: '',
+      __ccg: 'EXCELLENT',
       // __rev: '',
       // __s: '',
       // __hsi: '',
       // __dyn: '',
       // __csr: '',
-      // __comet_req: '',
+      __comet_req: '1',
       fb_dtsg: token,
-      [param]: value,
+      [param]: value, // param = jazoest
       lsd: this.config.lsdToken,
       // __spin_r: '',
       // __spin_b: '',
       // __spin_t: '',
-      // __jsses: '',
+      __jsses: '1',
     })
 
     const { json } = await this.httpJSONRequest('https://www.messenger.com/push/register/service_worker/', {

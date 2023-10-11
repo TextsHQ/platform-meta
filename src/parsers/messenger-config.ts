@@ -285,55 +285,52 @@ export function parseMessengerInitialPage(html: string) {
     const startIndex = scriptTag.indexOf('{')
     const endIndex = scriptTag.lastIndexOf('}')
 
-    if (startIndex !== -1 && endIndex !== -1) {
-      const jsonContent = scriptTag.substring(startIndex, endIndex + 1)
-      const parsedContent = JSON.parse(jsonContent) as {
-        require: ['ScheduledServerJSWithCSS' | string, 'handle', null, InnerObject[]][]
-      }
+    if (startIndex === -1 || endIndex === -1) return
+    const jsonContent = scriptTag.substring(startIndex, endIndex + 1)
+    const parsedContent = JSON.parse(jsonContent) as {
+      require: ['ScheduledServerJSWithCSS' | string, 'handle', null, InnerObject[]][]
+    }
 
-      if (parsedContent.require) {
-        parsedContent.require.forEach(requireCall => {
-          const mainCallName = requireCall[0]
-          if (mainCallName !== 'ScheduledServerJS') return
-          requireCall[3].forEach(obj => {
-            const bbox = obj.__bbox
-            if (bbox) {
-              bbox.define?.forEach(define => {
-                const callName = define[0]
-                if (
-                  callName.startsWith('cr:')
-                  || callName.startsWith('nux:')
-                  || [
-                    'PolarisLocales',
-                    'ZeroRewriteRules',
-                    'CountryNamesConfig',
-                    'DateFormatConfig',
-                    'MAWMainWebWorkerResource',
-                    'WebLoomConfig',
-                  ].includes(callName)) return
-                definesMap.set(callName, define[2])
-              })
-              bbox.require?.forEach(req => {
-                const m = req[0]
-                if (!m.startsWith('RelayPrefetchedStreamCache')) return
-                req?.[3]?.forEach((p: any) => {
-                  if (typeof p === 'string') return
-                  const data = p?.__bbox?.result?.data
-                  const payload = data?.viewer?.lightspeed_web_request?.payload
-                  if (payload?.length > 0) {
-                    initialPayloads.push(payload)
-                  }
-                  const igPayload = data?.lightspeed_web_request_for_igd?.payload
-                  if (igPayload?.length > 0) {
-                    initialPayloads.push(igPayload)
-                  }
-                })
-              })
+    if (!parsedContent.require) return
+    parsedContent.require.forEach(requireCall => {
+      const mainCallName = requireCall[0]
+      if (mainCallName !== 'ScheduledServerJS') return
+      requireCall[3].forEach(obj => {
+        const bbox = obj.__bbox
+        if (!bbox) return
+        bbox.define?.forEach(define => {
+          const callName = define[0]
+          if (
+            callName.startsWith('cr:')
+            || callName.startsWith('nux:')
+            || [
+              'PolarisLocales',
+              'ZeroRewriteRules',
+              'CountryNamesConfig',
+              'DateFormatConfig',
+              'MAWMainWebWorkerResource',
+              'WebLoomConfig',
+            ].includes(callName)) return
+          definesMap.set(callName, define[2])
+        })
+        bbox.require?.forEach(req => {
+          const m = req[0]
+          if (!m.startsWith('RelayPrefetchedStreamCache')) return
+          req?.[3]?.forEach((p: any) => {
+            if (typeof p === 'string') return
+            const data = p?.__bbox?.result?.data
+            const payload = data?.viewer?.lightspeed_web_request?.payload
+            if (payload?.length > 0) {
+              initialPayloads.push(payload)
+            }
+            const igPayload = data?.lightspeed_web_request_for_igd?.payload
+            if (igPayload?.length > 0) {
+              initialPayloads.push(igPayload)
             }
           })
         })
-      }
-    }
+      })
+    })
   })
 
   const syncParams = definesMap.get('LSPlatformMessengerSyncParams') as Config['LSPlatformMessengerSyncParams']
