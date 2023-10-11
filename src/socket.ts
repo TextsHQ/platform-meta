@@ -269,7 +269,9 @@ export default class MetaMessengerWebSocket {
       this.logger.debug('[ws] onopen', {
         retryAttempt: this.retryAttempt,
       })
-      if (this.retryAttempt) this.onReconnected()
+      if (this.retryAttempt) {
+        this.logger.info('[ws] reconnected')
+      }
       this.retryAttempt = 0
       this.onOpen()
     }
@@ -308,10 +310,6 @@ export default class MetaMessengerWebSocket {
       }, '[ws] failed to close on dispose')
     }
     clearTimeout(this.connectTimeout)
-  }
-
-  private onReconnected() {
-    this.logger.info('[ws] reconnected')
   }
 
   private connectTimeout: ReturnType<typeof setTimeout>
@@ -425,6 +423,7 @@ export default class MetaMessengerWebSocket {
           await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
         }
         break
+      case 'puback':
       case 'suback':
         if (this.messagePromises.has(packet.messageId)) {
           this.messagePromises.resolve(packet.messageId)
@@ -490,9 +489,11 @@ export default class MetaMessengerWebSocket {
     request_id: number
     type: number
   }) {
-    return this.send({
+    const { promise, id: messageId } = this.messagePromises.create()
+
+    await this.send({
       cmd: 'publish',
-      messageId: this.messagePromises.createId(),
+      messageId,
       qos: 1,
       dup: false,
       retain: false,
@@ -504,6 +505,8 @@ export default class MetaMessengerWebSocket {
         type,
       }),
     })
+
+    await promise
   }
 
   async publishTask(type: RequestResolverType, tasks: MMSocketTask[], {
