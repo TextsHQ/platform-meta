@@ -235,6 +235,35 @@ export interface Config {
     version: number
     should_randomize: boolean
   }
+  SiteData: {
+    server_revision: number
+    client_revision: number
+    tier: string
+    push_phase: string
+    pkg_cohort: string
+    haste_session: string
+    pr: number
+    haste_site: string
+    manifest_base_uri: string
+    manifest_origin: string
+    manifest_version_prefix: string
+    be_one_ahead: boolean
+    is_rtl: boolean
+    is_comet: boolean
+    is_experimental_tier: boolean
+    is_jit_warmed_up: boolean
+    hsi: string
+    semr_host_bucket: string
+    bl_hash_version: number
+    skip_rd_bl: boolean
+    comet_env: number
+    wbloks_env: boolean
+    spin: number
+    __spin_r: number
+    __spin_b: string
+    __spin_t: number
+    vip: string
+  }
 }
 
 export function getNumericValue(config: Config['SprinkleConfig'], str: string) {
@@ -304,12 +333,13 @@ export function parseMessengerInitialPage(html: string) {
             callName.startsWith('cr:')
             || callName.startsWith('nux:')
             || [
-              'PolarisLocales',
-              'ZeroRewriteRules',
               'CountryNamesConfig',
               'DateFormatConfig',
               'MAWMainWebWorkerResource',
+              'PolarisLocales',
+              'SiteData',
               'WebLoomConfig',
+              'ZeroRewriteRules',
             ].includes(callName)) return
           definesMap.set(callName, define[2])
         })
@@ -361,19 +391,20 @@ export function parseMessengerInitialPage(html: string) {
   }
 
   return {
+    CurrentEnvironment,
     CurrentUserInitialData: definesMap.get('CurrentUserInitialData') as Config['CurrentUserInitialData'],
     DTSGInitialData: definesMap.get('DTSGInitialData') as Config['DTSGInitialData'],
+    initialPayloads: initialPayloads.filter(Boolean),
     LSD: definesMap.get('LSD') as Config['LSD'],
     LSPlatformMessengerSyncParams,
-    MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
-    SprinkleConfig: definesMap.get('SprinkleConfig') as Config['SprinkleConfig'],
     MercuryConfig,
+    MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
     MqttWebConfig,
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults') as Config['RelayAPIConfigDefaults'],
+    SiteData: definesMap.get('SiteData') as Config['SiteData'],
+    SprinkleConfig: definesMap.get('SprinkleConfig') as Config['SprinkleConfig'],
     XIGSharedData,
-    CurrentEnvironment,
-    initialPayloads: initialPayloads.filter(Boolean),
   } as const
 }
 
@@ -390,6 +421,7 @@ export function getMessengerConfig(html: string) {
     igViewerConfig,
     igUserId: igViewerConfig?.id,
     lsdToken: parsed.LSD?.token,
+    siteData: parsed.SiteData,
     mqttEndpoint: parsed.MqttWebConfig?.endpoint,
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,
     mqttClientCapabilities: parsed.MqttWebConfig?.clientCapabilities,

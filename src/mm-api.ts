@@ -812,7 +812,7 @@ export default class MetaMessengerAPI {
       __user: this.config.fbid,
       __a: '1',
       __req: '9',
-      __hs: '19641.HYP:messengerdotcom_comet_pkg.2.1..0.1',
+      __hs: this.config.siteData.haste_session,
       dpr: '2',
       __ccg: 'EXCELLENT',
       // __rev: '',
@@ -824,9 +824,9 @@ export default class MetaMessengerAPI {
       fb_dtsg: token,
       [param]: value, // param = jazoest
       lsd: this.config.lsdToken,
-      // __spin_r: '',
-      // __spin_b: '',
-      // __spin_t: '',
+      __spin_r: String(this.config.siteData.__spin_r),
+      __spin_b: this.config.siteData.__spin_b,
+      __spin_t: String(this.config.siteData.__spin_t),
       __jsses: '1',
     })
 
