@@ -229,7 +229,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
         emoji: true,
       })
       extraMessages.push({
-        id: r.actorId,
+        id: `${mapped.id}-${r.actorId}`,
         timestamp: new Date(+r.timestampMs),
         senderID: mapped.senderID,
         isSender: mapped.isSender,
