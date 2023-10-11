@@ -230,7 +230,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
     if (hasMore && (!items.length || !oldestCursor)) {
       // todo fix
-      await sleep(1_000)
+      console.log('waiting 2s to avoid returning invalid data')
+      await sleep(2_000)
       return this.getThreads(inbox, pagination)
     }
 
