@@ -6,7 +6,7 @@ type NumberString = `${number}`
 // this is purely for optimization
 // all methods should still be included in OperationKey
 // and also have a corresponding method in the payload handler
-const IGNORED_CALLS = [
+const IGNORED_CALLS = new Set([
   'appendDataTraceAddon',
   'applyAdminMessageCTA',
   'applyNewGroupThread',
@@ -36,7 +36,7 @@ const IGNORED_CALLS = [
   'upsertProfileBadge',
   'upsertTheme',
   'verifyCommunityMemberContextualProfileExists',
-] as const
+])
 
 export type OperationKey =
   | 'addParticipantIdToGroupThread'
@@ -271,7 +271,7 @@ export function generateCallList(env: EnvKey, payload: string) {
         // Base case: Detecting an operation step
         if (item[0] === 5 && typeof item[1] === 'string') {
           const methodName = item[1] as OperationKey
-          if (IGNORED_CALLS.includes(methodName as any)) continue
+          if (IGNORED_CALLS.has(methodName)) continue
           const args = item.slice(2).map(arg => transformArg(arg))
           calls.push([methodName, args])
         } else {
