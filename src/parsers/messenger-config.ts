@@ -337,7 +337,6 @@ export function parseMessengerInitialPage(html: string) {
               'DateFormatConfig',
               'MAWMainWebWorkerResource',
               'PolarisLocales',
-              'SiteData',
               'WebLoomConfig',
               'ZeroRewriteRules',
             ].includes(callName)) return
