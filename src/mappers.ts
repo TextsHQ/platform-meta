@@ -291,7 +291,7 @@ export function mapThread(
     title: threadType === 'group' ? thread?.threadName : null,
     isUnread,
     folderName: t.parentThreadKey === ParentThreadKey.SPAM ? InboxName.REQUESTS : InboxName.NORMAL,
-    isArchived: t.parentThreadKey === ParentThreadKey.ARCHIVE,
+    isArchived: env === 'IG' ? undefined : t.parentThreadKey === ParentThreadKey.ARCHIVE,
     // ...mutedUntil && { mutedUntil },
     isReadOnly: false,
     imgURL: thread?.threadPictureUrl,
