@@ -1,4 +1,5 @@
 import { ReAuthError } from '@textshq/platform-sdk'
+import { htmlTitleRegex } from '@textshq/platform-sdk/dist/json'
 import { EnvKey } from '../env'
 
 type InnerObject = {
@@ -293,22 +294,21 @@ const findCurrentUserInitialData = (htmlString: string) => {
 
 export function parseMessengerInitialPage(html: string) {
   const scriptTags = html.match(/type="application\/json"[\s\S]*?>[\s\S]*?<\/script>/g) || []
-
-  const definesMap = new Map<string, unknown>()
-  const initialPayloads: string[] = []
-
-  if (scriptTags.length === 0) { // probably the login page
+  if (!scriptTags.length) { // probably the login page
     // this is only parsed to see different cases of zero script tags (for debugging)
     const currentUser = findCurrentUserInitialData(html)
     const hasIgUserId = currentUser?.NON_FACEBOOK_USER_ID?.toString()?.length > 1
-    // this would break for Zuck (4), Chris Hughes (5), Dustin Moskovitz (6), and Eduardo Saverin (7) :)
-    const hasUserId = currentUser?.USER_ID?.toString()?.length > 1
+    const hasUserId = !!currentUser?.USER_ID?.toString()?.length
     const hasAnyId = hasIgUserId || hasUserId
+    const [, title] = htmlTitleRegex.exec(html) || []
     if (hasAnyId) {
-      throw new ReAuthError(`Session expired, fbid: ${currentUser?.USER_ID}, igid: ${currentUser?.NON_FACEBOOK_USER_ID}`)
+      throw new ReAuthError(`Session expired, fbid: ${currentUser?.USER_ID}, igid: ${currentUser?.NON_FACEBOOK_USER_ID}, title: ${title}`)
     }
-    throw new ReAuthError('Session expired')
+    throw new ReAuthError(`Session expired, title: ${title}`)
   }
+
+  const definesMap = new Map<string, unknown>()
+  const initialPayloads: string[] = []
 
   scriptTags.forEach(scriptTag => {
     const startIndex = scriptTag.indexOf('{')
