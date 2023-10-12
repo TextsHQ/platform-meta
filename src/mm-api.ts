@@ -527,7 +527,7 @@ export default class MetaMessengerAPI {
     const syncGroups = this.computeSyncGroups(inbox)
     return syncGroups.some(([syncGroup, parentThreadKey]) => {
       const value = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
-      return typeof value?.hasMoreBefore === 'boolean' ? value.hasMoreBefore : true
+      return value?.hasMoreBefore
     })
   }
 
@@ -978,7 +978,7 @@ export default class MetaMessengerAPI {
         maxTimestamp: undefined,
         hasMoreBeforeFlag: true,
         hasMoreAfterFlag: true,
-      })
+      } satisfies IGMessageRanges)
     }
     const ranges = parseMessageRanges(thread.ranges)
     ranges.hasMoreBeforeFlag = typeof ranges?.hasMoreBeforeFlag === 'boolean' ? ranges.hasMoreBeforeFlag : true
