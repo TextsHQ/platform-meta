@@ -44,9 +44,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   db: DrizzleDB
 
-  dbClose: () => Promise<void>
+  private dbClose: () => Promise<void>
 
-  logger: Logger
+  private logger: Logger
 
   api: MetaMessengerAPI
 
@@ -70,7 +70,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.pendingEvents.push(...events)
   }
 
-  pendingEvents: ServerEvent[] = []
+  private pendingEvents: ServerEvent[] = []
 
   preparedQueries: ReturnType<typeof preparedQueries>
 

@@ -58,7 +58,7 @@ const fixUrl = (url: string) =>
 export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
 
-  initResolved = false
+  private initResolved = false
 
   get initPromise() {
     return this._initPromise.promise
@@ -247,7 +247,7 @@ export default class MetaMessengerAPI {
     return user
   }
 
-  async graphqlCall<T extends {}>(doc_id: string, variables: T, { headers, bodyParams }: {
+  private async graphqlCall<T extends {}>(doc_id: string, variables: T, { headers, bodyParams }: {
     headers?: Record<string, string>
     bodyParams?: Record<string, string>
   } = {
@@ -330,7 +330,7 @@ export default class MetaMessengerAPI {
   }
 
   // get username from here
-  async getUserById(userID: string) {
+  private async getUserById(userID: string) {
     this.logger.debug(`getUser ${userID}`)
     const response = await this.graphqlCall('6083412141754133', { userID })
     this.logger.debug(`getUser ${userID} response: ${JSON.stringify(response.data)}`)
@@ -355,13 +355,13 @@ export default class MetaMessengerAPI {
     }
   }
 
-  getCSRFToken() { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
+  private getCSRFToken() { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
     return this.jar
       .getCookiesSync(`https://${this.papi.envOpts.domain}/`)
       .find(c => c.key === 'csrftoken')?.value
   }
 
-  async getSnapshotPayloadForIGD() {
+  private async getSnapshotPayloadForIGD() {
     if (this.papi.env !== 'IG') throw new Error(`getSnapshotPayloadForIGD is only supported on IG but called on ${this.papi.env}`)
     const response = await this.graphqlCall('6195354443842040', {
       deviceId: this.config.clientId,
@@ -378,7 +378,7 @@ export default class MetaMessengerAPI {
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
   }
 
-  async getSnapshotPayloadForFB() {
+  private async getSnapshotPayloadForFB() {
     if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error(`getSnapshotPayloadForFB is only supported on FB/MESSENGER but called on ${this.papi.env}`)
     const response = await this.graphqlCall('7357432314358409', {
       deviceId: this.config.clientId,
@@ -452,7 +452,7 @@ export default class MetaMessengerAPI {
     throw Error(`getIGReels ${media_id} ${reel_ids} ${username} no matching media: ${JSON.stringify(data, null, 2)}`)
   }
 
-  async setIGReelSeen({
+  private async setIGReelSeen({
     reelId,
     reelMediaId,
     reelMediaOwnerId,
@@ -489,12 +489,12 @@ export default class MetaMessengerAPI {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
-  getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
+  private getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
     return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
   }
 
-  computeSyncGroups(inbox: InboxName) {
+  private computeSyncGroups(inbox: InboxName) {
     const generalEnabled = (
       (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
       || this.papi.env === 'FB'
