@@ -47,6 +47,7 @@ export type OperationKey =
   | 'changeViewerStatus'
   | 'checkAuthoritativeMessageExists'
   | 'clearPinnedMessages'
+  | 'collapseAttachments'
   | 'computeDelayForTask'
   | 'deleteBannersByIds'
   | 'deleteExistingMessageRanges'

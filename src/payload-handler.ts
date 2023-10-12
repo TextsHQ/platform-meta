@@ -2160,4 +2160,8 @@ export default class MetaMessengerPayloadHandler {
   private setBotResponseInfo(a: SimpleArgType[]) {
     this.__logger.debug('setBotResponseInfo (ignored)', a)
   }
+
+  private collapseAttachments(a: SimpleArgType[]) {
+    this.__logger.debug('collapseAttachments (ignored)', a)
+  }
 }
