@@ -31,7 +31,7 @@ import {
 import { mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
-import MetaMessengerPayloadHandler from './payload-handler'
+import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
 import { RequestResolverType, ThreadRemoveType } from './socket'
@@ -76,6 +76,11 @@ export default class MetaMessengerAPI {
       startAt: 1,
       timeoutMs: 15_000,
     })
+    this.sendMessageResolvers = new PromiseStore({
+      env,
+      startAt: 1,
+      timeoutMs: 15_000,
+    })
   }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
@@ -87,6 +92,8 @@ export default class MetaMessengerAPI {
   config: ReturnType<typeof getMessengerConfig>
 
   messageRangeResolvers: PromiseStore<IGMessageRanges>
+
+  sendMessageResolvers: PromiseStore<MetaMessengerPayloadHandlerResponse>
 
   private readonly http = texts.createHttpClient()
 
@@ -1199,37 +1206,42 @@ export default class MetaMessengerAPI {
 
     const hasAttachment = attachmentFbids.length > 0
 
-    const result = await this.papi.socket.publishTask(RequestResolverType.SEND_MESSAGE, [
-      {
-        label: '46',
-        payload: JSON.stringify({
-          thread_id: threadID,
-          otid: otid.toString(),
-          source: (2 ** 16) + 1,
-          send_type: hasAttachment ? 3 : 1,
-          sync_group: SyncGroup.MAIN,
-          text: !hasAttachment ? text : null,
-          initiating_source: hasAttachment ? undefined : 1,
-          skip_url_preview_gen: hasAttachment ? undefined : 0,
-          text_has_links: hasAttachment ? undefined : 0,
-          reply_metadata,
-          attachment_fbids: hasAttachment ? attachmentFbids : undefined,
-        }),
-        queue_name: threadID.toString(),
-        task_id: this.papi.socket.taskIds.gen(),
-        failure_count: null,
-      },
-      {
-        label: '21',
-        payload: JSON.stringify({
-          thread_id: threadID,
-          last_read_watermark_ts: Number(timestamp),
-          sync_group: SyncGroup.MAIN,
-        }),
-        queue_name: threadID.toString(),
-        task_id: this.papi.socket.taskIds.gen(),
-        failure_count: null,
-      },
+    const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
+
+    const result = await Promise.race([
+      this.papi.socket.publishTask(RequestResolverType.SEND_MESSAGE, [
+        {
+          label: '46',
+          payload: JSON.stringify({
+            thread_id: threadID,
+            otid: otid.toString(),
+            source: (2 ** 16) + 1,
+            send_type: hasAttachment ? 3 : 1,
+            sync_group: SyncGroup.MAIN,
+            text: !hasAttachment ? text : null,
+            initiating_source: hasAttachment ? undefined : 1,
+            skip_url_preview_gen: hasAttachment ? undefined : 0,
+            text_has_links: hasAttachment ? undefined : 0,
+            reply_metadata,
+            attachment_fbids: hasAttachment ? attachmentFbids : undefined,
+          }),
+          queue_name: threadID.toString(),
+          task_id: this.papi.socket.taskIds.gen(),
+          failure_count: null,
+        },
+        {
+          label: '21',
+          payload: JSON.stringify({
+            thread_id: threadID,
+            last_read_watermark_ts: Number(timestamp),
+            sync_group: SyncGroup.MAIN,
+          }),
+          queue_name: threadID.toString(),
+          task_id: this.papi.socket.taskIds.gen(),
+          failure_count: null,
+        },
+      ]),
+      promise,
     ])
 
     return {

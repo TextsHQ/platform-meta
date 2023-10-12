@@ -305,6 +305,16 @@ export default class MetaMessengerPayloadHandler {
 
   private __upsertMessageAndSync(m: IGMessage) {
     this.__logger.debug('__upsertMessageAndSync', m.threadKey, m.messageId, m.timestampMs, m.text)
+
+    if (this.__papi.api.sendMessageResolvers.hasKey(m.offlineThreadingId)) {
+      this.__papi.api.sendMessageResolvers.resolveByKey(m.offlineThreadingId, {
+        replaceOptimsiticMessage: {
+          messageId: m.messageId,
+          offlineThreadingId: m.offlineThreadingId,
+        },
+      })
+    }
+
     const { messageId } = this.__papi.api.upsertMessage(m)
     this.__messagesToSync.add(messageId)
     return async () => {
