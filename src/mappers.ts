@@ -228,16 +228,17 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
         participantID: r.actorId,
         emoji: true,
       })
+      const isSender = r.actorId === fbid
       extraMessages.push({
         id: `${mapped.id}-${r.actorId}`,
         timestamp: new Date(+r.timestampMs),
-        senderID: mapped.senderID,
-        isSender: mapped.isSender,
-        text: `${mapped.isSender ? 'You' : '{{sender}}'} reacted with ${reactionKey}${truncated ? `: ${truncated}` : ''}`,
+        senderID: r.actorId,
+        isSender,
+        text: `${isSender ? 'You' : '{{sender}}'} reacted with ${reactionKey}${truncated ? `: ${truncated}` : ''}`,
         action: {
           type: MessageActionType.MESSAGE_REACTION_CREATED,
           messageID: mapped.id,
-          participantID: mapped.senderID,
+          participantID: r.actorId,
           reactionKey,
         },
         parseTemplate: true,
