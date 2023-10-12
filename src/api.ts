@@ -640,6 +640,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           },
         },
       })
+      if (!thread) throw Error('thread not found')
       return JSON.stringify({
         ...thread,
         thread: JSON.parse(thread.thread),
@@ -663,6 +664,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           },
         },
       })
+      if (!message) throw Error('message not found')
       return JSON.stringify({
         ...message,
         message: JSON.parse(message.message),
