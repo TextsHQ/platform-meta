@@ -51,6 +51,6 @@ const infoDefaults = {
   },
   typingDurationMs: 5000,
   generateUniqueMessageID: () => genClientContext().toString(),
-}
+} satisfies Partial<PlatformInfo>
 
 export default infoDefaults
