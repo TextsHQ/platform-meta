@@ -7,6 +7,7 @@ import {
   type ThreadType,
   MessageActionType,
   UNKNOWN_DATE,
+  MessageSeen,
 } from '@textshq/platform-sdk'
 import { truncate } from 'lodash'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
@@ -88,26 +89,18 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const participants = t?.participants || []
   const users = mapParticipants(participants, env, fbid)
   const message = JSON.parse(m.message) as IGMessageInDB
-  let seen: boolean | { [participantID: string]: Date } = false
   const thread = t?.thread ? JSON.parse(t.thread) as IGThreadInDB : null
   const threadType = thread?.threadType === '1' ? 'single' : 'group'
 
-  if (threadType !== 'single') {
-    seen = participants.reduce(
+  const seen: MessageSeen = threadType === 'single'
+    ? participants.find(p => p.userId !== fbid)?.readWatermarkTimestampMs >= m.timestampMs
+    : participants.reduce(
       (acc, p) => {
         if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = UNKNOWN_DATE
         return acc
       },
-      {} as {
-        [participantID: string]: Date // FIXME: platform SDK type is wrong. boolean causes threads client to crash
-      },
+      {} as Record<string, Date>,
     )
-  } else {
-    const otherp = participants.find(p => p.userId !== fbid)
-    if (otherp) {
-      seen = otherp.readWatermarkTimestampMs >= m.timestampMs
-    }
-  }
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
