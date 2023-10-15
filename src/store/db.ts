@@ -48,20 +48,21 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
   dbClose: () => Promise<void>
 }> => {
   const logger = getLogger(env, 'drizzle')
-  const sqlitePath = resolve(dataDirPath, '.cache.db')
 
   const { migrationStrategy, dbType } = EnvOptions[env]
 
   let shouldRemoveDBFile = false
+  let sqlitePath = ':memory:'
   if (dbType === DBType.PERSISTENT) {
     await createDirectoryIfNotExists(dataDirPath, logger)
-    if ([MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)) {
-      shouldRemoveDBFile = true
-    }
+    sqlitePath = resolve(dataDirPath, '.cache.db')
+    shouldRemoveDBFile = (
+      retryAttempt > 0
+        || [MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)
+    )
   }
 
   logger.info('initializing database at', {
-    isPersistent: dbType === DBType.PERSISTENT,
     accountID,
     sqlitePath,
     migrationStrategy,
@@ -70,7 +71,7 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
   })
 
   try {
-    if (retryAttempt > 0 || shouldRemoveDBFile) await removeDatabaseFile(sqlitePath, logger)
+    if (shouldRemoveDBFile) await removeDatabaseFile(sqlitePath, logger)
     const sqlite = new Database(sqlitePath)
     sqlite.pragma('journal_mode = WAL')
     const db = drizzle(sqlite, {
