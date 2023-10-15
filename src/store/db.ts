@@ -9,7 +9,7 @@ import { migrations } from './migrations.generated'
 import type { EnvKey } from '../env'
 import EnvOptions from '../env'
 import { MetaMessengerError } from '../errors'
-import { MigrateStrategy } from './helpers'
+import { DBType, MigrateStrategy } from './helpers'
 import { DRIZZLE_DIR_PATH } from '../constants'
 
 export type DrizzleDB = BetterSQLite3Database<typeof schema>
@@ -48,22 +48,29 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
   dbClose: () => Promise<void>
 }> => {
   const logger = getLogger(env, 'drizzle')
-  await createDirectoryIfNotExists(dataDirPath, logger)
   const sqlitePath = resolve(dataDirPath, '.cache.db')
 
-  const { migrationStrategy } = EnvOptions[env]
-  const shouldRecreate = [MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)
+  const { migrationStrategy, dbType } = EnvOptions[env]
+
+  let shouldRemoveDBFile = false
+  if (dbType === DBType.PERSISTENT) {
+    await createDirectoryIfNotExists(dataDirPath, logger)
+    if ([MigrateStrategy.RECREATE_DRIZZLE, MigrateStrategy.RECREATE_SIMPLE].includes(migrationStrategy)) {
+      shouldRemoveDBFile = true
+    }
+  }
 
   logger.info('initializing database at', {
+    isPersistent: dbType === DBType.PERSISTENT,
     accountID,
     sqlitePath,
     migrationStrategy,
     retryAttempt,
-    shouldRecreate,
+    shouldRemoveDBFile,
   })
 
   try {
-    if (retryAttempt > 0 || shouldRecreate) await removeDatabaseFile(sqlitePath, logger)
+    if (retryAttempt > 0 || shouldRemoveDBFile) await removeDatabaseFile(sqlitePath, logger)
     const sqlite = new Database(sqlitePath)
     sqlite.pragma('journal_mode = WAL')
     const db = drizzle(sqlite, {
@@ -79,12 +86,22 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
 
     switch (migrationStrategy as MigrateStrategy) {
       case MigrateStrategy.RECREATE_SIMPLE:
-        await db.transaction(async tx => {
+        db.transaction(tx => {
           for (const migration of migrations) {
-            await tx.run(migration)
+            tx.run(migration)
           }
         })
         break
+      // case MigrateStrategy.RECREATE_DROP:
+      //   for (const tableName of tableNames) {
+      //     db.run(sql`drop table if exists \`${tableName}\``)
+      //   }
+      //   await db.transaction(async tx => {
+      //     for (const migration of migrations) {
+      //       tx.run(migration)
+      //     }
+      //   })
+      //   break
       case MigrateStrategy.DRIZZLE:
       case MigrateStrategy.RECREATE_DRIZZLE:
         migrate(db, {
@@ -99,7 +116,7 @@ const getDB = async (env: EnvKey, accountID: string, dataDirPath: string, retryA
       dbClose: async () => {
         logger.debug('closing database', { sqlitePath })
         sqlite.close()
-        if (shouldRecreate) await removeDatabaseFile(sqlitePath, logger)
+        if (shouldRemoveDBFile) await removeDatabaseFile(sqlitePath, logger)
       },
     }
   } catch (err) {

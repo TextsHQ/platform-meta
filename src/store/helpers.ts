@@ -17,6 +17,11 @@ export const enum MigrateStrategy {
   RECREATE_SIMPLE,
 
   /**
+   * Drops tables and applies migrations.ts.
+   */
+  RECREATE_DROP,
+
+  /**
    * Recreates the database file and uses Drizzle's migration system.
    */
   RECREATE_DRIZZLE,
@@ -25,4 +30,9 @@ export const enum MigrateStrategy {
    * Uses Drizzle's migration system.
    */
   DRIZZLE,
+}
+
+export const enum DBType {
+  PERSISTENT,
+  IN_MEMORY,
 }
