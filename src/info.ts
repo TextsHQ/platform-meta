@@ -3,7 +3,7 @@ import { genClientContext } from './util'
 
 const infoDefaults = {
   version: '3.0.0',
-  loginMode: ['browser-extension', 'browser'] as PlatformInfo['loginMode'],
+  loginMode: ['browser', 'browser-extension'] as PlatformInfo['loginMode'],
   deletionMode: MessageDeletionMode.UNSEND,
   attributes: new Set([
     Attribute.SUPPORTS_REQUESTS_INBOX,
