@@ -51,12 +51,14 @@ export function createPromise<T>() {
   return p
 }
 
-export function getAsDate(ms: string) {
-  return ms ? new Date(Number(ms)) : undefined
+export function parseMs(ms: SimpleArgType) {
+  const num = Number(ms)
+  return (!Number.isNaN(num) && num > 0) ? num : undefined
 }
 
-export function getAsMS(ms: SimpleArgType) {
-  return ms ? Number(ms) : undefined
+export function parseMsAsDate(arg: SimpleArgType) {
+  const ms = parseMs(arg)
+  return ms ? new Date(ms) : undefined
 }
 
 export function fixEmoji(emoji: string) {
