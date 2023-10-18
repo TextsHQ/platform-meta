@@ -6,7 +6,6 @@ import {
   type Participant,
   type ThreadType,
   MessageActionType,
-  UNKNOWN_DATE,
   MessageSeen,
 } from '@textshq/platform-sdk'
 import { truncate } from 'lodash'
@@ -89,14 +88,15 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
   const participants = t?.participants || []
   const users = mapParticipants(participants, env, fbid)
   const message = JSON.parse(m.message) as IGMessageInDB
+
   const thread = t?.thread ? JSON.parse(t.thread) as IGThreadInDB : null
   const threadType = thread?.threadType === '1' ? 'single' : 'group'
 
   const seen: MessageSeen = threadType === 'single'
-    ? participants.find(p => p.userId !== fbid)?.readWatermarkTimestampMs >= m.timestampMs
+    ? participants.find(p => p.userId !== fbid && p.readWatermarkTimestampMs >= m.timestampMs)?.readWatermarkTimestampMs
     : participants.reduce(
       (acc, p) => {
-        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = UNKNOWN_DATE
+        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = p.readWatermarkTimestampMs
         return acc
       },
       {} as Record<string, Date>,

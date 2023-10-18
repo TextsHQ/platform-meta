@@ -1769,7 +1769,7 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('updatePreviewUrl (ignored)', a)
   }
 
-  private updateReadReceipt(a: SimpleArgType[]) {
+  private async updateReadReceipt(a: SimpleArgType[]) {
     const r: IGReadReceipt = {
       readWatermarkTimestampMs: parseMsAsDate(a[0]), // last message logged in user has read from
       threadKey: a[1] as string,
@@ -1779,46 +1779,43 @@ export default class MetaMessengerPayloadHandler {
 
     this.__logger.debug('updateReadReceipt', a, r)
 
+    if (!r.readWatermarkTimestampMs) return
+
+    if (this.__threadsToSync.has(r.threadKey)) return
+    const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
+    if (!newestMessage) return
+    if (this.__messagesToSync.has(newestMessage.id)) return
+
     this.__sql.push(tx => tx.update(schema.participants).set({
       readActionTimestampMs: r.readActionTimestampMs,
       readWatermarkTimestampMs: r.readWatermarkTimestampMs,
-    })
-      .where(and(
-        eq(schema.participants.threadKey, r.threadKey),
-        eq(schema.participants.userId, r.contactId),
-      )).run())
-    if (!r.readActionTimestampMs) return
+    }).where(and(
+      eq(schema.participants.threadKey, r.threadKey),
+      eq(schema.participants.userId, r.contactId),
+    )).run())
 
-    return async () => {
-      if (this.__threadsToSync.has(r.threadKey)) return
-      const [newestMessage] = await this.__papi.api.queryMessages(r.threadKey, QueryWhereSpecial.NEWEST)
-      if (!newestMessage) return
-      if (this.__messagesToSync.has(newestMessage.id)) return
+    const readOn = r.readWatermarkTimestampMs || UNKNOWN_DATE
 
-      const readOn = r.readActionTimestampMs || UNKNOWN_DATE
-
-      if (newestMessage.seen === true) return
-      if (typeof newestMessage.seen !== 'boolean') {
-        if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
-        if (!(newestMessage.seen instanceof Date) && r.contactId in newestMessage.seen) {
-          const contactSeen = newestMessage.seen[r.contactId]
-          if (contactSeen === true) return
-          if (
-            typeof contactSeen !== 'boolean'
-            && contactSeen instanceof Date
-            && contactSeen.getTime?.() >= readOn.getTime()
-          ) return
-        }
+    if (newestMessage.seen && typeof newestMessage.seen !== 'boolean') {
+      if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
+      if (!(newestMessage.seen instanceof Date) && r.contactId in newestMessage.seen) {
+        const contactSeen = newestMessage.seen[r.contactId]
+        if (contactSeen === true) return
+        if (
+          typeof contactSeen !== 'boolean'
+          && contactSeen instanceof Date
+          && contactSeen.getTime?.() >= readOn.getTime()
+        ) return
       }
-
-      this.__events.push({
-        type: ServerEventType.STATE_SYNC,
-        objectName: 'message_seen',
-        mutationType: 'upsert',
-        objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
-        entries: [{ [r.contactId]: r.readActionTimestampMs || UNKNOWN_DATE }],
-      })
     }
+
+    this.__events.push({
+      type: ServerEventType.STATE_SYNC,
+      objectName: 'message_seen',
+      mutationType: 'upsert',
+      objectIDs: { threadID: r.threadKey, messageID: newestMessage.id },
+      entries: [{ [r.contactId]: readOn }],
+    })
   }
 
   private updateSearchQueryStatus(a: SimpleArgType[]) {
