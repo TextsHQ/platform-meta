@@ -1,3 +1,4 @@
+import { CookieJar } from 'tough-cookie'
 import type { SimpleArgType } from './payload-parser'
 import type { IGMessageRanges } from './types'
 
@@ -98,3 +99,9 @@ export function parseUnicodeEscapeSequences(str: string) {
 }
 
 export const INT64_MAX_AS_STRING = '9223372036854775807'
+
+export function getCookieJar(serialized: CookieJar.Serialized) {
+  // @TODO remove this cookie to reset cursors
+  // const cookieToRemove = env === 'IG' ? 'igd_ls' : 'm_ls'
+  return CookieJar.fromJSON(serialized as unknown as string)
+}

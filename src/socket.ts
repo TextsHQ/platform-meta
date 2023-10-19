@@ -20,6 +20,8 @@ import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
 import { MqttErrors } from './MetaMQTTErrors'
 import { PromiseStore } from './PromiseStore'
+import { NEVER_SYNC_TIMESTAMP } from './constants'
+import { PlatformRequestScheduler } from './PlatformRequestScheduler'
 
 const MAX_RETRY_ATTEMPTS = 12
 const SOCKET_CONNECTION_TIMEOUT_MS = 20 * 1e3
@@ -109,6 +111,8 @@ export default class MetaMessengerWebSocket {
   taskIds = new AutoIncrementStore()
 
   requestIds = new AutoIncrementStore()
+
+  requestScheduler = new PlatformRequestScheduler()
 
   private messagePromises: PromiseStore<void>
 
@@ -556,64 +560,44 @@ export default class MetaMessengerWebSocket {
   }
 
   private async subscribeToAllDatabases() {
-    // this.subscribeToDB(1, 'cursor-1-1', null)
-    const promises = [
-      this.publishLightspeedRequest({
-        payload: JSON.stringify({
-          database: 1,
-          epoch_id: getTimeValues().epoch_id,
-          failure_count: null,
-          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-          sync_params: null,
-          version: EnvOptions[this.papi.env].defaultVersionId,
-        }),
-        request_id: this.requestIds.gen(),
-        type: 2,
-      }),
-    ]
+    const syncGroups = this.papi.api.getDefaultSyncGroups()
+    const syncGroupsForEnv = this.papi.env === 'IG' ? syncGroups.igdSyncGroups : syncGroups.defaultSyncGroups
 
-    // this.subscribeToDB(2, 'cursor-2') // @TODO add
+    const promises: Promise<void>[] = []
 
-    const syncParamsString = this.papi.kv.get('syncParams-1')
-    const subs: [number, `cursor-${number}-${SyncGroup}`, string][] = this.papi.api.envSwitch([
-      [6, null, syncParamsString],
-      [7, null, JSON.stringify({
-        mnet_rank_types: [44],
-      })],
-      [16, null, syncParamsString],
-      [28, null, syncParamsString],
-      [196, null, syncParamsString],
-      [198, null, syncParamsString],
-    ], [
-      [2, 'cursor-1-1', null],
-      [5, null, syncParamsString],
-      [16, null, syncParamsString],
-      [26, null, syncParamsString],
-      [28, null, syncParamsString],
-      [95, 'cursor-1-1', syncParamsString],
-      [104, null, syncParamsString],
-      [140, null, syncParamsString],
-      [141, null, syncParamsString],
-      [142, null, syncParamsString],
-      [143, null, syncParamsString],
-      [196, null, syncParamsString],
-      [198, null, syncParamsString],
-    ])
+    for (let i = 0; i < syncGroupsForEnv.length; i++) {
+      const syncGroup = syncGroupsForEnv[i]
+      if (!syncGroup?.groupId || syncGroup?.minTimeToSyncTimestampMs === NEVER_SYNC_TIMESTAMP) continue
 
-    for (let i = 0; i < subs.length; i++) {
-      const [database, cursor, syncParams] = subs[i]
       const request_id = this.requestIds.gen()
+      let last_applied_cursor = null
+      let sync_params = syncGroup.syncParams ?? null
+      let requestType = 1
+
+      if (syncGroup.groupId === SyncGroup.MAILBOX) {
+        last_applied_cursor = this.papi.kv.get('cursor-1-1')
+        requestType = 2
+      } else if (syncGroup.groupId === SyncGroup.CONTACT) {
+        last_applied_cursor = this.papi.kv.get('cursor-1-2')
+        sync_params = JSON.stringify(this.papi.api.config.syncParams.contact)
+        requestType = 2
+      } else if (syncGroup.groupId === SyncGroup.E2EE) {
+        last_applied_cursor = this.papi.kv.get('cursor-1-95')
+        sync_params = this.papi.api.config.syncParams.e2ee ?? '{}'
+        requestType = 2
+      }
+
       promises.push(this.publishLightspeedRequest({
         payload: JSON.stringify({
-          database,
+          database: syncGroup.groupId,
           epoch_id: getTimeValues().epoch_id,
           failure_count: null,
-          last_applied_cursor: cursor ? this.papi.kv.get(cursor) : null,
-          sync_params: syncParams,
-          version: EnvOptions[this.papi.env].defaultVersionId,
+          last_applied_cursor,
+          sync_params,
+          version: this.papi.envOpts.defaultVersionId,
         }),
         request_id,
-        type: 1,
+        type: requestType,
       }))
     }
     await Promise.allSettled(promises)

@@ -141,24 +141,36 @@ export interface Config {
   }
   CurrentUserInitialData: {
     ACCOUNT_ID: string
-    USER_ID: string
-    NAME: string
-    SHORT_NAME: string
-    IS_BUSINESS_PERSON_ACCOUNT: boolean
-    HAS_SECONDARY_BUSINESS_PERSON: boolean
-    IS_FACEBOOK_WORK_ACCOUNT: boolean
-    IS_MESSENGER_ONLY_USER: boolean
-    IS_DEACTIVATED_ALLOWED_ON_MESSENGER: boolean
-    IS_MESSENGER_CALL_GUEST_USER: boolean
-    IS_WORK_MESSENGER_CALL_GUEST_USER: boolean
-    IS_WORKROOMS_USER: boolean
     APP_ID: string
-    IS_BUSINESS_DOMAIN: boolean
-    NON_FACEBOOK_USER_ID: string
-    IS_INSTAGRAM_USER: number
+    EPOU_ID?: string
+    HAS_SECONDARY_BUSINESS_PERSON: boolean
+    HAS_WORK_USER?: boolean
     IG_USER_EIMU: string
+    IS_BUSINESS_DOMAIN: boolean
+    IS_BUSINESS_PERSON_ACCOUNT: boolean
+    IS_DEACTIVATED_ALLOWED_ON_MESSENGER: boolean
     IS_EMPLOYEE: boolean
+    IS_ENTERPRISE_USER?: boolean
+    IS_FACEBOOK_WORK_ACCOUNT: boolean
+    IS_GRAY?: boolean
+    IS_INSTAGRAM_USER: number
+    IS_INTERN_SITE?: boolean
+    IS_MESSENGER_CALL_GUEST_USER: boolean
+    IS_MESSENGER_ONLY_USER: boolean
+    IS_META_SPARK_USER?: boolean
     IS_TEST_USER: boolean
+    IS_TOGETHER_APP_USER?: boolean
+    IS_UNDERAGE?: boolean
+    IS_WORKROOMS_USER: boolean
+    IS_WORK_MESSENGER_CALL_GUEST_USER: boolean
+    IS_WORK_USER?: boolean
+    NAME: string
+    NON_FACEBOOK_USER_ID: string
+    ORIGINAL_USER_ID?: string
+    PAGE_MESSAGING_MAILBOX_ID?: string
+    SHORT_NAME: string
+    USER_ID: string
+    WORK_USER_ID?: string
   }
   RelayAPIConfigDefaults: {
     accessToken: string
@@ -264,6 +276,9 @@ export interface Config {
     __spin_b: string
     __spin_t: number
     vip: string
+  }
+  IntlCurrentLocale: {
+    code: string
   }
 }
 
@@ -404,7 +419,86 @@ export function parseMessengerInitialPage(html: string) {
     SiteData: definesMap.get('SiteData') as Config['SiteData'],
     SprinkleConfig: definesMap.get('SprinkleConfig') as Config['SprinkleConfig'],
     XIGSharedData,
+    IntlCurrentLocale: definesMap.get('IntlCurrentLocale') as Config['IntlCurrentLocale'],
   } as const
+}
+
+export function getCurrentUser(currentUserInitialData: Config['CurrentUserInitialData'], getCookie: (key: string) => string) {
+  const getID = () => currentUserInitialData.USER_ID
+  const getAccountID = () => currentUserInitialData.ACCOUNT_ID
+  const getPossiblyNonFacebookUserID = () => (currentUserInitialData.NON_FACEBOOK_USER_ID != null ? currentUserInitialData.NON_FACEBOOK_USER_ID : getID())
+  const getEIMU = () => (currentUserInitialData.IG_USER_EIMU != null ? currentUserInitialData.IG_USER_EIMU : '0')
+  const getEmployeeWorkUserID = () => currentUserInitialData.WORK_USER_ID
+  const getName = () => currentUserInitialData.NAME
+  const getShortName = () => currentUserInitialData.SHORT_NAME
+  const getEPOU = () => (currentUserInitialData.EPOU_ID != null ? currentUserInitialData.EPOU_ID : '0')
+  const isLoggedIn = () => getPossiblyNonFacebookUserID() !== '0'
+  const isLoggedInNow = () => isLoggedIn()
+    && (
+      currentUserInitialData.IS_INTERN_SITE
+      || currentUserInitialData.IS_WORK_USER
+      || currentUserInitialData.IS_WORKROOMS_USER
+      || currentUserInitialData.IS_WORK_MESSENGER_CALL_GUEST_USER
+      || currentUserInitialData.IS_TOGETHER_APP_USER
+      || currentUserInitialData.IS_ENTERPRISE_USER
+      || currentUserInitialData.IS_INSTAGRAM_USER
+      || currentUserInitialData.IS_META_SPARK_USER
+      || (
+        currentUserInitialData.ORIGINAL_USER_ID != null
+        && currentUserInitialData.ORIGINAL_USER_ID !== ''
+          ? currentUserInitialData.ORIGINAL_USER_ID === getCookie('c_user')
+          : currentUserInitialData.IS_BUSINESS_DOMAIN
+            ? currentUserInitialData.USER_ID === getCookie('c_user')
+            : currentUserInitialData.USER_ID === (
+              getCookie('i_user') != null
+                ? getCookie('i_user')
+                : getCookie('c_user')
+            )
+      )
+    )
+  const isEmployee = () => !!currentUserInitialData.IS_EMPLOYEE
+  const isTestUser = () => !!currentUserInitialData.IS_TEST_USER
+  const hasWorkUser = () => !!currentUserInitialData.HAS_WORK_USER
+  const isWorkUser = () => !!currentUserInitialData.IS_WORK_USER
+  const isWorkroomsUser = () => !!currentUserInitialData.IS_WORKROOMS_USER
+  const isGray = () => !!currentUserInitialData.IS_GRAY
+  const isUnderage = () => !!currentUserInitialData.IS_UNDERAGE
+  const isMessengerOnlyUser = () => !!currentUserInitialData.IS_MESSENGER_ONLY_USER
+  const isDeactivatedAllowedOnMessenger = () => !!currentUserInitialData.IS_DEACTIVATED_ALLOWED_ON_MESSENGER
+  const isMessengerCallGuestUser = () => !!currentUserInitialData.IS_MESSENGER_CALL_GUEST_USER
+  const isBusinessPersonAccount = () => currentUserInitialData.IS_BUSINESS_PERSON_ACCOUNT
+  const hasSecondaryBusinessPerson = () => currentUserInitialData.HAS_SECONDARY_BUSINESS_PERSON
+  const getAppID = () => currentUserInitialData.APP_ID
+  const isFacebookWorkAccount = () => currentUserInitialData.IS_FACEBOOK_WORK_ACCOUNT
+  const getPageMessagingMailboxId = () => String(currentUserInitialData.PAGE_MESSAGING_MAILBOX_ID != null ? currentUserInitialData.PAGE_MESSAGING_MAILBOX_ID : '0')
+
+  return {
+    getID,
+    getAccountID,
+    getPossiblyNonFacebookUserID,
+    getEIMU,
+    getEmployeeWorkUserID,
+    getName,
+    getShortName,
+    getEPOU,
+    isLoggedIn,
+    isLoggedInNow,
+    isEmployee,
+    isTestUser,
+    hasWorkUser,
+    isWorkUser,
+    isWorkroomsUser,
+    isGray,
+    isUnderage,
+    isMessengerOnlyUser,
+    isDeactivatedAllowedOnMessenger,
+    isMessengerCallGuestUser,
+    isBusinessPersonAccount,
+    hasSecondaryBusinessPerson,
+    getAppID,
+    isFacebookWorkAccount,
+    getPageMessagingMailboxId,
+  }
 }
 
 export function getMessengerConfig(html: string) {
@@ -424,11 +518,12 @@ export function getMessengerConfig(html: string) {
     mqttEndpoint: parsed.MqttWebConfig?.endpoint,
     mqttCapabilities: parsed.MqttWebConfig?.capabilities,
     mqttClientCapabilities: parsed.MqttWebConfig?.clientCapabilities,
-    syncParams: parsed.LSPlatformMessengerSyncParams?.contact,
+    syncParams: parsed.LSPlatformMessengerSyncParams,
     initialPayloads: parsed.initialPayloads,
     gqlEndpointPath: parsed.RelayAPIConfigDefaults.graphURI,
     gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
     sprinkleConfig: parsed.SprinkleConfig,
+    currentLocale: parsed.IntlCurrentLocale?.code,
   }
 }
 

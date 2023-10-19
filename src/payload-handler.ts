@@ -1646,7 +1646,25 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private threadsRangesQuery(a: SimpleArgType[]) {
-    this.__logger.debug('threadsRangesQuery (ignored)', a)
+    const q = {
+      parentThreadKey: a[0],
+      minThreadKey: a[1],
+      is_after: a[2],
+    }
+    /*
+    Array(9) [
+      -1,
+      1,
+      0,
+      0,
+      undefined,
+      undefined,
+      9999999999999,
+      0,
+      0
+     ]
+     */
+    this.__logger.debug('threadsRangesQuery (ignored)', a, q)
   }
 
   private transportHybridParticipantUpdateReceipts(a: SimpleArgType[]) {
@@ -1662,7 +1680,11 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private truncateTablesForSyncGroup(a: SimpleArgType[]) {
-    this.__logger.debug('truncateTablesForSyncGroup (ignored)', a)
+    const syncGroup = a[0] as string
+    if (syncGroup === '1') {
+      // remove SyncGroup.MAILBOX
+    }
+    this.__logger.debug('truncateTablesForSyncGroup (ignored)', { syncGroup })
   }
 
   private truncateThreadRangeTablesForSyncGroup(a: SimpleArgType[]) {
@@ -1713,7 +1735,7 @@ export default class MetaMessengerPayloadHandler {
       secondaryThreadRangeFilter: a[7] as string,
       threadRangeFilterValue: a[8] as string,
     }
-    this.__papi.kv.set(`threadsRangesV3-${ranges.folderName}-${ranges.parentThreadKey}-${ranges.threadRangeFilter}`, JSON.stringify(ranges))
+    this.__papi.kv.set(`filteredThreadsRanges-${ranges.folderName}-${ranges.parentThreadKey}-${ranges.threadRangeFilter}`, JSON.stringify(ranges))
     this.__logger.debug('updateFilteredThreadsRanges', ranges)
   }
 
@@ -1901,7 +1923,15 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private updateThreadsRangesV2(a: SimpleArgType[]) {
-    this.__logger.debug('updateThreadsRangesV2 (ignored)', a)
+    const r = {
+      mailboxType: a[0],
+      parentThreadKey: a[1],
+      minLastActivityTimestampMs: a[2],
+      minThreadKey: a[3],
+      secondaryThreadRangeFilter: a[4], // @TODO: not sure
+    }
+    this.__logger.debug('updateThreadsRangesV2', r)
+    this.__papi.kv.set(`threadsRangesV2-${a[0]}-${a[1] as ParentThreadKey}`, JSON.stringify(r))
   }
 
   private updateTypingIndicator(a: SimpleArgType[]) {

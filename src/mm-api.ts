@@ -19,7 +19,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
-import { ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { MNetRankType, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
 import {
   createPromise,
   genClientContext,
@@ -36,6 +36,7 @@ import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
 import { RequestResolverType, ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
+import { NEVER_SYNC_TIMESTAMP } from './constants'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -154,23 +155,22 @@ export default class MetaMessengerAPI {
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
 
-    const { body } = await this.httpRequest(this.papi.envOpts.initialURL, {
-      // todo: refactor headers
-      headers: {
-        accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'cache-control': 'max-age=0',
-        'sec-ch-ua':
-          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-        'viewport-width': '1280',
-      },
-    })
-
     try {
+      const { body } = await this.httpRequest(this.papi.envOpts.initialURL, {
+        // todo: refactor headers
+        headers: {
+          accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'cache-control': 'max-age=0',
+          'sec-ch-ua':
+            '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+          'sec-fetch-dest': 'document',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-user': '?1',
+          'upgrade-insecure-requests': '1',
+          'viewport-width': '1280',
+        },
+      })
       this.config = getMessengerConfig(body)
     } catch (err) {
       if (err instanceof ReAuthError) {
@@ -180,8 +180,6 @@ export default class MetaMessengerAPI {
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)
     }
-
-    this.papi.kv.set('syncParams-1', JSON.stringify(this.config.syncParams))
 
     this.papi.currentUser = {
       id: this.config.fbid,
@@ -362,10 +360,14 @@ export default class MetaMessengerAPI {
     }
   }
 
-  private getCSRFToken() { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
+  getCookie(key: string) { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
     return this.jar
       .getCookiesSync(`https://${this.papi.envOpts.domain}/`)
-      .find(c => c.key === 'csrftoken')?.value
+      .find(c => c.key === key)?.value
+  }
+
+  private getCSRFToken() { // meta only sends this for some requests check `shouldSendCSRFTokenForRequest`
+    return this.getCookie('csrftoken')
   }
 
   private async getSnapshotPayloadForIGD() {
@@ -395,7 +397,7 @@ export default class MetaMessengerAPI {
         database: 95,
         epoch_id: 0,
         last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-        sync_params: this.papi.kv.get('syncParams-1'),
+        sync_params: JSON.stringify(this.config.syncParams.contact),
         version: '6566200933472970',
       }),
       requestType: 1,
@@ -501,6 +503,145 @@ export default class MetaMessengerAPI {
     return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
   }
 
+  getDefaultSyncGroups() {
+    const igdSyncGroups = [
+      {
+        groupId: 1,
+      },
+      {
+        groupId: 2,
+      },
+      {
+        groupId: 6,
+      },
+      {
+        groupId: 7,
+        syncParams: JSON.stringify({
+          mnet_rank_types: [
+            MNetRankType.INSTAGRAM_DIRECT_SEARCH_NULLSTATE,
+          ],
+        }),
+      },
+      {
+        groupId: 16,
+      },
+      {
+        groupId: 28,
+      },
+      {
+        groupId: 196,
+      },
+      {
+        groupId: 198,
+      },
+      // c('qex')._('923') ? {
+      //   groupId: 95,
+      // }
+      //   : null,
+      {
+        groupId: 118,
+        minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+      },
+    ]
+    const initialCursor = this.getMailboxInitialSyncCursor()
+    const defaultSyncGroups = [
+      {
+        groupId: 1,
+        lastSyncRequestTimestampMs: initialCursor.lastSyncTimestampMs,
+        syncChannel: initialCursor.syncChannel,
+        syncParams: initialCursor.syncParams,
+      },
+      {
+        groupId: 2,
+        lastSyncRequestTimestampMs: initialCursor.lastSyncTimestampMs,
+        syncChannel: initialCursor.syncChannel,
+      },
+      {
+        groupId: 95,
+      },
+      {
+        groupId: 7,
+        minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+        syncParams: JSON.stringify({
+          mnet_rank_types: [
+            MNetRankType.MESSENGER_USER_SEARCH,
+            MNetRankType.MESSENGER_USER_SEARCH_NULLSTATE,
+            MNetRankType.INBOX_ACTIVE_NOW,
+            MNetRankType.MESSENGER_OMNIPICKER_NULLSTATE,
+            MNetRankType.MESSENGER_BROADCAST_FLOW_TOP_THREADS,
+            MNetRankType.BROADCAST_FLOW_TOP_CONTACTS,
+          ],
+        }),
+      },
+      {
+        groupId: 15,
+        minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+      },
+      {
+        groupId: 12,
+        minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+      },
+      {
+        groupId: 16,
+      },
+      {
+        groupId: 140,
+      },
+      {
+        groupId: 141,
+      },
+      {
+        groupId: 142,
+      },
+      {
+        groupId: 143,
+      },
+      {
+        groupId: 26,
+      },
+      {
+        groupId: 5,
+      },
+      {
+        groupId: 28,
+      },
+      {
+        groupId: 118,
+        minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+      },
+      {
+        groupId: 196,
+      },
+      {
+        groupId: 104,
+      },
+      {
+        groupId: 198,
+      },
+      // e,
+      // c('gkx')('2096')
+      // || c('qex')._('1332') ? {
+      //     groupId: 120,
+      //   }
+      //   : null,
+      // c('qex')._('274')
+      // || c('gkx')('5849') ? {
+      //     groupId: 6,
+      //     minTimeToSyncTimestampMs: NEVER_SYNC_TIMESTAMP,
+      //   }
+      //   : null,
+      // c('gkx')('2250') ? {
+      //   groupId: 108,
+      // }
+      //   : null,
+    ]
+
+    return {
+      igdSyncGroups,
+      defaultSyncGroups,
+    }
+  }
+
   private computeSyncGroups(inbox: InboxName) {
     const generalEnabled = (
       (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
@@ -513,17 +654,17 @@ export default class MetaMessengerAPI {
 
     if (inbox === 'requests') {
       syncGroups.push(
-        generalEnabled && [SyncGroup.MAIN, ParentThreadKey.GENERAL],
-        generalEnabled && [SyncGroup.UNKNOWN, ParentThreadKey.GENERAL],
-        [SyncGroup.MAIN, ParentThreadKey.SPAM],
-        [SyncGroup.UNKNOWN, ParentThreadKey.SPAM],
+        generalEnabled && [SyncGroup.MAILBOX, ParentThreadKey.GENERAL],
+        generalEnabled && [SyncGroup.E2EE, ParentThreadKey.GENERAL],
+        [SyncGroup.MAILBOX, ParentThreadKey.SPAM],
+        [SyncGroup.E2EE, ParentThreadKey.SPAM],
       )
     } else {
       syncGroups.push(
-        [SyncGroup.MAIN, ParentThreadKey.PRIMARY],
-        [SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY],
-        supportsArchive ? [SyncGroup.MAIN, ParentThreadKey.ARCHIVE] : undefined,
-        supportsArchive ? [SyncGroup.UNKNOWN, ParentThreadKey.ARCHIVE] : undefined,
+        [SyncGroup.MAILBOX, ParentThreadKey.PRIMARY],
+        [SyncGroup.E2EE, ParentThreadKey.PRIMARY],
+        supportsArchive ? [SyncGroup.MAILBOX, ParentThreadKey.ARCHIVE] : undefined,
+        supportsArchive ? [SyncGroup.E2EE, ParentThreadKey.ARCHIVE] : undefined,
       )
     }
 
@@ -531,10 +672,20 @@ export default class MetaMessengerAPI {
   }
 
   computeServerHasMoreThreads(inbox: InboxName) {
+    // const threadsRanges = this.papi.kv.getThreadsRanges()
+    // const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
+    // const filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
     const syncGroups = this.computeSyncGroups(inbox)
+    //
+    // this.logger.debug('computeServerHasMoreThreads', {
+    //   threadsRanges,
+    //   threadsRangesV2,
+    //   filteredThreadsRanges,
+    //   syncGroups,
+    // })
     return syncGroups.some(([syncGroup, parentThreadKey]) => {
       const value = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
-      return value?.hasMoreBefore
+      return typeof value?.hasMoreBefore === 'boolean' ? value.hasMoreBefore : false
     })
   }
 
@@ -549,8 +700,8 @@ export default class MetaMessengerAPI {
     } as const
     const getFetcher = () => {
       if (isSpam) {
-        const group1 = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.SPAM)
-        const group95 = this.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.SPAM)
+        const group1 = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.SPAM)
+        const group95 = this.getSyncGroupThreadsRange(SyncGroup.E2EE, ParentThreadKey.SPAM)
         this.logger.debug('fetchRequestThreads', {
           group1,
           group95,
@@ -566,7 +717,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-1'),
               messaging_tag: null,
-              sync_group: SyncGroup.MAIN,
+              sync_group: SyncGroup.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -582,7 +733,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-95'),
               messaging_tag: null,
-              sync_group: SyncGroup.UNKNOWN,
+              sync_group: SyncGroup.E2EE,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -602,7 +753,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-1'),
               messaging_tag: null,
-              sync_group: SyncGroup.MAIN,
+              sync_group: SyncGroup.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -618,7 +769,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-95'),
               messaging_tag: null,
-              sync_group: SyncGroup.UNKNOWN,
+              sync_group: SyncGroup.E2EE,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -635,7 +786,7 @@ export default class MetaMessengerAPI {
               reference_thread_key: INT64_MAX_AS_STRING,
               secondary_filter: 0,
               filter_value: '',
-              sync_group: SyncGroup.MAIN,
+              sync_group: SyncGroup.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -648,7 +799,7 @@ export default class MetaMessengerAPI {
           ThreadFilter.IGD_PRO_PRIMARY,
           ThreadFilter.IGD_PRO_GENERAL,
         ].map(async filter => {
-          const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
+          const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
 
           return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_INBOX_THREADS, [
             {
@@ -662,7 +813,7 @@ export default class MetaMessengerAPI {
                 reference_thread_key: sg1Primary.minThreadKey,
                 secondary_filter: 0,
                 filter_value: '',
-                sync_group: SyncGroup.MAIN,
+                sync_group: SyncGroup.MAILBOX,
               }),
               queue_name: 'trq',
               task_id: this.papi.socket.taskIds.gen(),
@@ -680,8 +831,8 @@ export default class MetaMessengerAPI {
       //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
       //   return
       // }
-      const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAIN, ParentThreadKey.PRIMARY)
-      const sg95Primary = this.getSyncGroupThreadsRange(SyncGroup.UNKNOWN, ParentThreadKey.PRIMARY) || sg1Primary
+      const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
+      const sg95Primary = this.getSyncGroupThreadsRange(SyncGroup.E2EE, ParentThreadKey.PRIMARY) || sg1Primary
       return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
         {
           label: '145',
@@ -693,7 +844,7 @@ export default class MetaMessengerAPI {
             additional_pages_to_fetch: 0,
             cursor: this.papi.kv.get('cursor-1-1'),
             messaging_tag: null,
-            sync_group: SyncGroup.MAIN,
+            sync_group: SyncGroup.MAILBOX,
           }),
           queue_name: 'trq',
           task_id: this.papi.socket.taskIds.gen(),
@@ -709,7 +860,7 @@ export default class MetaMessengerAPI {
             additional_pages_to_fetch: 0,
             cursor: null,
             messaging_tag: null,
-            sync_group: SyncGroup.UNKNOWN,
+            sync_group: SyncGroup.E2EE,
           }),
           queue_name: 'trq',
           task_id: this.papi.socket.taskIds.gen(),
@@ -1108,7 +1259,7 @@ export default class MetaMessengerAPI {
         thread_fbid: threadKey,
         force_upsert: 0,
         use_open_messenger_transport: 0,
-        sync_group: SyncGroup.MAIN,
+        sync_group: SyncGroup.MAILBOX,
         metadata_only: 0,
         preview_only: 0,
       }),
@@ -1156,7 +1307,7 @@ export default class MetaMessengerAPI {
         actor_id: this.config.fbid,
         reaction,
         reaction_style: null,
-        sync_group: SyncGroup.MAIN,
+        sync_group: SyncGroup.MAILBOX,
       }),
       queue_name: JSON.stringify([
         'reaction',
@@ -1206,7 +1357,7 @@ export default class MetaMessengerAPI {
         direction: 0,
         reference_timestamp_ms: Number(ranges.minTimestamp),
         reference_message_id: ranges.minMessageId,
-        sync_group: SyncGroup.MAIN,
+        sync_group: SyncGroup.MAILBOX,
         cursor: this.papi.kv.get('cursor-1-1'),
       }),
       queue_name: `mrq.${threadID}`,
@@ -1237,7 +1388,7 @@ export default class MetaMessengerAPI {
             otid: otid.toString(),
             source: (2 ** 16) + 1,
             send_type: hasAttachment ? 3 : 1,
-            sync_group: SyncGroup.MAIN,
+            sync_group: SyncGroup.MAILBOX,
             text: !hasAttachment ? text : null,
             initiating_source: hasAttachment ? undefined : 1,
             skip_url_preview_gen: hasAttachment ? undefined : 0,
@@ -1254,7 +1405,7 @@ export default class MetaMessengerAPI {
           payload: JSON.stringify({
             thread_id: threadID,
             last_read_watermark_ts: Number(timestamp),
-            sync_group: SyncGroup.MAIN,
+            sync_group: SyncGroup.MAILBOX,
           }),
           queue_name: threadID.toString(),
           task_id: this.papi.socket.taskIds.gen(),
@@ -1279,11 +1430,17 @@ export default class MetaMessengerAPI {
       return this.fetchMoreThreadsV3Promises.get(inbox)
     }
 
+    // const threadsRanges = this.papi.kv.getThreadsRanges()
+    // const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
+    // const filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
     const syncGroups = this.computeSyncGroups(inbox)
 
     this.logger.debug('fetchMoreThreadsV3', {
       inbox,
       syncGroups,
+      // threadsRanges,
+      // threadsRangesV2,
+      // filteredThreadsRanges,
     })
 
     const tasks = syncGroups.map(([syncGroup, parentThreadKey]) => {
@@ -1354,4 +1511,43 @@ export default class MetaMessengerAPI {
   //   })
   //   this.logger.info('create thread response', response)
   // }
+  private getMailboxInitialSyncCursor() {
+    return {
+      syncParams: this.config.syncParams?.mailbox,
+      syncChannel: 1,
+      lastSyncTimestampMs: 0,
+    } as const
+  }
+
+  private syncGroupUtils() {
+    return {
+      defaultSyncGroup: {
+        canIgnoreTimestamp: false,
+        // currentCursor: undefined,
+        // dataTraceId: undefined,
+        groupId: 0,
+        // initTraceTimestampMs: undefined,
+        // lastSyncCompletedTimestampMs: undefined,
+        lastSyncRequestTimestampMs: 0,
+        minTimeToSyncTimestampMs: -1,
+        priority: 0,
+        // regionHint: undefined,
+        sendSyncParams: true,
+        syncChannel: 1,
+        syncParams: JSON.stringify({ locale: this.config.currentLocale }),
+        syncStatus: 0,
+      } as const,
+      defaultNetworkRequest: {
+        // epochId: undefined,
+        failureCount: 0,
+        // lastDelayedRequestTimestampMs: undefined,
+        lastSentTimestampMs: 0,
+        lastSyncRequestTimestampMs: 0,
+        // networkTaskIdentifier: undefined,
+        syncDatabaseId: 0,
+        taskQueueName: '',
+      } as const,
+      neverSyncTimestamp: NEVER_SYNC_TIMESTAMP,
+    } as const
+  }
 }

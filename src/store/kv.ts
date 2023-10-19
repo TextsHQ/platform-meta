@@ -10,34 +10,16 @@ type ThreadRangesThreadRangeFilter = string
 
 type Key =
   | '_fullConfig' // not used, for debugging
-  // | 'appId'
-  // | 'clientId'
-  // | 'fb_dtsg'
-  // | 'fbid'
   | 'hasTabbedInbox'
-  // | 'igUserId'
-  // | 'lsd'
-  // | 'mqttCapabilities'
-  // | 'mqttClientCapabilities'
   | 'wwwClaim'
   | `_lastReceivedCursor-${DbId}-${SyncGroup}` // not used, for debugging
   | `cursor-${DbId}-${SyncGroup}`
-  | `syncParams-${SyncGroup}`
   | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
-  | `threadsRangesV3-${ThreadRangesFolderName}-${ThreadRangesParentThreadKey}-${ThreadRangesThreadRangeFilter}` // meta calls it v3
+  | `threadsRangesV2-${string}-${ParentThreadKey}`
+  | `filteredThreadsRanges-${ThreadRangesFolderName}-${ThreadRangesParentThreadKey}-${ThreadRangesThreadRangeFilter}` // meta calls it v3
 
 const CACHED_KEYS = [
-  'appId',
-  'clientId',
-  'fb_dtsg',
-  'fbid',
   'hasTabbedInbox',
-  'igUserId',
-  'lsd',
-  'mqttCapabilities',
-  'mqttClientCapabilities',
-  'syncParams-1',
-  'syncParams-95',
   'wwwClaim',
 ] as const
 
@@ -117,5 +99,17 @@ export default class KeyValueStore {
       }
       return acc
     }, initializeAccumulator<KeyValue>())
+  }
+
+  getThreadsRanges() {
+    return this.papi.preparedQueries.getThreadsRanges.all()
+  }
+
+  getThreadsRangesV2() {
+    return this.papi.preparedQueries.getThreadsRangesV2.all()
+  }
+
+  getFilteredThreadsRanges() {
+    return this.papi.preparedQueries.getFilteredThreadsRanges.all()
   }
 }

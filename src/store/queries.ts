@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from 'drizzle-orm'
+import { asc, desc, eq, like, sql } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
 import * as schema from './schema'
 import { messages as messagesSchema, threads as threadsSchema } from './schema'
@@ -124,6 +124,9 @@ export function preparedQueries(db: DrizzleDB) {
     getKeyValue: db.select({
       value: schema.keyValues.value,
     }).from(schema.keyValues).where(eq(schema.keyValues.key, sql.placeholder('key'))).prepare(),
+    getThreadsRanges: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'threadsRanges-%')).prepare(),
+    getThreadsRangesV2: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'threadsRangesV2-%')).prepare(),
+    getFilteredThreadsRanges: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'filteredThreadsRanges-%')).prepare(),
     getContact: db
       .select({
         id: schema.contacts.id,

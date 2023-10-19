@@ -23,7 +23,6 @@ import type {
 } from '@textshq/platform-sdk'
 import { ActivityType, AttachmentType, InboxName, ReAuthError } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, gte, inArray, lt, lte, SQLWrapper } from 'drizzle-orm'
-import { CookieJar } from 'tough-cookie'
 
 import path from 'path'
 import MetaMessengerAPI from './mm-api'
@@ -36,7 +35,7 @@ import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
-import { getTimeValues } from './util'
+import { getCookieJar, getTimeValues } from './util'
 import { STICKERS_DIR_PATH } from './constants'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
@@ -89,7 +88,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.logger.debug('loading keys', this.kv.getAll())
     if (!session?.jar) return
     const { jar } = session
-    this.api.jar = CookieJar.fromJSON(jar as unknown as string)
+    this.api.jar = getCookieJar(jar)
     await this.api.init('init')
   }
 
@@ -115,7 +114,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       this.api.ua = ua
       this.api.authMethod = authMethod || 'login-window'
     }
-    this.api.jar = CookieJar.fromJSON(cookieJarJSON as any)
+    this.api.jar = getCookieJar(cookieJarJSON as any)
     await this.api.init('login')
     return { type: 'success' }
   }
@@ -431,7 +430,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           thread_key: Number(threadID),
           mailbox_type: 0, // 0 = inbox
           mute_expire_time_ms: updates.mutedUntil === 'forever' ? -1 : 0,
-          sync_group: SyncGroup.MAIN,
+          sync_group: SyncGroup.MAILBOX,
         }),
         queue_name: threadID.toString(),
         task_id: this.socket.taskIds.gen(),
@@ -446,7 +445,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           label: '66',
           payload: JSON.stringify({
             thread_key: threadID,
-            sync_group: SyncGroup.MAIN,
+            sync_group: SyncGroup.MAILBOX,
             ig_folder: 1,
           }),
           queue_name: 'message_request',
@@ -461,14 +460,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   archiveThread = async (threadID: ThreadID, archived: boolean) => {
     if (archived) {
-      await this.api.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAIN)
+      await this.api.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAILBOX)
     } else {
       if (!this.envOpts.supportsArchive) throw new Error('unarchive thread is not supported in this environment')
       await this.socket.publishTask(RequestResolverType.UNARCHIVE_THREAD, [{
         label: '242',
         payload: JSON.stringify({
           thread_id: threadID,
-          sync_group: SyncGroup.MAIN,
+          sync_group: SyncGroup.MAILBOX,
         }),
         queue_name: 'unarchive_thread',
         task_id: this.socket.taskIds.gen(),
@@ -479,7 +478,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   deleteThread = async (threadID: string) => {
     await this.api.initPromise
-    await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAIN)
+    await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAILBOX)
   }
 
   sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
@@ -558,7 +557,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       payload: JSON.stringify({
         thread_id: threadID,
         last_read_watermark_ts: Date.now(),
-        sync_group: SyncGroup.MAIN,
+        sync_group: SyncGroup.MAILBOX,
       }),
       queue_name: threadID,
       task_id: this.socket.taskIds.gen(),
@@ -577,7 +576,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       payload: JSON.stringify({
         thread_key: threadID,
         contact_ids: [participantID],
-        sync_group: SyncGroup.MAIN,
+        sync_group: SyncGroup.MAILBOX,
       }),
       queue_name: threadID.toString(),
       task_id: this.socket.taskIds.gen(),
@@ -691,7 +690,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
           otid: otid.toString(),
           source: (2 ** 16) + 8,
           send_type: 5,
-          sync_group: SyncGroup.MAIN,
+          sync_group: SyncGroup.MAILBOX,
           forwarded_msg_id,
           strip_forwarded_msg_caption: 0,
           initiating_source: 1,

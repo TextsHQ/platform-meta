@@ -1,6 +1,8 @@
 import path from 'path'
 import { texts } from '@textshq/platform-sdk'
 
+export const NEVER_SYNC_TIMESTAMP = 9999999999999
+
 const PLATFORM_DIR_NAME = 'platform-meta'
 const isiOS = process.platform as string === 'ios'
 
