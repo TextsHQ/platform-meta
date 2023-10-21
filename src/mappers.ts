@@ -195,7 +195,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     forwardedCount: message.isForwarded ? 1 : 0,
     isAction,
     attachments: attachmentsWithMedia,
-    textHeading,
+    textHeading: typeof textHeading === 'string' ? textHeading : undefined,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     seen,
     links: message.links,
