@@ -191,8 +191,6 @@ export default class MetaMessengerAPI {
         throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
       }
 
-      this.papi.kv.set('hasTabbedInbox', this.config.igViewerConfig?.has_tabbed_inbox)
-
       // config.id, is the instagram id but fbid is instead used for chat
       this.papi.currentUser.fullName = this.config.igViewerConfig?.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name) : null
       this.papi.currentUser.imgURL = this.config.igViewerConfig?.profile_pic_url_hd ? fixUrl(this.config.igViewerConfig.profile_pic_url_hd) : null
@@ -644,7 +642,7 @@ export default class MetaMessengerAPI {
 
   private computeSyncGroups(inbox: InboxName) {
     const generalEnabled = (
-      (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
+      (this.papi.env === 'IG' && this.hasTabbedInbox())
       || this.papi.env === 'FB'
       || this.papi.env === 'MESSENGER'
     )
@@ -775,7 +773,7 @@ export default class MetaMessengerAPI {
             task_id: this.papi.socket.taskIds.gen(),
             failure_count: null,
           },
-          this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox') && {
+          this.papi.env === 'IG' && this.hasTabbedInbox() && {
             label: '313',
             payload: JSON.stringify({
               cursor: this.papi.kv.get('cursor-1-1'),
@@ -794,7 +792,7 @@ export default class MetaMessengerAPI {
           },
         ], publishTaskOpts)
       }
-      if (this.papi.kv.get('hasTabbedInbox')) {
+      if (this.hasTabbedInbox()) {
         return Promise.all([
           ThreadRangeFilter.IGD_PRO_PRIMARY,
           ThreadRangeFilter.IGD_PRO_GENERAL,
@@ -823,7 +821,7 @@ export default class MetaMessengerAPI {
         }))
       }
       // if (
-      //   (this.papi.env === 'IG' && this.papi.kv.get('hasTabbedInbox'))
+      //   (this.papi.env === 'IG' && this.hasTabbedInbox())
       //   // || this.papi.env === 'MESSENGER'
       //   // || this.papi.env === 'FB'
       // ) {
@@ -1546,5 +1544,10 @@ export default class MetaMessengerAPI {
       } as const,
       neverSyncTimestamp: NEVER_SYNC_TIMESTAMP,
     } as const
+  }
+
+  hasTabbedInbox() { // @TODO: don't rely on this
+    const has_tabbed_inbox = this.config?.igViewerConfig?.has_tabbed_inbox
+    return typeof has_tabbed_inbox === 'boolean' ? has_tabbed_inbox : false
   }
 }

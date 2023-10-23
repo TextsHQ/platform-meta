@@ -10,7 +10,6 @@ type ThreadRangesThreadRangeFilter = string
 
 type Key =
   | '_fullConfig' // not used, for debugging
-  | 'hasTabbedInbox'
   | 'wwwClaim'
   | `_lastReceivedCursor-${DbId}-${SyncGroup}` // not used, for debugging
   | `cursor-${DbId}-${SyncGroup}`
@@ -19,12 +18,11 @@ type Key =
   | `filteredThreadsRanges-${ThreadRangesFolderName}-${ThreadRangesParentThreadKey}-${ThreadRangesThreadRangeFilter}` // meta calls it v3
 
 const CACHED_KEYS = [
-  'hasTabbedInbox',
   'wwwClaim',
 ] as const
 
-type ValueType<K extends Key> =
-  K extends 'hasTabbedInbox' ? boolean : string
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type ValueType<K extends Key> = string
 
 type KeyValue = { [K in Key]: ValueType<K> }
 
@@ -45,7 +43,6 @@ function serialize(value: ValueType<Key>) {
 }
 
 function deserialize<K extends Key>(key: K, value: string) {
-  if (key === 'hasTabbedInbox') return JSON.parse(value) as ValueType<K>
   return value as ValueType<K>
 }
 
@@ -92,9 +89,7 @@ export default class KeyValueStore {
   getAll(): KeyValue {
     const values = this.papi.preparedQueries.getAllKeyValues.all()
     return values.reduce<KeyValue>((acc, { key, value }) => {
-      if (key === 'hasTabbedInbox') {
-        assignToAcc(acc, key, JSON.parse(value) as ValueType<typeof key>)
-      } else if (isKey(key)) {
+      if (isKey(key)) {
         assignToAcc(acc, key, value as ValueType<typeof key>)
       }
       return acc

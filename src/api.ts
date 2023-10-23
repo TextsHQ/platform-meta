@@ -191,7 +191,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const parentThreadKeys: ParentThreadKey[] = []
     if (isSpam) {
       parentThreadKeys.push(ParentThreadKey.SPAM)
-      if ((this.env === 'IG' && this.kv.get('hasTabbedInbox')) || this.env === 'FB' || this.env === 'MESSENGER') {
+      if ((this.env === 'IG' && this.api.hasTabbedInbox()) || this.env === 'FB' || this.env === 'MESSENGER') {
         parentThreadKeys.push(ParentThreadKey.GENERAL)
       }
     } else {
