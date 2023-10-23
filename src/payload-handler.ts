@@ -903,6 +903,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('hybridThreadDelete (ignored)', a)
   }
 
+  private insertQuickReplyCTA(a: SimpleArgType[]) {
+    this.__logger.debug('insertQuickReplyCTA (ignored)', a)
+  }
+
   private insertAttachment(a: SimpleArgType[]) {
     this.__logger.debug('insertAttachment (ignored)', a)
   }
@@ -1511,6 +1515,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('queryAdditionalGroupThreads (ignored)', a)
   }
 
+  private resetIsLoadingBeforeOrAfterForThreadRangeV2(a: SimpleArgType[]) {
+    this.__logger.debug('resetIsLoadingBeforeOrAfterForThreadRangeV2 (ignored)', a)
+  }
+
   private removeAllParticipantsForThread(a: SimpleArgType[]) {
     this.__logger.debug('removeAllParticipantsForThread (ignored)', a)
   }
@@ -1596,6 +1604,10 @@ export default class MetaMessengerPayloadHandler {
       offlineThreadingId,
       messageId,
     }
+  }
+
+  private setMessagesViewedPlugin(a: SimpleArgType[]) {
+    this.__logger.debug('setMessagesViewedPlugin (ignored)', a)
   }
 
   private setForwardScore(a: SimpleArgType[]) {
