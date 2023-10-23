@@ -14,7 +14,7 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { SyncGroup, SocketRequestResolverType } from './types'
+import { SyncGroup, SocketRequestResolverType, MMSocketTask } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
@@ -25,14 +25,6 @@ import { PlatformRequestScheduler } from './PlatformRequestScheduler'
 
 const MAX_RETRY_ATTEMPTS = 12
 const SOCKET_CONNECTION_TIMEOUT_MS = 20 * 1e3
-
-type MMSocketTask = {
-  label: string
-  payload: string
-  queue_name: string
-  failure_count: null
-  task_id: number
-}
 
 export const enum ThreadRemoveType {
   DELETE = 0,

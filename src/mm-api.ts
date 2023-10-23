@@ -1309,10 +1309,7 @@ export default class MetaMessengerAPI {
         reaction_style: null,
         sync_group: SyncGroup.MAILBOX,
       }),
-      queue_name: JSON.stringify([
-        'reaction',
-        messageID,
-      ]),
+      queue_name: `["reaction",${JSON.stringify(messageID)}]`,
       task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }])
@@ -1465,7 +1462,7 @@ export default class MetaMessengerAPI {
         queue_name: 'trq',
         task_id: this.papi.socket.taskIds.gen(),
         failure_count: null,
-      }
+      } as const
     }).filter(Boolean)
 
     // if there are no more threads to load

@@ -154,14 +154,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       this.socket.publishTask(SocketRequestResolverType.SEARCH_USERS_PRIMARY, [{
         label: '30',
         payload,
-        queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
+        queue_name: `["search_primary", ${JSON.stringify(timestamp.toString())}]`,
         task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]),
       this.socket.publishTask(SocketRequestResolverType.SEARCH_USERS_SECONDARY, [{
         label: '31',
         payload,
-        queue_name: JSON.stringify(['search_secondary']),
+        queue_name: '["search_secondary"]',
         task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]),
