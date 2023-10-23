@@ -26,11 +26,11 @@ import { and, asc, desc, eq, gte, inArray, lt, lte, SQLWrapper } from 'drizzle-o
 
 import path from 'path'
 import MetaMessengerAPI from './mm-api'
-import MetaMessengerWebSocket, { RequestResolverType, ThreadRemoveType } from './socket'
+import MetaMessengerWebSocket, { ThreadRemoveType } from './socket'
 import { getLogger, type Logger } from './logger'
 import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
-import { ParentThreadKey, SyncGroup } from './types'
+import { ParentThreadKey, SyncGroup, SocketRequestResolverType } from './types'
 import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
@@ -151,14 +151,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     })
 
     const [primary, secondary] = await Promise.all([
-      this.socket.publishTask(RequestResolverType.SEARCH_USERS_PRIMARY, [{
+      this.socket.publishTask(SocketRequestResolverType.SEARCH_USERS_PRIMARY, [{
         label: '30',
         payload,
         queue_name: JSON.stringify(['search_primary', timestamp.toString()]),
         task_id: this.socket.taskIds.gen(),
         failure_count: null,
       }]),
-      this.socket.publishTask(RequestResolverType.SEARCH_USERS_SECONDARY, [{
+      this.socket.publishTask(SocketRequestResolverType.SEARCH_USERS_SECONDARY, [{
         label: '31',
         payload,
         queue_name: JSON.stringify(['search_secondary']),
@@ -410,7 +410,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const promises: Promise<unknown>[] = []
 
     if ('title' in updates) {
-      promises.push(this.socket.publishTask(RequestResolverType.SET_THREAD_NAME, [{
+      promises.push(this.socket.publishTask(SocketRequestResolverType.SET_THREAD_NAME, [{
         label: '32',
         payload: JSON.stringify({
           thread_key: threadID,
@@ -424,7 +424,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     }
 
     if ('mutedUntil' in updates) {
-      promises.push(this.socket.publishTask(RequestResolverType.MUTE_THREAD, [{
+      promises.push(this.socket.publishTask(SocketRequestResolverType.MUTE_THREAD, [{
         label: '144',
         payload: JSON.stringify({
           thread_key: Number(threadID),
@@ -441,7 +441,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     if ('folderName' in updates) {
       if (updates.folderName === InboxName.NORMAL) {
-        promises.push(this.socket.publishTask(RequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, [{
+        promises.push(this.socket.publishTask(SocketRequestResolverType.MOVE_OUT_OF_MESSAGE_REQUESTS, [{
           label: '66',
           payload: JSON.stringify({
             thread_key: threadID,
@@ -463,7 +463,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       await this.api.removeThread(ThreadRemoveType.ARCHIVE, threadID, SyncGroup.MAILBOX)
     } else {
       if (!this.envOpts.supportsArchive) throw new Error('unarchive thread is not supported in this environment')
-      await this.socket.publishTask(RequestResolverType.UNARCHIVE_THREAD, [{
+      await this.socket.publishTask(SocketRequestResolverType.UNARCHIVE_THREAD, [{
         label: '242',
         payload: JSON.stringify({
           thread_id: threadID,
@@ -539,7 +539,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   deleteMessage = async (_threadID: string, messageID: string, _forEveryone?: boolean) => {
     await this.api.initPromise
-    await this.socket.publishTask(RequestResolverType.UNSEND_MESSAGE, [{
+    await this.socket.publishTask(SocketRequestResolverType.UNSEND_MESSAGE, [{
       label: '33',
       payload: JSON.stringify({
         message_id: messageID,
@@ -552,7 +552,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   sendReadReceipt = async (threadID: string, _messageID: string, _messageCursor?: string) => {
     await this.api.initPromise
-    await this.socket.publishTask(RequestResolverType.SEND_READ_RECEIPT, [{
+    await this.socket.publishTask(SocketRequestResolverType.SEND_READ_RECEIPT, [{
       label: '21',
       payload: JSON.stringify({
         thread_id: threadID,
@@ -571,7 +571,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   addParticipant = async (threadID: string, participantID: string) => {
     await this.api.initPromise
-    await this.socket.publishTask(RequestResolverType.ADD_PARTICIPANTS, [{
+    await this.socket.publishTask(SocketRequestResolverType.ADD_PARTICIPANTS, [{
       label: '23',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -591,7 +591,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   removeParticipant = async (threadID: string, participantID: string) => {
     await this.api.initPromise
-    await this.socket.publishTask(RequestResolverType.REMOVE_PARTICIPANT, [{
+    await this.socket.publishTask(SocketRequestResolverType.REMOVE_PARTICIPANT, [{
       label: '140',
       payload: JSON.stringify({
         thread_id: threadID,
@@ -606,7 +606,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   changeParticipantRole = async (threadID: string, participantID: string, role: 'admin' | 'regular') => {
     await this.api.initPromise
-    await this.socket.publishTask(RequestResolverType.SET_ADMIN_STATUS, [{
+    await this.socket.publishTask(SocketRequestResolverType.SET_ADMIN_STATUS, [{
       label: '25',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -683,7 +683,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('forwarded_msg_id is required')
 
       const { otid } = getTimeValues()
-      await this.socket.publishTask(RequestResolverType.FORWARD_MESSAGE, [{
+      await this.socket.publishTask(SocketRequestResolverType.FORWARD_MESSAGE, [{
         label: '46',
         payload: JSON.stringify({
           thread_id,

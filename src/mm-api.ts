@@ -19,7 +19,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
-import { MNetRankType, ParentThreadKey, SyncGroup, ThreadFilter } from './types'
+import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncGroup, ThreadRangeFilter } from './types'
 import {
   createPromise,
   genClientContext,
@@ -34,7 +34,7 @@ import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
-import { RequestResolverType, ThreadRemoveType } from './socket'
+import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
 import { NEVER_SYNC_TIMESTAMP } from './constants'
 
@@ -706,7 +706,7 @@ export default class MetaMessengerAPI {
           group1,
           group95,
         })
-        return this.papi.socket.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
+        return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_INITIAL_THREADS, [
           {
             label: '145',
             payload: JSON.stringify({
@@ -742,7 +742,7 @@ export default class MetaMessengerAPI {
         ], publishTaskOpts)
       }
       if (isInitial) {
-        return this.papi.socket.publishTask(RequestResolverType.FETCH_INITIAL_THREADS, [
+        return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_INITIAL_THREADS, [
           {
             label: '145',
             payload: JSON.stringify({
@@ -779,7 +779,7 @@ export default class MetaMessengerAPI {
             label: '313',
             payload: JSON.stringify({
               cursor: this.papi.kv.get('cursor-1-1'),
-              filter: ThreadFilter.IGD_PRO_PRIMARY,
+              filter: ThreadRangeFilter.IGD_PRO_PRIMARY,
               is_after: 0,
               parent_thread_key: ParentThreadKey.GENERAL,
               reference_activity_timestamp: INT64_MAX_AS_STRING,
@@ -796,12 +796,12 @@ export default class MetaMessengerAPI {
       }
       if (this.papi.kv.get('hasTabbedInbox')) {
         return Promise.all([
-          ThreadFilter.IGD_PRO_PRIMARY,
-          ThreadFilter.IGD_PRO_GENERAL,
+          ThreadRangeFilter.IGD_PRO_PRIMARY,
+          ThreadRangeFilter.IGD_PRO_GENERAL,
         ].map(async filter => {
           const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
 
-          return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_INBOX_THREADS, [
+          return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_INBOX_THREADS, [
             {
               label: '313',
               payload: JSON.stringify({
@@ -833,7 +833,7 @@ export default class MetaMessengerAPI {
       // }
       const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
       const sg95Primary = this.getSyncGroupThreadsRange(SyncGroup.E2EE, ParentThreadKey.PRIMARY) || sg1Primary
-      return this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, [
+      return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, [
         {
           label: '145',
           payload: JSON.stringify({
@@ -1237,7 +1237,7 @@ export default class MetaMessengerAPI {
   removeThread(remove_type: ThreadRemoveType, thread_key: string, sync_group: SyncGroup) {
     if (remove_type === ThreadRemoveType.ARCHIVE && !this.papi.envOpts.supportsArchive) throw new Error('removeThread is not supported in this environment')
     return this.papi.socket.publishTask(
-      remove_type === ThreadRemoveType.ARCHIVE ? RequestResolverType.ARCHIVE_THREAD : RequestResolverType.DELETE_THREAD,
+      remove_type === ThreadRemoveType.ARCHIVE ? SocketRequestResolverType.ARCHIVE_THREAD : SocketRequestResolverType.DELETE_THREAD,
       [{
         label: '146',
         payload: JSON.stringify({
@@ -1253,7 +1253,7 @@ export default class MetaMessengerAPI {
   }
 
   async requestThread(threadKey: string) {
-    return this.papi.socket.publishTask(RequestResolverType.GET_NEW_THREAD, [{
+    return this.papi.socket.publishTask(SocketRequestResolverType.GET_NEW_THREAD, [{
       label: '209',
       payload: JSON.stringify({
         thread_fbid: threadKey,
@@ -1271,7 +1271,7 @@ export default class MetaMessengerAPI {
 
   async requestContacts(contactIDs: string[]) {
     if (contactIDs.length === 0) return
-    return this.papi.socket.publishTask(RequestResolverType.REQUEST_CONTACTS, contactIDs.map(contact_id => ({
+    return this.papi.socket.publishTask(SocketRequestResolverType.REQUEST_CONTACTS, contactIDs.map(contact_id => ({
       label: '207',
       payload: JSON.stringify({
         contact_id,
@@ -1298,7 +1298,7 @@ export default class MetaMessengerAPI {
       .get()
 
     // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
-    await this.papi.socket.publishTask(RequestResolverType.ADD_REACTION, [{
+    await this.papi.socket.publishTask(SocketRequestResolverType.ADD_REACTION, [{
       label: '29',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -1321,7 +1321,7 @@ export default class MetaMessengerAPI {
   async createGroupThread(participants: string[]) {
     const { otid, now } = getTimeValues()
     const thread_id = genClientContext()
-    const response = await this.papi.socket.publishTask(RequestResolverType.CREATE_GROUP_THREAD, [{
+    const response = await this.papi.socket.publishTask(SocketRequestResolverType.CREATE_GROUP_THREAD, [{
       label: '130',
       payload: JSON.stringify({
         participants,
@@ -1350,7 +1350,7 @@ export default class MetaMessengerAPI {
 
     if (!ranges?.minTimestamp && !ranges?.minMessageId) return
 
-    return this.papi.socket.publishTask(RequestResolverType.FETCH_MESSAGES, [{
+    return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MESSAGES, [{
       label: '228',
       payload: JSON.stringify({
         thread_key: threadID,
@@ -1380,7 +1380,7 @@ export default class MetaMessengerAPI {
     const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
 
     const result = await Promise.race([
-      this.papi.socket.publishTask(RequestResolverType.SEND_MESSAGE, [
+      this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [
         {
           label: '46',
           payload: JSON.stringify({
@@ -1470,7 +1470,7 @@ export default class MetaMessengerAPI {
 
     // if there are no more threads to load
     if (tasks.length === 0) return
-    const task = this.papi.socket.publishTask(RequestResolverType.FETCH_MORE_THREADS, tasks, {
+    const task = this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, tasks, {
       timeout: 15000,
       throwOnTimeout: false,
     })

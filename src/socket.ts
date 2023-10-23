@@ -14,7 +14,7 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { SyncGroup } from './types'
+import { SyncGroup, SocketRequestResolverType } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
@@ -32,37 +32,6 @@ type MMSocketTask = {
   queue_name: string
   failure_count: null
   task_id: number
-}
-
-export const enum RequestResolverType {
-  ADD_PARTICIPANTS = 'ADD_PARTICIPANTS',
-  ADD_REACTION = 'ADD_REACTION',
-  ARCHIVE_THREAD = 'ARCHIVE_THREAD',
-  CREATE_GROUP_THREAD = 'CREATE_GROUP_THREAD',
-  CREATE_THREAD = 'CREATE_THREAD',
-  DELETE_THREAD = 'DELETE_THREAD',
-  FETCH_INITIAL_THREADS = 'FETCH_INITIAL_THREADS',
-  FETCH_MESSAGES = 'FETCH_MESSAGES',
-  FETCH_MORE_INBOX_THREADS = 'FETCH_MORE_INBOX_THREADS',
-  FETCH_MORE_THREADS = 'FETCH_MORE_THREADS',
-  FORWARD_MESSAGE = 'FORWARD_MESSAGE',
-  GET_NEW_THREAD = 'GET_NEW_THREAD',
-  GET_THREAD = 'GET_THREAD',
-  MOVE_OUT_OF_MESSAGE_REQUESTS = 'MOVE_OUT_OF_MESSAGE_REQUESTS',
-  MUTE_THREAD = 'MUTE_THREAD',
-  REMOVE_PARTICIPANT = 'REMOVE_PARTICIPANT',
-  REMOVE_THREAD = 'REMOVE_THREAD',
-  REQUEST_CONTACTS = 'REQUEST_CONTACTS',
-  SEARCH_USERS_PRIMARY = 'SEARCH_USERS_PRIMARY',
-  SEARCH_USERS_SECONDARY = 'SEARCH_USERS_SECONDARY',
-  SEND_MESSAGE = 'SEND_MESSAGE',
-  SEND_READ_RECEIPT = 'SEND_READ_RECEIPT',
-  SEND_TYPING_INDICATOR = 'SEND_TYPING_INDICATOR',
-  SET_ADMIN_STATUS = 'SET_ADMIN_STATUS',
-  SET_THREAD_FOLDER = 'SET_THREAD_FOLDER',
-  SET_THREAD_NAME = 'SET_THREAD_NAME',
-  UNARCHIVE_THREAD = 'UNARCHIVE_THREAD',
-  UNSEND_MESSAGE = 'UNSEND_MESSAGE',
 }
 
 export const enum ThreadRemoveType {
@@ -461,9 +430,9 @@ export default class MetaMessengerWebSocket {
     this.isInitialConnection = false
   }
 
-  requestResolvers = new Map<number, [RequestResolverType, RequestResolverResolve, RequestResolverReject]>()
+  requestResolvers = new Map<number, [SocketRequestResolverType, RequestResolverResolve, RequestResolverReject]>()
 
-  createRequest(type: RequestResolverType) {
+  createRequest(type: SocketRequestResolverType) {
     const request_id = this.requestIds.gen()
     const { promise, resolve, reject } = createPromise<MetaMessengerPayloadHandlerResponse>()
     const logPrefix = `[REQUEST #${request_id}][${type}]`
@@ -513,7 +482,7 @@ export default class MetaMessengerWebSocket {
     await promise
   }
 
-  async publishTask(type: RequestResolverType, tasks: MMSocketTask[], {
+  async publishTask(type: SocketRequestResolverType, tasks: MMSocketTask[], {
     timeout,
     throwOnTimeout,
   }: {
