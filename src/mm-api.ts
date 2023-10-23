@@ -24,7 +24,6 @@ import {
   createPromise,
   genClientContext,
   getTimeValues,
-  INT64_MAX_AS_STRING,
   parseMessageRanges,
   parseUnicodeEscapeSequences,
 } from './util'
@@ -37,6 +36,7 @@ import { MetaMessengerError } from './errors'
 import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
 import { NEVER_SYNC_TIMESTAMP } from './constants'
+import { INT64_MAX_AS_STRING } from './mm-utils'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
