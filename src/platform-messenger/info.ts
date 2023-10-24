@@ -50,6 +50,7 @@ const info: PlatformInfo = {
     maxSize: infoDefaults.attachments.maxSize,
   },
   extra: {
+    ...infoDefaults.extra,
     macOSAppBundleIDs: ['com.facebook.archon.developerID'],
   },
   getUserProfileLink: ({ username }) =>

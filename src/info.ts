@@ -49,8 +49,13 @@ const infoDefaults = {
       files: 25 * 1024 * 1024,
     },
   },
-  typingDurationMs: 5000,
+  typingDurationMs: 5_000,
   generateUniqueMessageID: () => genClientContext().toString(),
+  extra: {
+    knownIssues: [
+      'Re-authentication might be required redundantly and threads will not load for some users.',
+    ],
+  },
 } satisfies Partial<PlatformInfo>
 
 export default infoDefaults
