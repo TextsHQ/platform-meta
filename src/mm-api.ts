@@ -390,13 +390,13 @@ export default class MetaMessengerAPI {
     const response = await this.graphqlCall('7357432314358409', {
       deviceId: this.config.clientId,
       includeChatVisibility: false,
-      requestId: 2,
+      requestId: 0,
       requestPayload: JSON.stringify({
-        database: 95,
+        database: 1,
         epoch_id: 0,
         last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-        sync_params: JSON.stringify(this.config.syncParams.contact),
-        version: '6566200933472970',
+        sync_params: JSON.stringify(this.config.syncParams.mailbox),
+        version: this.papi.envOpts.defaultVersionId,
       }),
       requestType: 1,
     })
