@@ -27,7 +27,6 @@ const IGNORED_CALLS = new Set([
   'handleRepliesOnUnsend',
   'hasMatchingAttachmentCTA',
   'hybridThreadDelete',
-  'insertAttachment',
   'insertAttachmentItem',
   'insertIcebreakerData',
   'insertSearchSection',

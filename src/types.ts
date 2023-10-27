@@ -297,7 +297,7 @@ export type IGAttachment = {
   sourceText: string
   faviconUrlExpirationTimestampMs: number
   isBorderless: boolean
-  previewUrlLarge: string
+  previewUrlLarge?: string
   samplingFrequencyHz?: number
   waveformData?: string
   authorityLevel: string
