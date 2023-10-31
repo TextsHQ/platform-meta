@@ -2198,8 +2198,6 @@ export default class MetaMessengerPayloadHandler {
       }).run())
 
     return () => {
-      if (this.__threadsToSync.has(r.threadKey) || this.__messagesToSync.has(r.messageId)) return
-
       this.__events.push({
         type: ServerEventType.STATE_SYNC,
         objectName: 'message_reaction',
