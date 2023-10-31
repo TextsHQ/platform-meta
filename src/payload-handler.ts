@@ -5,7 +5,7 @@ import {
   UNKNOWN_DATE,
   ThreadMessagesRefreshEvent,
 } from '@textshq/platform-sdk'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import { pick } from 'lodash'
 import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
@@ -1940,11 +1940,12 @@ export default class MetaMessengerPayloadHandler {
     if (this.__messagesToSync.has(newestMessage.id)) return
 
     this.__sql.push(tx => tx.update(schema.participants).set({
-      readActionTimestampMs: r.readActionTimestampMs,
       readWatermarkTimestampMs: r.readWatermarkTimestampMs,
+      ...(r.readActionTimestampMs && { readActionTimestampMs: r.readActionTimestampMs }),
     }).where(and(
       eq(schema.participants.threadKey, r.threadKey),
       eq(schema.participants.userId, r.contactId),
+      lt(schema.participants.readWatermarkTimestampMs, r.readWatermarkTimestampMs),
     )).run())
 
     const readOn = r.readWatermarkTimestampMs || UNKNOWN_DATE

@@ -82,26 +82,13 @@ export function mapParticipants(_participants: DBParticipantSelect[], env: EnvKe
   return participants.filter(p => !!p?.id)
 }
 
-export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], env: EnvKey, fbid: string, _thread?: QueryThreadsResult[number]) {
+function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], env: EnvKey, fbid: string, _thread?: QueryThreadsResult[number]) {
   // const thread = m.thread?.thread ? JSON.parse(m.thread.thread) as QueryMessagesResult[0]['thread'] : null
   const t = ('thread' in m) ? m.thread : _thread
 
   const participants = t?.participants || []
   const users = mapParticipants(participants, env, fbid)
   const message = JSON.parse(m.message) as IGMessageInDB
-
-  const thread = t?.thread ? JSON.parse(t.thread) as IGThreadInDB : null
-  const threadType = thread?.threadType === '1' ? 'single' : 'group'
-
-  const seen: MessageSeen = threadType === 'single'
-    ? participants.find(p => p.userId !== fbid && p.readWatermarkTimestampMs >= m.timestampMs)?.readWatermarkTimestampMs
-    : participants.reduce(
-      (acc, p) => {
-        if (p.readWatermarkTimestampMs >= m.timestampMs) acc[p.userId] = p.readWatermarkTimestampMs
-        return acc
-      },
-      {} as Record<string, Date>,
-    )
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
@@ -199,7 +186,6 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
     attachments: attachmentsWithMedia,
     textHeading: typeof textHeading === 'string' ? textHeading : undefined,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
-    seen,
     links: message.links,
     parseTemplate: isAction,
     extra: {
@@ -254,11 +240,41 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 //   if (m1.extra?.primarySortKey === m2.extra?.primarySortKey) return 0
 //   return m1.extra?.primarySortKey > m2.extra?.primarySortKey ? 1 : -1
 // }))
-export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] =>
-  messages.flatMap(m => mapMessage(m, env, fbid, t)).filter(Boolean).sort((m1, m2) => {
-    if (m1.extra?.primarySortKey === m2.extra?.primarySortKey) return 0
-    return m1.extra?.primarySortKey > m2.extra?.primarySortKey ? 1 : -1
+export const mapMessages = (messages: QueryMessagesResult | QueryThreadsResult[0]['messages'], env: EnvKey, fbid: string, t?: QueryThreadsResult[0]): Message[] => {
+  const sortedQueryMessages = messages.sort((m1, m2) => {
+    if (m1.primarySortKey === m2.primarySortKey) return 0
+    return m1.primarySortKey > m2.primarySortKey ? 1 : -1
   })
+
+  // Find last message that is from sender (isSender === true)
+  const lastMessageAsSender = sortedQueryMessages.slice().reverse().find(m => m.senderId === fbid)
+  let lastSeen: MessageSeen = null
+
+  if (lastMessageAsSender && lastMessageAsSender) {
+    const thread = t || (('thread' in lastMessageAsSender) && lastMessageAsSender.thread) as QueryThreadsResult[0]
+    const participants = thread?.participants || []
+    const parsedThread = thread ? JSON.parse(thread.thread) as IGThreadInDB : null
+    const threadType = parsedThread?.threadType === '1' ? 'single' : 'group'
+
+    lastSeen = threadType === 'single'
+      ? participants.find(p => p.userId !== fbid && p.readWatermarkTimestampMs >= lastMessageAsSender.timestampMs)?.readWatermarkTimestampMs
+      : participants.reduce(
+        (acc, p) => {
+          if (p.readWatermarkTimestampMs >= lastMessageAsSender.timestampMs) acc[p.userId] = p.readWatermarkTimestampMs
+          return acc
+        },
+        {} as Record<string, Date>,
+      )
+  }
+
+  const mappedMessages = sortedQueryMessages.flatMap(m => mapMessage(m, env, fbid, t)).filter(Boolean)
+
+  if (lastMessageAsSender && lastSeen) {
+    mappedMessages.find(message => message.id === lastMessageAsSender.messageId).seen = lastSeen
+  }
+
+  return mappedMessages
+}
 
 export function mapThread(
   t: QueryThreadsResult[0],
