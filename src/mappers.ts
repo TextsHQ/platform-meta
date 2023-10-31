@@ -1,4 +1,5 @@
 import {
+  Attachment,
   AttachmentType,
   InboxName,
   type Message,
@@ -109,8 +110,8 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
 
   const { attachments } = m
   let attachmentWithText: string
-  const attachmentsWithMedia: ReturnType<typeof mapAttachment>[] = []
-  let reelWithTitle: ReturnType<typeof mapAttachment>
+  const attachmentsWithMedia: Attachment[] = []
+  let reelWithTitle: Attachment
 
   for (const a of attachments) {
     const mapped = mapAttachment(a)
@@ -137,6 +138,7 @@ export function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[n
         fileSize: undefined,
         fileName: undefined,
         isGif: false,
+        isSticker: true,
         extra: undefined,
         id: fileName,
         type: AttachmentType.IMG,
