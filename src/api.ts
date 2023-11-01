@@ -252,11 +252,17 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const { hasMoreBeforeFlag } = ranges
     if (hasMoreBeforeFlag) {
       try {
-        const { promise } = this.api.messageRangeResolvers.getOrCreate(threadID)
-        await Promise.allSettled([
-          this.api.fetchMessages(threadID),
-          promise,
-        ])
+        // To handle simultaneous requests for getMessages for the same thread
+        // we check whether we already have a promise for this thread
+        // If we do, we just wait for it to resolve
+        // If we don't, we create a new promise and call fetchMessages
+        const promise = this.api.messageRangeResolvers.hasKey(threadID)
+          ? this.api.messageRangeResolvers.getByKey(threadID).promise
+          : Promise.allSettled([
+            this.api.messageRangeResolvers.getOrCreate(threadID).promise,
+            this.api.fetchMessages(threadID),
+          ])
+        await promise
       } catch (e) {
         this.logger.error(e)
       }
