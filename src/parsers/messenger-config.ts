@@ -1,16 +1,6 @@
 import { ReAuthError } from '@textshq/platform-sdk'
 import { htmlTitleRegex } from '@textshq/platform-sdk/dist/json'
-import { EnvKey } from '../env'
-
-type InnerObject = {
-  __bbox: BboxEntry
-}
-
-type BboxEntry = {
-  define?: [string, [], unknown, number][]
-  require?: any[][]
-  instances?: any[][]
-}
+import { TypedMap } from '../util'
 
 type SyncParams = {
   locale: string
@@ -282,6 +272,34 @@ export interface Config {
   }
 }
 
+type ConfigDefineType<T extends keyof Config> = [T, [], Config[T], number]
+type ConfigDefine =
+  | ConfigDefineType<'DTSGInitialData'>
+  | ConfigDefineType<'LSD'>
+  | ConfigDefineType<'LSPlatformMessengerSyncParams'>
+  | ConfigDefineType<'MessengerWebInitData'>
+  | ConfigDefineType<'MqttWebConfig'>
+  | ConfigDefineType<'XIGSharedData'>
+  | ConfigDefineType<'MqttWebDeviceID'>
+  | ConfigDefineType<'CurrentUserInitialData'>
+  | ConfigDefineType<'RelayAPIConfigDefaults'>
+  | ConfigDefineType<'CurrentEnvironment'>
+  | ConfigDefineType<'MercuryConfig'>
+  | ConfigDefineType<'SprinkleConfig'>
+  | ConfigDefineType<'SiteData'>
+  | ConfigDefineType<'IntlCurrentLocale'>
+
+type InnerObject = {
+  __bbox: {
+    define?: ConfigDefine[]
+    require?: (
+      | ['CometPlatformRootClient' | `CometPlatformRootClient${string}`, 'init', string[], ({ variables: any })[][]]
+      | ['RelayPrefetchedStreamCache' | `RelayPrefetchedStreamCache${string}`, 'next', [], any[]]
+    )[]
+    instances?: any[][]
+  }
+}
+
 export function getNumericValue(config: Config['SprinkleConfig'], str: string) {
   let sum = 0
   for (let i = 0; i < str.length; i++) sum += str.charCodeAt(i)
@@ -289,7 +307,7 @@ export function getNumericValue(config: Config['SprinkleConfig'], str: string) {
   return config.should_randomize ? result : `${config.version}${result}`
 }
 
-function pickMessengerEnv(env: Config['CurrentEnvironment']): EnvKey {
+function pickMessengerEnv(env: Config['CurrentEnvironment']) {
   if (env.instagramdotcom) return 'IG'
   if (env.messengerdotcom) return 'MESSENGER'
   if (env.workdotmetadotcom) return 'WORKMETA'
@@ -322,7 +340,7 @@ export function parseMessengerInitialPage(html: string) {
     throw new ReAuthError(`Session expired, title: ${title}`)
   }
 
-  const definesMap = new Map<string, unknown>()
+  const definesMap = new TypedMap<Config>()
   const initialPayloads: string[] = []
 
   scriptTags.forEach(scriptTag => {
@@ -377,14 +395,14 @@ export function parseMessengerInitialPage(html: string) {
     })
   })
 
-  const syncParams = definesMap.get('LSPlatformMessengerSyncParams') as Config['LSPlatformMessengerSyncParams']
+  const syncParams = definesMap.get('LSPlatformMessengerSyncParams')
   const LSPlatformMessengerSyncParams = {
     ...(syncParams || {}),
     contact: syncParams?.contact ? JSON.parse(syncParams.contact) as SyncParams : undefined,
   }
 
   // instagram-only
-  const igSharedData = definesMap.get('XIGSharedData') as Config['XIGSharedData']
+  const igSharedData = definesMap.get('XIGSharedData')
   const XIGSharedData = {
     ...(igSharedData || {}),
     raw: igSharedData?.raw ? JSON.parse(igSharedData.raw) as {
@@ -394,9 +412,9 @@ export function parseMessengerInitialPage(html: string) {
     } : undefined,
   }
 
-  const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment') as Config['CurrentEnvironment'])
-  const MqttWebConfig = definesMap.get('MqttWebConfig') as Config['MqttWebConfig']
-  const MercuryConfig = definesMap.get('MercuryConfig') as Config['MercuryConfig']
+  const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment'))
+  const MqttWebConfig = definesMap.get('MqttWebConfig')
+  const MercuryConfig = definesMap.get('MercuryConfig')
 
   if (CurrentEnvironment === 'IG') {
     // MqttWebConfig.endpoint is wrong for IG
@@ -406,20 +424,20 @@ export function parseMessengerInitialPage(html: string) {
 
   return {
     CurrentEnvironment,
-    CurrentUserInitialData: definesMap.get('CurrentUserInitialData') as Config['CurrentUserInitialData'],
-    DTSGInitialData: definesMap.get('DTSGInitialData') as Config['DTSGInitialData'],
+    CurrentUserInitialData: definesMap.get('CurrentUserInitialData'),
+    DTSGInitialData: definesMap.get('DTSGInitialData'),
     initialPayloads: initialPayloads.filter(Boolean),
-    LSD: definesMap.get('LSD') as Config['LSD'],
+    LSD: definesMap.get('LSD'),
     LSPlatformMessengerSyncParams,
     MercuryConfig,
-    MessengerWebInitData: definesMap.get('MessengerWebInitData') as Config['MessengerWebInitData'],
+    MessengerWebInitData: definesMap.get('MessengerWebInitData'),
     MqttWebConfig,
-    MqttWebDeviceID: definesMap.get('MqttWebDeviceID') as Config['MqttWebDeviceID'],
-    RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults') as Config['RelayAPIConfigDefaults'],
-    SiteData: definesMap.get('SiteData') as Config['SiteData'],
-    SprinkleConfig: definesMap.get('SprinkleConfig') as Config['SprinkleConfig'],
+    MqttWebDeviceID: definesMap.get('MqttWebDeviceID'),
+    RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults'),
+    SiteData: definesMap.get('SiteData'),
+    SprinkleConfig: definesMap.get('SprinkleConfig'),
     XIGSharedData,
-    IntlCurrentLocale: definesMap.get('IntlCurrentLocale') as Config['IntlCurrentLocale'],
+    IntlCurrentLocale: definesMap.get('IntlCurrentLocale'),
   } as const
 }
 

@@ -103,3 +103,16 @@ export function getCookieJar(serialized: CookieJar.Serialized) {
   // const cookieToRemove = env === 'IG' ? 'igd_ls' : 'm_ls'
   return CookieJar.fromJSON(serialized as unknown as string)
 }
+
+export class TypedMap<T> {
+  private map = new Map<keyof T, T[keyof T]>()
+
+  get<K extends keyof T>(key: K) {
+    return this.map.get(key) as T[K]
+  }
+
+  set<K extends keyof T>(key: K, value: T[K]) {
+    this.map.set(key, value)
+    return this
+  }
+}
