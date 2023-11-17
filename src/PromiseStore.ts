@@ -6,18 +6,18 @@ import type { EnvKey } from './env'
 export class PromiseStore<DefaultPromiseType = unknown> {
   private readonly logger: Logger
 
-  private i: number
+  private lastId: number
 
   constructor(
     private readonly config: { env: EnvKey, startAt: number, timeoutMs: number },
   ) {
     this.logger = getLogger(this.config.env, 'ps')
-    this.i = typeof this.config.startAt === 'number' ? this.config.startAt : 0
+    this.lastId = typeof this.config.startAt === 'number' ? this.config.startAt : 0
   }
 
   private promises: Map<number, {
     resolve: (value: unknown) => void
-    reject: (reason?: any) => void
+    reject: (reason?: unknown) => void
     promise: Promise<unknown>
     key?: string
     extra?: object
@@ -25,9 +25,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
 
   private promisesByKeys = new Map<string, number>()
 
-  createId = () => this.i++ // meant for fire and forget operations
-
-  currentId = () => this.i
+  createId = () => this.lastId++
 
   create<T = DefaultPromiseType>(
     key?: string,
@@ -36,24 +34,54 @@ export class PromiseStore<DefaultPromiseType = unknown> {
   ) {
     let resolve: (value: T) => void
     let reject: (reason?: unknown) => void
-    let timeoutId: NodeJS.Timeout = null
-    let timedOut = false
+    let timeout: ReturnType<typeof setTimeout> = null
+    let hasTimedOut = false
+    let hasResolved = false
+    let hasRejected = false
+    let hasSettled = false
 
     const promise = new Promise<T>((res, rej) => {
       resolve = res
       reject = rej
     })
 
-    const id = this.i++
+    const id = this.createId()
     const generatedKey = String(key || `#${id}`)
 
+    promise
+      .then(() => {
+        hasResolved = true
+      })
+      .catch(() => {
+        hasRejected = true
+      })
+      .finally(() => {
+        hasSettled = true
+
+        this.logger?.debug(`promise settled ${generatedKey}#${id}`, {
+          hasTimedOut,
+          hasResolved,
+          hasRejected,
+        })
+        if (timeout) {
+          clearTimeout(timeout)
+        }
+        this.delete(id, generatedKey)
+      })
+
     if (timeoutMs > 0) {
-      timeoutId = setTimeout(() => {
+      timeout = setTimeout(() => {
         this.logger?.debug(`timing out ${generatedKey}#${id}`)
         const errorMsg = `[MetaMessenger] promise (${generatedKey}#${id}) timed out after ${timeoutMs}ms`
-        timedOut = true
-        reject(new Error(errorMsg))
-        this.delete(id, generatedKey)
+        hasTimedOut = true
+        const err = new Error(errorMsg)
+        err.name = 'PromiseStoreTimeoutError'
+
+        if (!hasSettled) {
+          reject(err)
+        } else {
+          this.logger?.debug(`promise ${generatedKey}#${id} has already settled, not rejecting`)
+        }
       }, timeoutMs)
     }
 
@@ -62,21 +90,25 @@ export class PromiseStore<DefaultPromiseType = unknown> {
     this.promises.set(id, {
       resolve: value => {
         this.logger?.debug(`resolving ${generatedKey}#${id}`)
-        if (timedOut) {
+        if (hasTimedOut) {
           throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve timed out promise', `value: ${JSON.stringify(value)}, timeout: ${timeoutMs}ms`)
         }
-        clearTimeout(timeoutId)
-        resolve(value as T)
-        this.delete(id, generatedKey)
+        if (!hasSettled) {
+          resolve(value as T)
+        } else {
+          this.logger?.debug(`promise ${generatedKey}#${id} has already settled, not resolving`)
+        }
       },
       reject: reason => {
         this.logger?.debug(`rejecting ${generatedKey}#${id}`)
-        if (timedOut) {
+        if (hasTimedOut) {
           throw new MetaMessengerError(this.config.env, -1, 'attempted to reject timed out promise', `reason: ${JSON.stringify(reason)}, timeout: ${timeoutMs}ms`)
         }
-        clearTimeout(timeoutId)
-        reject(reason)
-        this.delete(id, generatedKey)
+        if (!hasSettled) {
+          reject(reason)
+        } else {
+          this.logger?.debug(`promise ${generatedKey}#${id} has already settled, not resolving`)
+        }
       },
       promise,
       key: generatedKey,
@@ -94,8 +126,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
 
   resolveByKey<T = DefaultPromiseType>(key: string, payload?: T) {
     const id = this.promisesByKeys.get(String(key))
-    if (!id) throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve missing promise', `key: ${key}`)
-    this.resolve(id, payload)
+    return this.resolve(id, payload)
   }
 
   reject(id: number, reason?: any) {
@@ -128,7 +159,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
   delete(id: number, key?: string) {
     const keyToDelete = key || this.promises.get(id)?.key
     if (keyToDelete?.length > 0) {
-      this.promisesByKeys.delete(String(key || this.promises.get(id)?.key))
+      this.promisesByKeys.delete(String(keyToDelete))
     }
     this.promises.delete(id)
   }

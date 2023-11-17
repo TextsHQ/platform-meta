@@ -56,7 +56,7 @@ export default class MetaMessengerWebSocket {
 
   constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
-    this.messagePromises = new PromiseStore({
+    this.packetAckPromises = new PromiseStore({
       startAt: 2,
       env: this.papi.env,
       timeoutMs: 0,
@@ -75,7 +75,7 @@ export default class MetaMessengerWebSocket {
 
   requestScheduler = new PlatformRequestScheduler()
 
-  private messagePromises: PromiseStore<void>
+  private packetAckPromises: PromiseStore<void>
 
   private packetQueue: Packet[] = []
 
@@ -343,7 +343,7 @@ export default class MetaMessengerWebSocket {
     for (let i = 0; i < topics.length; i++) {
       const topic = topics[i]
       if (this.subscribedTopics.has(topic)) continue
-      const { promise, id: messageId } = this.messagePromises.create()
+      const { promise, id: messageId } = this.packetAckPromises.create()
       promise.then(() => {
         this.logger.debug(`suback for ${topic} (${messageId})`)
         this.subscribedTopics.add(topic)
@@ -390,8 +390,8 @@ export default class MetaMessengerWebSocket {
         break
       case 'puback':
       case 'suback':
-        if (this.messagePromises.has(packet.messageId)) {
-          this.messagePromises.resolve(packet.messageId)
+        if (this.packetAckPromises.has(packet.messageId)) {
+          this.packetAckPromises.resolve(packet.messageId)
         }
         break
       case 'pingresp':
@@ -454,7 +454,7 @@ export default class MetaMessengerWebSocket {
     request_id: number
     type: number
   }) {
-    const { promise, id: messageId } = this.messagePromises.create()
+    const { promise, id: messageId } = this.packetAckPromises.create()
 
     await this.send({
       cmd: 'publish',
@@ -511,7 +511,7 @@ export default class MetaMessengerWebSocket {
   private sendBrowserClosed() {
     return this.send({
       cmd: 'publish',
-      messageId: this.messagePromises.createId(),
+      messageId: this.packetAckPromises.createId(),
       payload: '{}',
       qos: 1,
       dup: false,
