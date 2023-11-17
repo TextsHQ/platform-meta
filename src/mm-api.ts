@@ -946,6 +946,10 @@ export default class MetaMessengerAPI {
   }: { filePath: string, fileName: string }) {
     this.logger.debug('sendMedia about to call uploadFile')
     const res = await this.uploadFile(threadID, filePath, fileName)
+    if (!res?.payload?.metadata) {
+      console.error(res)
+      throw Error('uploadFile failed: ' + JSON.stringify(res))
+    }
     const metadata = res.payload.metadata[0] as {
       image_id?: string
       video_id?: string
