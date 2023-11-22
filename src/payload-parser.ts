@@ -215,6 +215,7 @@ export type OperationKey =
   | 'verifyCommunityMemberContextualProfileExists'
   | 'verifyContactParticipantExist'
   | 'verifyContactRowExists'
+  | 'verifyCustomCommandsExist'
   | 'verifyHybridThreadExists'
   | 'verifyThreadExists'
   | 'writeCTAIdToThreadsTable'

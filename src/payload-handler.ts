@@ -2250,6 +2250,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('verifyContactParticipantExist (ignored)', a)
   }
 
+  private verifyCustomCommandsExist(a: SimpleArgType[]) {
+    this.__logger.debug('verifyCustomCommandsExist (ignored)', a)
+  }
+
   private verifyContactRowExists(a: SimpleArgType[]) {
     this.__logger.debug('verifyContactRowExists', a)
     const parsed = {
