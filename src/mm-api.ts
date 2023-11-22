@@ -27,7 +27,7 @@ import {
   parseMessageRanges,
   parseUnicodeEscapeSequences,
 } from './util'
-import { mapMessages, mapThread } from './mappers'
+import { mapUserMentions, mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './parsers/messenger-config'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
@@ -1365,7 +1365,7 @@ export default class MetaMessengerAPI {
     }])
   }
 
-  async sendMessage(threadID: string, { text }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
+  async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
     const { otid, timestamp, now } = getTimeValues()
 
     const reply_metadata = quotedMessageID && {
@@ -1377,6 +1377,8 @@ export default class MetaMessengerAPI {
     const hasAttachment = attachmentFbids.length > 0
 
     const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
+
+    const mentionsData = mentionedUserIDs.length ? await mapUserMentions(this.papi.db, text, mentionedUserIDs) : undefined
 
     const result = await Promise.race([
       this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [
@@ -1394,6 +1396,7 @@ export default class MetaMessengerAPI {
             text_has_links: hasAttachment ? undefined : 0,
             reply_metadata,
             attachment_fbids: hasAttachment ? attachmentFbids : undefined,
+            ...(mentionsData ? { mention_data: mentionsData } : {}),
           }),
           queue_name: threadID.toString(),
           task_id: this.papi.socket.taskIds.gen(),

@@ -487,7 +487,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAILBOX)
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
     await this.api.initPromise
     if (!text) {
       if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
@@ -511,7 +511,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       }
       return [userMessage]
     }
-    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text }, { pendingMessageID, quotedMessageID })
+    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text, mentionedUserIDs }, { pendingMessageID, quotedMessageID })
     return [{
       id: messageId,
       timestamp,

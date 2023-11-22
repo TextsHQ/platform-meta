@@ -8,13 +8,19 @@ import {
   type ThreadType,
   MessageActionType,
   MessageSeen,
+  MessageContent,
+  TextAttributes,
 } from '@textshq/platform-sdk'
+import { inArray } from 'drizzle-orm'
 import { truncate } from 'lodash'
+import { contacts } from './store/schema'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
 import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
 import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 import EnvOptions, { EnvKey } from './env'
+import { DrizzleDB } from './store/db'
+import { getStringLength } from './unicode-utils'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -82,6 +88,49 @@ export function mapParticipants(_participants: DBParticipantSelect[], env: EnvKe
   return participants.filter(p => !!p?.id)
 }
 
+export function mapTextAttributes(
+  text: MessageContent['text'],
+  { mentionOffsets, mentionLengths, mentionIds, mentionTypes }: {
+    mentionOffsets: string
+    mentionLengths: string
+    mentionIds: string
+    mentionTypes: string
+  },
+): TextAttributes {
+  const textAttributes: TextAttributes = {
+    entities: [],
+  }
+
+  if (mentionOffsets && mentionLengths && mentionIds && mentionTypes) {
+    const offsets = mentionOffsets.split(',')
+    const lengths = mentionLengths.split(',')
+    const ids = mentionIds.split(',')
+    const types = mentionTypes.split(',')
+
+    for (let i = 0; i < offsets.length; i++) {
+      const offset = Number(offsets[i])
+      const length = Number(lengths[i])
+      const id = ids[i]
+      const type = types[i]
+
+      const textLength = getStringLength(text.slice(0, offset))
+      const offsetDiff = offset - textLength
+
+      if (type === 'p') {
+        textAttributes.entities.push({
+          from: offset - offsetDiff,
+          to: offset - offsetDiff + length,
+          mentionedUser: {
+            id,
+          },
+        })
+      }
+    }
+  }
+
+  return textAttributes
+}
+
 function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number]['messages'][number], env: EnvKey, fbid: string, _thread?: QueryThreadsResult[number]) {
   // const thread = m.thread?.thread ? JSON.parse(m.thread.thread) as QueryMessagesResult[0]['thread'] : null
   const t = ('thread' in m) ? m.thread : _thread
@@ -92,6 +141,9 @@ function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number][
 
   const isAction = message.isAdminMessage
   const senderUsername = users.find(u => u?.id === m.senderId)?.username
+  const { mentionOffsets, mentionLengths, mentionIds, mentionTypes } = message
+  const textAttributes = mapTextAttributes(message.text, { mentionOffsets, mentionLengths, mentionIds, mentionTypes })
+
   const text = message.text?.length > 0 ? (isAction ? message.text.replace(senderUsername, '{{sender}}') : message.text) : null
   const linkedMessageID = message.replySourceId?.startsWith('mid.') ? message.replySourceId : undefined
 
@@ -188,6 +240,7 @@ function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number][
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     links: message.links,
     parseTemplate: isAction,
+    textAttributes,
     extra: {
       ...(message.extra || {}),
       primarySortKey: m.primarySortKey,
@@ -324,4 +377,47 @@ export function mapThread(
       lastActivityTimestampMs: t.lastActivityTimestampMs,
     },
   } as const
+}
+
+export async function mapUserMentions(
+  db: DrizzleDB,
+  text: MessageContent['text'],
+  mentionedUserIDs: MessageContent['mentionedUserIDs'],
+): Promise<{ [key: string]: string }> {
+  // Query the database for mentioned users
+  const mentionedUsers = await db.query.contacts.findMany({
+    where: inArray(contacts.id, mentionedUserIDs),
+  })
+
+  // Prepare the result object
+  const result: { [key: string]: string } = {
+    mention_offsets: '',
+    mention_lengths: '',
+    mention_ids: '',
+    mention_types: '',
+  }
+
+  // Process each mentioned user
+  mentionedUsers.forEach(user => {
+    const userMention = `@${user.name}`
+    let offset = text.indexOf(userMention)
+
+    while (offset !== -1) {
+      // Add mention details to the result object
+      result.mention_offsets += `${offset},`
+      result.mention_lengths += `${user.name.length + 1},`
+      result.mention_ids += `${user.id},`
+      result.mention_types += 'p,'
+
+      // Find next occurrence
+      offset = text.indexOf(userMention, offset + userMention.length)
+    }
+  })
+
+  // Remove the trailing commas
+  Object.keys(result).forEach(key => {
+    result[key] = result[key].slice(0, -1)
+  })
+
+  return result
 }
