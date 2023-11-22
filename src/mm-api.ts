@@ -1378,7 +1378,7 @@ export default class MetaMessengerAPI {
 
     const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
 
-    const mentionsData = mentionedUserIDs.length ? await mapUserMentions(this.papi.db, text, mentionedUserIDs) : undefined
+    const mentionsData = mentionedUserIDs?.length ? await mapUserMentions(this.papi.db, text, mentionedUserIDs) : undefined
 
     const result = await Promise.race([
       this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [

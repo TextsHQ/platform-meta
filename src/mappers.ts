@@ -20,7 +20,6 @@ import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
 import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 import EnvOptions, { EnvKey } from './env'
 import { DrizzleDB } from './store/db'
-import { getStringLength } from './unicode-utils'
 
 function mapMimeTypeToAttachmentType(mimeType: string): AttachmentType {
   switch (mimeType?.split('/')?.[0]) {
@@ -113,7 +112,7 @@ export function mapTextAttributes(
       const id = ids[i]
       const type = types[i]
 
-      const textLength = getStringLength(text.slice(0, offset))
+      const textLength = Array.from(text.slice(0, offset)).length
       const offsetDiff = offset - textLength
 
       if (type === 'p') {
