@@ -23,7 +23,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
     extra?: object
   }> = new Map()
 
-  private promisesByKeys = new Map<string, number>()
+  promisesByKeys = new Map<string, number>()
 
   createId = () => this.lastId++
 
