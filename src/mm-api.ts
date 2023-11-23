@@ -1295,8 +1295,10 @@ export default class MetaMessengerAPI {
       })
       .from(schema.messages)
       .limit(1)
-      .where(eq(schema.messages.threadKey, threadID))
-      .where(eq(schema.messages.messageId, messageID))
+      .where(and(
+        eq(schema.messages.threadKey, threadID),
+        eq(schema.messages.messageId, messageID),
+      ))
       .get()
 
     // @TODO: check `replaceOptimisticReaction` in response (not parsed atm)
