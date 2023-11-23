@@ -9,7 +9,7 @@ type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error'
 export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError | MqttError | string
 
-const onError = (env: EnvKey, err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
+const onError = (env: EnvKey | 'META', err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const isError = err instanceof Error
   const errorMessage = isError ? err.message : err
   const message = feature ? `${feature} ${errorMessage}` : errorMessage
@@ -29,7 +29,7 @@ const onError = (env: EnvKey, err: ErrorAlt, feature?: string, extra: SentryExtr
   })
 }
 
-export const getLogger = (env: EnvKey, feature = '') => {
+export const getLogger = (env: EnvKey | 'META', feature = '') => {
   const prefix = `[${env}]${feature ? `[${feature}]` : ''}`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
