@@ -71,7 +71,7 @@ export default class MetaMessengerPayloadHandler {
 
   private __errors: MetaMessengerError[] = []
 
-  private __events: (StateSyncEvent | ThreadMessagesRefreshEvent)[] = []
+  private __events: (StateSyncEvent | ThreadMessagesRefreshEvent | UserActivityEvent)[] = []
 
   private __lightSpeedParser = new LightSpeedParser()
 
