@@ -1,0 +1,58 @@
+import * as sync from './store/sync'
+import * as threads from './store/threads'
+import * as messages from './store/messages'
+import * as contacts from './store/contacts'
+import * as task from './store/task'
+
+export type Schemas = contacts.ContactSchemas | sync.SyncSchemas | threads.ThreadSchemas | messages.MessageSchemas | task.TaskSchemas
+export const LightSpeedTable: { [key: string]: string[] } = {
+  /* Sync related schemas */
+  executeFirstBlockForSyncTransaction: ['databaseId', 'epochId', 'currentCursor', 'nextCursor', 'syncStatus', 'sendSyncParams', 'minTimeToSyncTimestampMs', 'canIgnoreTimestamp', 'syncChannel', 'unknownValue'],
+  executeFinallyBlockForSyncTransaction: ['shouldFlush', 'syncDatabaseId', 'epochId'],
+  truncateTablesForSyncGroup: ['syncGroup'],
+  upsertSyncGroupThreadsRange: ['syncGroup', 'parentThreadKey', 'minLastActivityTimestampMs', 'hasMoreBefore', 'isLoadingBefore', 'minThreadKey'],
+  mciTraceLog: ['unknownValue', 'mciTraceUnsampledEventTraceId', 'unknownValue2', 'unknownValue3', 'unknownValue4', 'dataScriptExecute', 'unknownValue5'],
+
+  /* Thread related schemas */
+  deleteThenInsertThread: ['lastActivityTimestampMs', 'lastReadWatermarkTimestampMs', 'snippet', 'threadName', 'threadPictureUrl', 'needsAdminApprovalForNewParticipant', 'authorityLevel', 'threadKey', 'mailboxType', 'threadType', 'folderName', 'threadPictureUrlFallback', 'threadPictureUrlExpirationTimestampMs', 'removeWatermarkTimestampMs', 'muteExpireTimeMs', 'muteCallsExpireTimeMs', 'groupNotificationSettings', 'isAdminSnippet', 'snippetSenderContactId', 'skipped_0', 'skipped_1', 'snippetStringHash', 'snippetStringArgument1', 'snippetAttribution', 'snippetAttributionStringHash', 'disappearingSettingTtl', 'disappearingSettingUpdatedTs', 'disappearingSettingUpdatedBy', 'skipped_2', 'ongoingCallState', 'cannotReplyReason', 'customEmoji', 'customEmojiImageUrl', 'outgoingBubbleColor', 'themeFbid', 'parentThreadKey', 'nullstateDescriptionText1', 'nullstateDescriptionType1', 'nullstateDescriptionText2', 'nullstateDescriptionType2', 'nullstateDescriptionText3', 'nullstateDescriptionType3', 'snippetHasEmoji', 'hasPersistentMenu', 'disableComposerInput', 'cannotUnsendReason', 'viewedPluginKey', 'viewedPluginContext', 'clientThreadKey', 'capabilities', 'shouldRoundThreadPicture', 'proactiveWarningDismissTime', 'isCustomThreadPicture', 'otidOfFirstMessage', 'normalizedSearchTerms', 'additionalThreadContext', 'disappearingThreadKey', 'isDisappearingMode', 'disappearingModeInitiator', 'unreadDisappearingMessageCount', 'skipped_3', 'lastMessageCtaId', 'lastMessageCtaType', 'consistentThreadFbid', 'threadDescription', 'unsendLimitMs', 'syncGroup', 'threadInvitesEnabled', 'threadInviteLink', 'numUnreadSubthreads', 'subthreadCount', 'threadInvitesEnabledV2', 'eventStartTimestampMs', 'eventEndTimestampMs', 'takedownState', 'memberCount', 'secondaryParentThreadKey', 'igFolder', 'inviterId', 'threadTags', 'threadStatus', 'threadSubtype', 'pauseThreadTimestamp'],
+  addParticipantIdToGroupThread: ['threadKey', 'contactId', 'readWatermarkTimestampMs', 'readActionTimestampMs', 'deliveredWatermarkTimestampMs', 'nickname', 'isAdmin', 'subscribeSource', 'authorityLevel', 'normalizedSearchTerms', 'isSuperAdmin', 'threadRoles', 'unknownValue'],
+  writeThreadCapabilities: ['threadKey', 'capabilities', 'capabilities2', 'capabilities3', 'capabilities4'],
+  upsertFolderSeenTimestamp: ['parentThreadKey', 'lastSeenRequestTimestampMs'],
+  upsertInboxThreadsRange: ['syncGroup', 'minLastActivityTimestampMs', 'hasMoreBefore', 'isLoadingBefore', 'minThreadKey'],
+  updateReadReceipt: ['readWatermarkTimestampMs', 'threadKey', 'contactId', 'readActionTimestampMs'],
+  updateThreadsRangesV2: ['folderName', 'parentThreadKey', 'minLastActivityTimestampMs', 'minThreadKey', 'IsLoadingBefore'],
+  updateTypingIndicator: ['threadKey', 'senderId', 'isTyping'],
+  threadsRangesQuery: ['parentThreadKey', 'unknownValue', 'isAfter', 'referenceThreadKey', 'referenceThreadKey2', 'referenceActivityTimestamp', 'referenceActivityTimestamp2', 'additionalPagesToFetch', 'unknownValue2'],
+  queryAdditionalGroupThreads: ['num_threads', 'num_messages', 'additional_pages_to_fetch'],
+
+  /* Message related schemas */
+  upsertMessage: ['text', 'subscriptErrorMessage', 'authorityLevel', 'threadKey', 'skipped_0', 'timestampMs', 'primarySortKey', 'secondarySortKey', 'messageId', 'offlineThreadingId', 'senderId', 'stickerId', 'isAdminMessage', 'messageRenderingType', 'skipped_1', 'sendStatus', 'sendStatusV2', 'isUnsent', 'unsentTimestampMs', 'mentionOffsets', 'mentionLengths', 'mentionIds', 'mentionTypes', 'replySourceId', 'replySourceType', 'replySourceTypeV2', 'replyStatus', 'replySnippet', 'replyMessageText', 'replyToUserId', 'replyMediaExpirationTimestampMs', 'replyMediaUrl', 'skipped_2', 'replyMediaPreviewWidth', 'replyMediaPreviewHeight', 'replyMediaUrlMimeType', 'replyMediaUrlFallback', 'replyCtaId', 'replyCtaTitle', 'replyAttachmentType', 'replyAttachmentId', 'replyAttachmentExtra', 'replyType', 'isForwarded', 'forwardScore', 'hasQuickReplies', 'adminMsgCtaId', 'adminMsgCtaTitle', 'adminMsgCtaType', 'cannotUnsendReason', 'textHasLinks', 'viewFlags', 'displayedContentTypes', 'viewedPluginKey', 'viewedPluginContext', 'quickReplyType', 'hotEmojiSize', 'replySourceTimestampMs', 'ephemeralDurationInSec', 'msUntilExpirationTs', 'ephemeralExpirationTs', 'takedownState', 'isCollapsed', 'subthreadKey', 'botResponseId', 'editCount', 'isPaidPartnership'],
+  upsertReaction: ['threadKey', 'timestampMs', 'messageId', 'actorId', 'reaction', 'authorityLevel'],
+  updateOrInsertReactionV2: ['threadKey', 'messageId', 'reactionFbid', 'skipped_0', 'count', 'authorityLevel', 'viewerIsReactor', 'viewerReactionTimestampMs', 'lastUpdatedTimestampMs'],
+  setForwardScore: ['threadKey', 'messageId', 'timestampMs', 'forwardScore'],
+  setMessageTextHasLinks: ['threadKey', 'messageId', 'timestampMs'],
+  setMessageDisplayedContentTypes: ['threadKey', 'messageId', 'timestampMs', 'text', 'unknownValue', 'unknownValue2'],
+  insertBlobAttachment: ['filename', 'filesize', 'hasMedia', 'playableUrl', 'playableUrlFallback', 'playableUrlExpirationTimestampMs', 'playableUrlMimeType', 'dashManifest', 'previewUrl', 'previewUrlFallback', 'previewUrlExpirationTimestampMs', 'previewUrlMimeType', 'skipped_0', 'miniPreview', 'previewWidth', 'previewHeight', 'attributionAppId', 'attributionAppName', 'attributionAppIcon', 'attributionAppIconFallback', 'attributionAppIconUrlExpirationTimestampMs', 'localPlayableUrl', 'playableDurationMs', 'attachmentIndex', 'accessibilitySummaryText', 'isPreviewImage', 'originalFileHash', 'threadKey', 'skipped_1', 'attachmentType', 'skipped_2', 'timestampMs', 'messageId', 'offlineAttachmentId', 'attachmentFbid', 'hasXma', 'xmaLayoutType', 'xmasTemplateType', 'titleText', 'subtitleText', 'descriptionText', 'sourceText', 'faviconUrlExpirationTimestampMs', 'skipped_3', 'isBorderless', 'previewUrlLarge', 'samplingFrequencyHz', 'waveformData', 'authorityLevel'],
+  insertXmaAttachment: ['skipped_0', 'filename', 'filesize', 'isSharable', 'playableUrl', 'playableUrlFallback', 'playableUrlExpirationTimestampMs', 'playableUrlMimeType', 'previewUrl', 'previewUrlFallback', 'previewUrlExpirationTimestampMs', 'previewUrlMimeType', 'skipped_1', 'previewWidth', 'previewHeight', 'attributionAppId', 'attributionAppName', 'attributionAppIcon', 'attributionAppIconFallback', 'attributionAppIconUrlExpirationTimestampMs', 'attachmentIndex', 'accessibilitySummaryText', 'shouldRespectServerPreviewSize', 'subtitleIconUrl', 'shouldAutoplayVideo', 'threadKey', 'skipped_2', 'attachmentType', 'skipped_3', 'timestampMs', 'messageId', 'offlineAttachmentId', 'attachmentFbid', 'xmaLayoutType', 'xmasTemplateType', 'collapsibleId', 'defaultCtaId', 'defaultCtaTitle', 'defaultCtaType', 'skipped_4', 'attachmentCta1Id', 'cta1Title', 'cta1IconType', 'cta1Type', 'skipped_5', 'attachmentCta2Id', 'cta2Title', 'cta2IconType', 'cta2Type', 'skipped_6', 'attachmentCta3Id', 'cta3Title', 'cta3IconType', 'cta3Type', 'imageUrl', 'imageUrlFallback', 'imageUrlExpirationTimestampMs', 'actionUrl', 'titleText', 'subtitleText', 'subtitleDecorationType', 'maxTitleNumOfLines', 'maxSubtitleNumOfLines', 'descriptionText', 'sourceText', 'faviconUrl', 'faviconUrlFallback', 'faviconUrlExpirationTimestampMs', 'skipped_7', 'listItemsId', 'listItemsDescriptionText', 'listItemsDescriptionSubtitleText', 'listItemsSecondaryDescriptionText', 'listItemId1', 'listItemTitleText1', 'listItemContactUrlList1', 'listItemProgressBarFilledPercentage1', 'listItemContactUrlExpirationTimestampList1', 'listItemContactUrlFallbackList1', 'listItemAccessibilityText1', 'listItemTotalCount1', 'listItemId2', 'listItemTitleText2', 'listItemContactUrlList2', 'listItemProgressBarFilledPercentage2', 'listItemContactUrlExpirationTimestampList2', 'listItemContactUrlFallbackList2', 'listItemAccessibilityText2', 'listItemTotalCount2', 'listItemId3', 'listItemTitleText3', 'listItemContactUrlList3', 'listItemProgressBarFilledPercentage3', 'listItemContactUrlExpirationTimestampList3', 'listItemContactUrlFallbackList3', 'listItemAccessibilityText3', 'listItemTotalCount3', 'skipped_8', 'skipped_9', 'skipped_10', 'isBorderless', 'headerImageUrlMimeType', 'headerTitle', 'headerSubtitleText', 'headerImageUrl', 'headerImageUrlFallback', 'headerImageUrlExpirationTimestampMs', 'previewImageDecorationType', 'shouldHighlightHeaderTitleInTitle', 'targetId', 'skipped_11', 'skipped_12', 'attachmentLoggingType', 'skipped_13', 'previewUrlLarge', 'gatingType', 'gatingTitle', 'targetExpiryTimestampMs', 'countdownTimestampMs', 'shouldBlurSubattachments', 'verifiedType', 'captionBodyText', 'isPublicXma', 'replyCount', 'authorityLevel'],
+  insertStickerAttachment: ['playableUrl', 'playableUrlFallback', 'playableUrlExpirationTimestampMs', 'playableUrlMimeType', 'previewUrl', 'previewUrlFallback', 'previewUrlExpirationTimestampMs', 'previewUrlMimeType', 'skipped_0', 'previewWidth', 'previewHeight', 'imageUrlMimeType', 'attachmentIndex', 'accessibilitySummaryText', 'threadKey', 'skipped_1', 'skipped_2', 'timestampMs', 'messageId', 'attachmentFbid', 'imageUrl', 'imageUrlFallback', 'imageUrlExpirationTimestampMs', 'faviconUrlExpirationTimestampMs', 'skipped_3', 'avatarViewSize', 'avatarCount', 'targetId', 'skipped_4', 'skipped_5', 'mustacheText', 'authorityLevel'],
+  insertNewMessageRange: ['threadKey', 'minTimestampMsTemplate', 'maxTimestampMsTemplate', 'minMessageId', 'maxMessageId', 'maxTimestampMs', 'minTimestampMs', 'hasMoreBefore', 'hasMoreAfter', 'unknownValue'],
+  deleteThenInsertMessageRequest: ['threadKey', 'unknownValue', 'messageRequestStatus'],
+  deleteExistingMessageRanges: ['consistentThreadFbid'],
+  clearPinnedMessages: ['threadKey'],
+
+  /* Contact related schemas */
+  verifyContactRowExists: ['id', 'skipped_0', 'profilePictureUrl', 'name', 'contactType', 'profilePictureFallbackUrl', 'skipped_1', 'skipped_2', 'skipped_3', 'isMemorialized', 'skipped_4', 'blockedByViewerStatus', 'canViewerMessage', 'skipped_5', 'authorityLevel', 'capabilities', 'capabilities2', 'skipped_6', 'gender', 'contactViewerRelationship', 'secondaryName'],
+  verifyContactParticipantExist: ['contactId', 'threadKey', 'unknownValue'],
+  verifyCommunityMemberContextualProfileExists: ['contactId', 'parentThreadKey'],
+  upsertSequenceId: ['lastAppliedMailboxSequenceId'],
+  setHMPSStatus: ['accountId', 'unknownValue', 'timestamp'],
+  setRegionHint: ['unknownValue', 'setRegionHint'],
+
+  /* Task related schemas */
+  taskExists: ['taskId'],
+  removeTask: ['taskId', 'skipped_0'],
+}
+
+export type LightSpeedDataTable = {
+  [key: string]: Schemas[]
+}

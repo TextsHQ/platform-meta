@@ -3,14 +3,14 @@ import {
   StateSyncEvent,
   ServerEventType,
   UNKNOWN_DATE,
-  ThreadMessagesRefreshEvent,
+  ThreadMessagesRefreshEvent, UserActivityEvent, ActivityType,
 } from '@textshq/platform-sdk'
 import { and, eq, lt } from 'drizzle-orm'
 import { pick } from 'lodash'
 import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
+import { CallList, generateCallList, type MetaSocketPayload, type SimpleArgType } from './payload-parser'
 import { fixEmoji, getOriginalURL, parseMessageRanges, parseMsAsDate, parseMs } from './util'
 import {
   type IGAttachment,
@@ -19,11 +19,12 @@ import {
   type IGReadReceipt,
   IGThread,
   ParentThreadKey,
-  SyncGroup,
+  SyncChannel,
 } from './types'
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
 import { MetaMessengerError } from './errors'
+import LightSpeedParser from './lightspeed/parser'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -72,13 +73,21 @@ export default class MetaMessengerPayloadHandler {
 
   private __events: (StateSyncEvent | ThreadMessagesRefreshEvent)[] = []
 
+  private __lightSpeedParser = new LightSpeedParser()
+
   constructor(
     private readonly __papi: PlatformMetaMessenger,
-    __data: IGSocketPayload,
+    private readonly __data: string,
     private readonly __requestId: number | 'initial' | 'snapshot',
   ) {
     this.__logger = getLogger(this.__papi.env, `payload:${this.__requestId}:${Date.now()}`)
-    this.__calls = generateCallList(this.__papi.env, __data)
+    const payload = JSON.parse(this.__data) as MetaSocketPayload
+    this.__calls = generateCallList(this.__papi.env, payload)
+    this.__lightSpeedParser.decode(payload.step)
+  }
+
+  public getParsedLightSpeedTable() {
+    return this.__lightSpeedParser.table
   }
 
   async __handle() {
@@ -126,6 +135,15 @@ export default class MetaMessengerPayloadHandler {
     if (requestType && !hasErrors) {
       this.__logger.debug(`resolved request for type ${requestType}`, this.__responses)
       resolve(this.__responses)
+    }
+
+    try {
+      const id = this.__papi.socket.lightspeedPromises.promisesByKeys.get(`request-${this.__requestId}`)
+      if (typeof id !== 'undefined') {
+        this.__papi.socket.lightspeedPromises.resolve(id, this.__lightSpeedParser.table)
+      }
+    } catch (e) {
+      console.error(e)
     }
 
     // if (this.__promises.length > 0) {
@@ -836,36 +854,34 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
-    const database_id = a[0] as string
-    const epoch_id = a[1] as string
-    const currentCursor = a[3] as string
-    const syncStatus = a[4] as string
-    const sendSyncParams = a[5] as string
-    // const minTimeToSyncTimestampMs = c.i64.eq(a[6], c.i64.cast([0, 0])) ? c.i64.cast([0, 0]) : c.i64.add(d[4], a[6])
-    const canIgnoreTimestamp = a[7] as string
-    const syncChannel = a[8] as SyncGroup // @TODO: not sure
-    // const lastSyncCompletedTimestampMs = d[5]
-    this.__logger.debug('executeFirstBlockForSyncTransaction', {
-      database_id,
-      epoch_id,
-      currentCursor,
-      syncStatus,
-      sendSyncParams,
-      canIgnoreTimestamp,
-      syncChannel,
-      a2: a[2],
-    })
-
-    this.__papi.kv.set(`cursor-${Number(database_id)}-${syncChannel}`, currentCursor)
-    this.__papi.kv.set(`_lastReceivedCursor-${Number(database_id)}-${syncChannel}`, JSON.stringify({
-      database_id,
-      epoch_id,
-      currentCursor,
-      syncStatus,
-      sendSyncParams,
-      canIgnoreTimestamp,
-      syncChannel,
-    }))
+    this.__logger.debug('executeFirstBlockForSyncTransaction (ignored)', a)
+    // const databaseId = a[0] as string
+    // const epoch_id = a[1] as string
+    // const currentCursor = a[2] as string
+    // const nextCursor = a[3] as string
+    // const syncStatus = a[4] as string
+    // const sendSyncParams = a[5] as boolean
+    // // const minTimeToSyncTimestampMs = c.i64.eq(a[6], c.i64.cast([0, 0])) ? c.i64.cast([0, 0]) : c.i64.add(d[4], a[6])
+    // const canIgnoreTimestamp = a[7] as string
+    // const syncChannel = Number(a[8]) as SyncChannel // @TODO: not sure
+    // // const lastSyncCompletedTimestampMs = d[5]'
+    // if (currentCursor !== nextCursor) {
+    //   this.__logger.debug('executeFirstBlockForSyncTransaction', {
+    //     databaseId,
+    //     epoch_id,
+    //     currentCursor,
+    //     nextCursor,
+    //     syncStatus,
+    //     sendSyncParams,
+    //     canIgnoreTimestamp,
+    //     syncChannel,
+    //   })
+    //   /*
+    //   if (database_id === '1') {
+    //     this.__papi.socket.subscribeToAllDatabases()
+    //   }
+    //   */
+    // }
   }
 
   private getFirstAvailableAttachmentCTAID(a: SimpleArgType[]) {
@@ -1763,6 +1779,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('shimCopyAllParticipantNicknamesForThread (ignored)', a)
   }
 
+  private storyContactSyncFromBucket(a: SimpleArgType[]) {
+    this.__logger.debug('storyContactSyncFromBucket (ignored)', a)
+  }
+
   private syncUpdateThreadName(a: SimpleArgType[]) {
     const t = {
       threadName: a[0] as string,
@@ -2067,7 +2087,23 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private updateTypingIndicator(a: SimpleArgType[]) {
-    this.__logger.debug('updateTypingIndicator (ignored)', a)
+    const r = {
+      threadKey: a[0],
+      senderId: a[1],
+      // expirationTimestampMS: a[2] ? Date.now() : 0,
+      isTyping: a[2],
+    }
+    const eventData: UserActivityEvent = {
+      type: ServerEventType.USER_ACTIVITY,
+      activityType: r.isTyping ? ActivityType.TYPING : ActivityType.NONE,
+      threadID: r.threadKey.toString(),
+      participantID: r.senderId.toString(),
+      durationMs: r.isTyping ? 5_000 : 0,
+    }
+    this.__logger.debug('updateTypingIndicator event:', eventData)
+    return () => {
+      this.__events.push(eventData)
+    }
   }
 
   private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {
@@ -2225,7 +2261,7 @@ export default class MetaMessengerPayloadHandler {
 
   private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
     const range = {
-      syncGroup: a[0] as SyncGroup,
+      syncGroup: a[0] as SyncChannel,
       parentThreadKey: a[1] as ParentThreadKey,
       minLastActivityTimestampMs: a[2] as string,
       hasMoreBefore: Boolean(a[3]),

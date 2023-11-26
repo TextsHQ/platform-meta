@@ -14,13 +14,12 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { SyncGroup, SocketRequestResolverType, MMSocketTask } from './types'
+import { SocketRequestResolverType, SyncChannel, MMSocketTask } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
 import { MqttErrors } from './MetaMQTTErrors'
 import { PromiseStore } from './PromiseStore'
-import { NEVER_SYNC_TIMESTAMP } from './constants'
 import { PlatformRequestScheduler } from './PlatformRequestScheduler'
 
 const MAX_RETRY_ATTEMPTS = 12
@@ -49,7 +48,7 @@ export default class MetaMessengerWebSocket {
       topic: '/ls_app_settings',
       payload: JSON.stringify({
         ls_fdid: '',
-        ls_sv: EnvOptions[this.papi.env].defaultVersionId,
+        ls_sv: this.papi.api.config.syncData.version.toString(),
       }),
     } as const
   }
@@ -58,6 +57,11 @@ export default class MetaMessengerWebSocket {
     this.logger = getLogger(this.papi.env, 'socket')
     this.packetAckPromises = new PromiseStore({
       startAt: 2,
+      env: this.papi.env,
+      timeoutMs: 0,
+    })
+    this.lightspeedPromises = new PromiseStore({
+      startAt: 0,
       env: this.papi.env,
       timeoutMs: 0,
     })
@@ -78,6 +82,8 @@ export default class MetaMessengerWebSocket {
   private packetAckPromises: PromiseStore<void>
 
   private packetQueue: Packet[] = []
+
+  lightspeedPromises: PromiseStore<void>
 
   private generateMQTTConfig = () => {
     const mqttSid = getMqttSid()
@@ -182,7 +188,10 @@ export default class MetaMessengerWebSocket {
       protocolVersion: 3,
     })
 
-    this.mqttParser.on('packet', packet => this.onPacket(packet))
+    this.mqttParser.on('packet', packet => {
+      this.logger.debug(`mqtt packet: ${packet.cmd}`)
+      this.onPacket(packet)
+    })
 
     this.mqttParser.on('error', error => {
       this.logger.error(error, {}, '[ws] mqtt parser error')
@@ -340,6 +349,7 @@ export default class MetaMessengerWebSocket {
   }
 
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
+    const promises: Promise<void>[] = []
     for (let i = 0; i < topics.length; i++) {
       const topic = topics[i]
       if (this.subscribedTopics.has(topic)) continue
@@ -348,7 +358,7 @@ export default class MetaMessengerWebSocket {
         this.logger.debug(`suback for ${topic} (${messageId})`)
         this.subscribedTopics.add(topic)
       })
-
+      promises.push(promise)
       await this.send({
         cmd: 'subscribe',
         qos: 1,
@@ -361,6 +371,8 @@ export default class MetaMessengerWebSocket {
         messageId,
       } as any)
     }
+
+    await Promise.all(promises)
   }
 
   private async onPacket(packet: Packet) {
@@ -370,7 +382,6 @@ export default class MetaMessengerWebSocket {
     }
 
     this.lastReceivedMessageAt = Date.now()
-
     switch (packet.cmd) {
       case 'connack':
         if (this.connectionTimeout) {
@@ -383,9 +394,15 @@ export default class MetaMessengerWebSocket {
         await this.afterInitialHandshake()
         break
       case 'publish':
+        console.log('Got payload:', JSON.parse(packet.payload.toString()))
         if (packet.topic === '/ls_resp') {
           const payload = JSON.parse(packet.payload.toString())
-          await new MetaMessengerPayloadHandler(this.papi, payload.payload, payload.request_id ? Number(payload.request_id) : null).__handle()
+          const handler = new MetaMessengerPayloadHandler(
+            this.papi,
+            payload.payload,
+            payload.request_id ? Number(payload.request_id) : null,
+          )
+          await handler.__handle()
         }
         break
       case 'puback':
@@ -411,13 +428,22 @@ export default class MetaMessengerWebSocket {
     await this.runPacketQueue()
   }
 
+  private initialHandshakeResolver: (value: unknown) => void
+
+  public initialHandshakePromise = new Promise(resolve => {
+    this.initialHandshakeResolver = resolve
+  })
+
   // runs after
   // - we get ack for requesting app settings
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
     await Promise.all([
-      this.subscribeToAllDatabases(),
+      this.papi.syncManager.ensureSyncedSocket([
+        1,
+      ]),
       this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
+      this.initialHandshakeResolver(null),
     ])
     this.isInitialConnection = false
   }
@@ -464,7 +490,7 @@ export default class MetaMessengerWebSocket {
       retain: false,
       topic: '/ls_req',
       payload: JSON.stringify({
-        app_id: this.papi.api.config.appId,
+        app_id: this.papi.api.config.server_app_id,
         payload,
         request_id,
         type,
@@ -472,6 +498,24 @@ export default class MetaMessengerWebSocket {
     })
 
     await promise
+  }
+
+  async publishDatabaseSync(payload: any, t: number) {
+    const { request_id } = this.createRequest(SocketRequestResolverType.SYNC_DATABASE)
+    const { promise } = this.lightspeedPromises.create(`request-${request_id}`)
+    const payload2 = JSON.stringify(payload)
+
+    try {
+      this.publishLightspeedRequest({
+        payload: payload2,
+        request_id,
+        type: t,
+      })
+    } catch (_e) {
+      console.error(_e)
+    }
+    const result = await promise
+    return result
   }
 
   async publishTask(type: SocketRequestResolverType, tasks: MMSocketTask[], {
@@ -520,48 +564,20 @@ export default class MetaMessengerWebSocket {
     })
   }
 
-  private async subscribeToAllDatabases() {
-    const syncGroups = this.papi.api.getDefaultSyncGroups()
-    const syncGroupsForEnv = this.papi.env === 'IG' ? syncGroups.igdSyncGroups : syncGroups.defaultSyncGroups
-
-    const promises: Promise<void>[] = []
-
-    for (let i = 0; i < syncGroupsForEnv.length; i++) {
-      const syncGroup = syncGroupsForEnv[i]
-      if (!syncGroup?.groupId || syncGroup?.minTimeToSyncTimestampMs === NEVER_SYNC_TIMESTAMP) continue
-
-      const request_id = this.requestIds.gen()
-      let last_applied_cursor = null
-      let sync_params = syncGroup.syncParams ?? null
-      let requestType = 1
-
-      if (syncGroup.groupId === SyncGroup.MAILBOX) {
-        last_applied_cursor = this.papi.kv.get('cursor-1-1')
-        requestType = 2
-      } else if (syncGroup.groupId === SyncGroup.CONTACT) {
-        last_applied_cursor = this.papi.kv.get('cursor-1-2')
-        sync_params = JSON.stringify(this.papi.api.config.syncParams.contact)
-        requestType = 2
-      } else if (syncGroup.groupId === SyncGroup.E2EE) {
-        last_applied_cursor = this.papi.kv.get('cursor-1-95')
-        sync_params = this.papi.api.config.syncParams.e2ee ?? '{}'
-        requestType = 2
-      }
-
-      promises.push(this.publishLightspeedRequest({
-        payload: JSON.stringify({
-          database: syncGroup.groupId,
-          epoch_id: getTimeValues().epoch_id,
-          failure_count: null,
-          last_applied_cursor,
-          sync_params,
-          version: this.papi.envOpts.defaultVersionId,
-        }),
-        request_id,
-        type: requestType,
-      }))
+  private getSyncParams(syncChannel: SyncChannel) {
+    const syncParams = this.papi.api?.config?.syncParams
+    let retVal: string
+    switch (syncChannel) {
+      case SyncChannel.CONTACT:
+        retVal = JSON.stringify(syncParams.contact)
+        break
+      case SyncChannel.MAILBOX:
+        retVal = syncParams.mailbox
+        break
+      default:
+        retVal = ''
     }
-    await Promise.allSettled(promises)
+    return retVal
   }
 
   private clearTimeouts() {

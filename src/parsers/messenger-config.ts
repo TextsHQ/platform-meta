@@ -1,5 +1,7 @@
 import { ReAuthError } from '@textshq/platform-sdk'
 import { htmlTitleRegex } from '@textshq/platform-sdk/dist/json'
+import { DatabaseSyncVariables } from '../types'
+import Bitmap, { BootloaderHandlePayload } from './bitmap'
 import { TypedMap } from '../util'
 
 type SyncParams = {
@@ -238,6 +240,23 @@ export interface Config {
     version: number
     should_randomize: boolean
   }
+  BootloaderConfig: {
+    deferBootloads: boolean
+    jsRetries: number[]
+    jsRetryAbortNum: number
+    jsRetryAbortTime: number
+    silentDups: boolean
+    timeout: number
+    hypStep4: boolean
+    phdOn: boolean
+    btCutoffIndex: number
+    fastPathForAlreadyRequired: boolean
+    earlyRequireLazy: boolean
+    enableTimeoutLoggingForNonComet: boolean
+    translationRetries: number[]
+    translationRetryAbortNum: number
+    translationRetryAbortTime: number
+  }
   SiteData: {
     server_revision: number
     client_revision: number
@@ -270,7 +289,47 @@ export interface Config {
   IntlCurrentLocale: {
     code: string
   }
+  ServerAppID: {
+    app_id: string
+  }
+  JSErrorLoggingConfig: {
+    appId: number
+    extra: any[]
+    reportInterval: number
+    sampleWeight: number
+    sampleWeightKey: string
+    projectBlocklist: any[]
+  }
+  WebConnectionClassServerGuess: {
+    connectionClass: string
+  }
+  Bitmaps: {
+    bitmap: Bitmap
+    csrBitmap: Bitmap
+  }
+  Eqmc: {
+    jazoest: string
+    comet_req: string
+    a: string
+    user: string
+  }
+  SyncData: {
+    needSync: boolean
+    version: number
+    links: string[]
+    syncPayloads: string[]
+  }
 }
+/*
+const ignored_configs = [
+  'CountryNamesConfig',
+  'DateFormatConfig',
+  'MAWMainWebWorkerResource',
+  'PolarisLocales',
+  'WebLoomConfig',
+  'ZeroRewriteRules',
+]
+*/
 
 type ConfigDefineType<T extends keyof Config> = [T, [], Config[T], number]
 type ConfigDefine =
@@ -286,14 +345,21 @@ type ConfigDefine =
   | ConfigDefineType<'CurrentEnvironment'>
   | ConfigDefineType<'MercuryConfig'>
   | ConfigDefineType<'SprinkleConfig'>
+  | ConfigDefineType<'BootloaderConfig'>
   | ConfigDefineType<'SiteData'>
   | ConfigDefineType<'IntlCurrentLocale'>
+  | ConfigDefineType<'ServerAppID'>
+  | ConfigDefineType<'JSErrorLoggingConfig'>
+  | ConfigDefineType<'WebConnectionClassServerGuess'>
+  | ConfigDefineType<'Bitmaps'>
+  | ConfigDefineType<'Eqmc'>
+  | ConfigDefineType<'SyncData'>
 
 type InnerObject = {
   __bbox: {
     define?: ConfigDefine[]
     require?: (
-      | ['CometPlatformRootClient' | `CometPlatformRootClient${string}`, 'init', string[], ({ variables: any })[][]]
+      | ['CometPlatformRootClient' | `CometPlatformRootClient${string}`, 'init', string[], ({ variables: DatabaseSyncVariables })[][]]
       | ['RelayPrefetchedStreamCache' | `RelayPrefetchedStreamCache${string}`, 'next', [], any[]]
     )[]
     instances?: any[][]
@@ -342,6 +408,14 @@ export function parseMessengerInitialPage(html: string) {
 
   const definesMap = new TypedMap<Config>()
   const initialPayloads: string[] = []
+  const bitmap = new Bitmap().init(false, false)
+  const csrBitmap = new Bitmap()
+  const syncData: Config['SyncData'] = {
+    needSync: false,
+    version: 0,
+    links: [],
+    syncPayloads: [],
+  }
 
   scriptTags.forEach(scriptTag => {
     const startIndex = scriptTag.indexOf('{')
@@ -350,49 +424,88 @@ export function parseMessengerInitialPage(html: string) {
     if (startIndex === -1 || endIndex === -1) return
     const jsonContent = scriptTag.substring(startIndex, endIndex + 1)
     const parsedContent = JSON.parse(jsonContent) as {
-      require: ['ScheduledServerJSWithCSS' | string, 'handle', null, InnerObject[]][]
+      require: ['ScheduledServerJSWithCSS' | string, 'handle' | string, null, InnerObject[]][]
     }
 
-    if (!parsedContent.require) return
-    parsedContent.require.forEach(requireCall => {
-      const mainCallName = requireCall[0]
-      if (mainCallName !== 'ScheduledServerJS') return
-      requireCall[3].forEach(obj => {
-        const bbox = obj.__bbox
-        if (!bbox) return
-        bbox.define?.forEach(define => {
-          const callName = define[0]
-          if (
-            callName.startsWith('cr:')
-            || callName.startsWith('nux:')
-            || [
-              'CountryNamesConfig',
-              'DateFormatConfig',
-              'MAWMainWebWorkerResource',
-              'PolarisLocales',
-              'WebLoomConfig',
-              'ZeroRewriteRules',
-            ].includes(callName)) return
-          definesMap.set(callName, define[2])
-        })
-        bbox.require?.forEach(req => {
-          const m = req[0]
-          if (!m.startsWith('RelayPrefetchedStreamCache')) return
-          req?.[3]?.forEach((p: any) => {
-            if (typeof p === 'string') return
-            const data = p?.__bbox?.result?.data
-            const payload = data?.viewer?.lightspeed_web_request?.payload
-            if (payload?.length > 0) {
-              initialPayloads.push(payload)
+    if (!parsedContent.require) {
+      const content = JSON.parse(jsonContent)
+      if (content.u) {
+        const eqmc = new URLSearchParams('?' + content.u.split('/?')[1])
+        definesMap.set('Eqmc', { jazoest: eqmc.get('jazoest'), a: eqmc.get('__a'), comet_req: eqmc.get('__comet_req'), user: eqmc.get('__user') })
+      }
+    } else {
+      parsedContent.require.forEach(requireCall => {
+        const mainCallName = requireCall[0]
+        const methodName = requireCall[1]
+        const methodData = requireCall[3]
+        if (mainCallName === 'Bootloader' && methodName === 'handlePayload') {
+          if (methodData && methodData.length > 0) {
+            const csrData = (methodData as any[])[0] as BootloaderHandlePayload
+            if (csrData.rsrcMap) {
+              csrBitmap.updateCsrBitmap(csrData)
             }
-            const igPayload = data?.lightspeed_web_request_for_igd?.payload
-            if (igPayload?.length > 0) {
-              initialPayloads.push(igPayload)
+          }
+        }
+        if (mainCallName !== 'ScheduledServerJS') return
+        methodData.forEach(obj => {
+          const bbox = obj.__bbox
+          if (!bbox) return
+          bbox.define?.forEach(([callName, , data, configId]) => {
+            if (callName === 'BootloaderConfig') {
+              bitmap.phdOn = data.phdOn
+              csrBitmap.init(data.phdOn, true)
             }
+
+            if (configId > 0) {
+              bitmap.updateBitmap(configId)
+            }
+            definesMap.set(callName, data)
+          })
+
+          bbox.require?.forEach(req => {
+            const m = req[0]
+            const method = req[1]
+            if (m.startsWith('CometPlatformRootClient')) {
+              if (method === 'init') {
+                const data = req[3]
+                const syncPayloads = data[4]
+                console.log('syncpayloads:', syncPayloads)
+                if (!syncPayloads) return
+
+                for (const payload of syncPayloads) {
+                  if (!payload?.variables?.requestPayload) {
+                    console.error('no requestPayload:', payload)
+                    continue
+                  }
+                  const { variables } = payload
+                  const parsedRequestPayload = JSON.parse(variables.requestPayload)
+                  console.log('parsedRequestPayload:', parsedRequestPayload)
+                  if (parsedRequestPayload.version) {
+                    syncData.version = parsedRequestPayload.version
+                    console.log('found version:', syncData.version)
+                  }
+                  syncData.syncPayloads.push(JSON.stringify(variables))
+                }
+              }
+              return
+            }
+            if (!m.startsWith('RelayPrefetchedStreamCache')) return
+            req?.[3]?.forEach((p: any) => {
+              if (typeof p === 'string') return
+              const data = p?.__bbox?.result?.data
+              const payload = data?.viewer?.lightspeed_web_request?.payload
+              if (payload?.length > 0) {
+                initialPayloads.push(payload)
+              }
+              const igPayload = data?.lightspeed_web_request_for_igd?.payload
+              if (igPayload?.length > 0) {
+                initialPayloads.push(igPayload)
+              }
+            })
           })
         })
       })
-    })
+    }
   })
 
   const syncParams = definesMap.get('LSPlatformMessengerSyncParams')
@@ -415,11 +528,24 @@ export function parseMessengerInitialPage(html: string) {
   const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment'))
   const MqttWebConfig = definesMap.get('MqttWebConfig')
   const MercuryConfig = definesMap.get('MercuryConfig')
+  const MessengerWebInitData = definesMap.get('MessengerWebInitData')
 
   if (CurrentEnvironment === 'IG') {
     // MqttWebConfig.endpoint is wrong for IG
     // there is MqttWebConfig.hostNameOverride, but it's unclear how it's implemented
     MqttWebConfig.endpoint = MqttWebConfig.endpoint.replace('.facebook.com', '.instagram.com')
+    MqttWebConfig.appID = MessengerWebInitData.appId
+  }
+
+  if (syncData.version === 0) {
+    syncData.needSync = true
+    const htmlLinkRegex = /<link\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1.*?>/g
+    const linkMatches = html.matchAll(htmlLinkRegex)
+    for (const match of linkMatches) {
+      if (match[0].includes('as="script"')) {
+        syncData.links.push(match[2])
+      }
+    }
   }
 
   return {
@@ -430,7 +556,8 @@ export function parseMessengerInitialPage(html: string) {
     LSD: definesMap.get('LSD'),
     LSPlatformMessengerSyncParams,
     MercuryConfig,
-    MessengerWebInitData: definesMap.get('MessengerWebInitData'),
+    ServerAppID: definesMap.get('ServerAppID'),
+    MessengerWebInitData,
     MqttWebConfig,
     MqttWebDeviceID: definesMap.get('MqttWebDeviceID'),
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults'),
@@ -438,6 +565,14 @@ export function parseMessengerInitialPage(html: string) {
     SprinkleConfig: definesMap.get('SprinkleConfig'),
     XIGSharedData,
     IntlCurrentLocale: definesMap.get('IntlCurrentLocale'),
+    JSErrorLoggingConfig: definesMap.get('JSErrorLoggingConfig'),
+    WebConnectionClassServerGuess: definesMap.get('WebConnectionClassServerGuess'),
+    Bitmaps: {
+      bitmap,
+      csrBitmap,
+    },
+    Eqmc: definesMap.get('Eqmc'),
+    SyncData: syncData,
   } as const
 }
 
@@ -524,7 +659,7 @@ export function getMessengerConfig(html: string) {
   const igViewerConfig = parsed.XIGSharedData?.raw?.config?.viewer // instagram-only
   return {
     env: parsed.CurrentEnvironment,
-    appId: String(parsed.MessengerWebInitData?.appId),
+    appId: String(parsed.MqttWebConfig.appID),
     clientId: parsed.MqttWebDeviceID?.clientID,
     fb_dtsg: parsed.DTSGInitialData?.token,
     fbid: parsed.CurrentUserInitialData?.IG_USER_EIMU || parsed.CurrentUserInitialData?.ACCOUNT_ID, // if not instagram
@@ -542,6 +677,13 @@ export function getMessengerConfig(html: string) {
     gqlCustomHeaders: parsed.RelayAPIConfigDefaults.customHeaders,
     sprinkleConfig: parsed.SprinkleConfig,
     currentLocale: parsed.IntlCurrentLocale?.code,
+    bitmaps: parsed.Bitmaps,
+    eqmc: parsed.Eqmc,
+    server_app_id: parsed.ServerAppID.app_id,
+    jsErrorLogging: parsed.JSErrorLoggingConfig,
+    webConnectionClassServerGuess: parsed.WebConnectionClassServerGuess,
+    webSessionId: '',
+    syncData: parsed.SyncData,
   }
 }
 
