@@ -679,7 +679,7 @@ export function getMessengerConfig(html: string) {
     currentLocale: parsed.IntlCurrentLocale?.code,
     bitmaps: parsed.Bitmaps,
     eqmc: parsed.Eqmc,
-    server_app_id: parsed.ServerAppID.app_id,
+    server_app_id: parsed.ServerAppID ? parsed.ServerAppID.app_id : parsed.MessengerWebInitData.appId.toString(), // instagram doesn't have the ServerAppID config, so we use the appId from MessengerWebInitData if that doesn't exist
     jsErrorLogging: parsed.JSErrorLoggingConfig,
     webConnectionClassServerGuess: parsed.WebConnectionClassServerGuess,
     webSessionId: '',
