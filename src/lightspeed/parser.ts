@@ -75,15 +75,8 @@ export default class LightSpeedParser {
       const schema_names: string[] = LightSpeedTable[procedure]
       const result_object: { [key: string]: any } = {}
       for (let i = 0; i < procedure_data.length; i++) {
-        if (!schema_names) {
-          console.log('could not find procedure by name:', procedure)
-          continue
-        }
         const prop_name = schema_names[i]
-        if (!prop_name) {
-          console.log(`could not find property with index ${i} on procedure ${procedure}`)
-          continue
-        }
+        if (!prop_name) console.log('could not find:', procedure)
         if (prop_name.includes('skipped_')) continue
         const prop_data = procedure_data[i]
         const prop_type = typeof prop_data
