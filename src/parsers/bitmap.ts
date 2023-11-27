@@ -32,35 +32,15 @@ export default class Bitmap {
 
   csr: boolean
 
-  private pendingCsrBitmaps: BootloaderHandlePayload[] = []
-
-  private pendingBitmaps: number[] = []
-
   init(phdOn: boolean, csr: boolean) {
     this.phdOn = phdOn
     this.csr = csr
     this.initialized = true
-    if (this.pendingCsrBitmaps.length > 0) {
-      for (const payload of this.pendingCsrBitmaps) {
-        this.updateCsrBitmap(payload)
-      }
-      this.pendingCsrBitmaps = []
-    }
-    if (this.pendingBitmaps.length > 0) {
-      for (const num of this.pendingBitmaps) {
-        this.updateBitmap(num)
-      }
-      this.pendingBitmaps = []
-    }
     return this
   }
 
   updateCsrBitmap(payload: BootloaderHandlePayload) {
-    if (!this.initialized) {
-      console.error('Bitmap#updateCsrBitmap called before initialized')
-      this.pendingCsrBitmaps.push(payload)
-      return
-    }
+    if (!this.initialized) throw new Error('Bitmap#updateCsrBitmap called before initialized')
     if (payload.csrUpgrade && payload.csrUpgrade.length) {
       const newBits = Bitmap.parseCSRBits(payload.csrUpgrade)
       this.bitMap = this.bitMap.concat(...newBits)
@@ -88,11 +68,7 @@ export default class Bitmap {
   }
 
   updateBitmap(num: number) {
-    if (!this.initialized) {
-      console.error('Bitmap#updateBitmap called before initialized')
-      this.pendingBitmaps.push(num)
-      return
-    }
+    if (!this.initialized) throw new Error('Bitmap#updateBitmap called before initialized')
     if (!this.bitMap.includes(num) && num !== 0) {
       this.bitMap.push(num)
     }
