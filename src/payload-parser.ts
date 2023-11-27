@@ -23,7 +23,6 @@ const IGNORED_CALLS = new Set([
   'deleteThenInsertMessageRequest',
   'deleteThenInsertProactiveWarningSettings',
   'executeFinallyBlockForSyncTransaction',
-  'executeFirstBlockForSyncTransaction',
   'getFirstAvailableAttachmentCTAID',
   'handleRepliesOnUnsend',
   'hasMatchingAttachmentCTA',
@@ -78,6 +77,7 @@ const IGNORED_CALLS = new Set([
   'updateThreadParticipantAdminStatus',
   'updateThreadSnippet',
   'updateThreadSnippetFromLastMessage',
+  'updateTypingIndicator',
   'updateUnsentMessageCollapsedStatus',
   'upsertFolder',
   'upsertFolderSeenTimestamp',
@@ -165,7 +165,6 @@ export type OperationKey =
   | 'setMessagesViewedPlugin'
   | 'setPinnedMessage'
   | 'setRegionHint'
-  | 'storyContactSyncFromBucket'
   | 'syncUpdateThreadName'
   | 'taskExists'
   | 'threadsRangesQuery'
@@ -241,7 +240,7 @@ type Step =
     [number, OperationStep],
   ]
 
-export interface MetaSocketPayload {
+interface Payload {
   name: null
   step: Step[]
 }
@@ -279,8 +278,8 @@ export function safeNumberOrString(input: unknown): number | string {
   return stringValue
 }
 
-export function generateCallList(env: EnvKey, payload: MetaSocketPayload) {
-  if (!payload?.step) {
+export function generateCallList(env: EnvKey, payload: string) {
+  if (!payload) {
     throw new MetaMessengerError(env, -1, 'failed to generate call list, invalid payload')
   }
 
@@ -340,9 +339,16 @@ export function generateCallList(env: EnvKey, payload: MetaSocketPayload) {
     }
   }
 
-  processStep(payload.step)
+  const internalPayload = JSON.parse(payload) as Payload
+  if (!internalPayload.step) {
+    console.error('invalid payload step', internalPayload)
+    throw new MetaMessengerError(env, -1, 'failed to parse payload step, invalid payload')
+  }
+
+  processStep(internalPayload.step)
 
   return calls
 }
 
 export type CallList = ReturnType<typeof generateCallList>
+export type IGSocketPayload = Parameters<typeof generateCallList>[1]

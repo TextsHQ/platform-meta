@@ -1,4 +1,5 @@
 import { readFile } from 'fs/promises'
+// @ts-expect-error
 import { describe, expect, test } from 'bun:test'
 import { getMessengerConfig, parseMessengerInitialPage } from './messenger-config'
 import { generateCallList } from '../payload-parser'
@@ -24,10 +25,10 @@ function makeTests(
   test('parse config & initial payloads', () => {
     expect(config).toMatchSnapshot()
     expect(config.env).toMatch(env)
-    expect(String(config.server_app_id)).toMatch(appId)
+    expect(String(config.appId)).toMatch(appId)
     expect(String(config.mqttEndpoint)).toMatch(mqttEndpoint)
     config.initialPayloads?.forEach(fixture => {
-      const callList = generateCallList(env as EnvKey, JSON.parse(fixture))
+      const callList = generateCallList(env as EnvKey, fixture)
       expect(callList).toMatchSnapshot()
     })
   })

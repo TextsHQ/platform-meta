@@ -1,19 +1,19 @@
 import type PlatformAPI from '../api'
 import { keyValues } from './schema'
-import { ParentThreadKey, SyncChannel } from '../types'
+import { ParentThreadKey, SyncGroup } from '../types'
 
-type DbId = string
+type DbId = number
 
 type ThreadRangesFolderName = string
 type ThreadRangesParentThreadKey = string
 type ThreadRangesThreadRangeFilter = string
 
-export type Key =
+type Key =
   | '_fullConfig' // not used, for debugging
   | 'wwwClaim'
-  | `_lastReceivedCursor-${DbId}` // not used, for debugging
-  | `cursor-${DbId}`
-  | `threadsRanges-${SyncChannel}-${ParentThreadKey}`
+  | `_lastReceivedCursor-${DbId}-${SyncGroup}` // not used, for debugging
+  | `cursor-${DbId}-${SyncGroup}`
+  | `threadsRanges-${SyncGroup}-${ParentThreadKey}`
   | `threadsRangesV2-${string}-${ParentThreadKey}`
   | `filteredThreadsRanges-${ThreadRangesFolderName}-${ThreadRangesParentThreadKey}-${ThreadRangesThreadRangeFilter}` // meta calls it v3
 

@@ -12,7 +12,7 @@ export interface SerializedSession {
   _v: 'v3'
 }
 
-export const enum SyncChannel {
+export const enum SyncGroup {
   MAILBOX = 1,
   CONTACT = 2,
   E2EE = 95,
@@ -416,7 +416,7 @@ export type IGMessageRanges = {
 }
 
 export type MetaThreadRanges = {
-  syncGroup: SyncChannel
+  syncGroup: SyncGroup
   parentThreadKey: ParentThreadKey
   minLastActivityTimestampMs: string
   hasMoreBefore: boolean
@@ -697,39 +697,4 @@ export const enum SocketRequestResolverType {
   SET_THREAD_NAME = 'SET_THREAD_NAME',
   UNARCHIVE_THREAD = 'UNARCHIVE_THREAD',
   UNSEND_MESSAGE = 'UNSEND_MESSAGE',
-  SEND_ACTIVITY_INDICATOR = 'SEND_ACTIVITY_INDICATOR',
-  SYNC_DATABASE = 'SYNC_DATABASE',
-}
-
-export type SyncTransaction = {
-  databaseId: number
-  sendSyncParams: boolean
-  currentCursor: string | null
-  nextCursor: string | null
-  syncChannel: SyncChannel
-}
-
-export type DatabaseSyncVariables = {
-  deviceId: string
-  includeChatVisibility: boolean
-  requestId: number
-  requestPayload: string // json stringified payload
-  requestType: number
-}
-
-export type DatabaseQueryMetadata = {
-  databaseId: number
-  sendSyncParams: boolean
-  lastAppliedCursor: string | null
-  syncChannel: SyncChannel
-}
-
-export type DatabaseSyncQuery = {
-  database: number
-  last_applied_cursor: string | null
-  version: number
-  epoch_id: number
-  data_trace_id?: string
-  failure_count: number | null
-  sync_params: string | null
 }

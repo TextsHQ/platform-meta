@@ -6,7 +6,7 @@ const fixtures: MMResponse[] = require('../fixtures/ig-socket-responses.json')
 
 test('parse payloads to calls', () => {
   fixtures.forEach(fixture => {
-    expect(generateCallList('IG', JSON.parse(fixture.payload))).toMatchSnapshot()
+    expect(generateCallList('IG', fixture.payload)).toMatchSnapshot()
   })
 })
 
