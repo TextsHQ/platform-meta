@@ -3,12 +3,9 @@ import { texts } from '@textshq/platform-sdk'
 
 export const NEVER_SYNC_TIMESTAMP = 9999999999999
 
-const PLATFORM_DIR_NAME = 'platform-meta'
-const isiOS = process.platform as string === 'ios'
+const BINARIES_DIR_PATH = texts.getBinariesDirPath('meta')
 
-const getBinaryPath = (binaryName: string) => (texts.IS_DEV && !isiOS
-  ? path.join(__dirname, '../binaries', binaryName)
-  : path.join(texts.constants.BUILD_DIR_PATH, PLATFORM_DIR_NAME, binaryName))
+const getBinaryPath = (binaryName: string) => path.join(BINARIES_DIR_PATH, binaryName)
 
 export const STICKERS_DIR_PATH = getBinaryPath('stickers')
 
