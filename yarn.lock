@@ -2195,7 +2195,7 @@ __metadata:
   resolution: "@textshq/platform-meta@workspace:."
   dependencies:
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
-    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#450f733b0d496b793ae6cab273759a1246ee6053"
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88"
     "@types/better-sqlite3": "npm:^7.6.5"
     "@types/eslint": "npm:^8.21.3"
     "@types/lodash": "npm:4.14.198"
@@ -2222,13 +2222,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk#450f733b0d496b793ae6cab273759a1246ee6053":
+"@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88":
   version: 0.4.4
-  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=450f733b0d496b793ae6cab273759a1246ee6053"
+  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=cff4936201f0761427ac3816bbd30500be43af88"
   dependencies:
     emoji-regex: "npm:^10.1.0"
     qrcode.react: "npm:^3.1.0"
-  checksum: ab8b660ddc940e6396f9f221c90a76e1315f29a6dc6bc9e911b7723e3e1398c782c84526f551c6fe189efdc851271316d7087cc21274e7295bae74714534b036
+  checksum: c381c5f74d7d18f92895d774ab372f7c531d13f9eb22f628ce416c0feff1db604b8c362c68d10292c69b963dfff9350b7084ca836b7a86c0d4ea66ddf35675d5
   languageName: node
   linkType: hard
 

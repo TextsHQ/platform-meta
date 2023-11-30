@@ -17,7 +17,7 @@
     "watch": "tsc --watch"
   },
   "dependencies": {
-    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#450f733b0d496b793ae6cab273759a1246ee6053",
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "drizzle-orm": "^0.29.0",
