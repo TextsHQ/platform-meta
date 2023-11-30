@@ -11,6 +11,7 @@ import {
   getMqttSid,
   getRetryTimeout,
   getTimeValues,
+  metaJSONStringify,
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
@@ -481,15 +482,15 @@ export default class MetaMessengerWebSocket {
     timeout?: number // defaults to never
     throwOnTimeout?: boolean // defaults to false
   } = {}): Promise<MetaMessengerPayloadHandlerResponse> {
-    const { epoch_id } = getTimeValues()
+    const { epoch_id } = getTimeValues(this.requestIds)
     const { promise, request_id } = this.createRequest(type)
-
+    const payload = metaJSONStringify({
+      tasks,
+      epoch_id,
+      version_id: EnvOptions[this.papi.env].defaultVersionId,
+    })
     await this.publishLightspeedRequest({
-      payload: JSON.stringify({
-        tasks,
-        epoch_id,
-        version_id: EnvOptions[this.papi.env].defaultVersionId,
-      }),
+      payload,
       request_id,
       type: 3,
     })
@@ -549,9 +550,9 @@ export default class MetaMessengerWebSocket {
       }
 
       promises.push(this.publishLightspeedRequest({
-        payload: JSON.stringify({
+        payload: metaJSONStringify({
           database: syncGroup.groupId,
-          epoch_id: getTimeValues().epoch_id,
+          epoch_id: getTimeValues(this.papi.socket.requestIds).epoch_id,
           failure_count: null,
           last_applied_cursor,
           sync_params,

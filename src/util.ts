@@ -1,6 +1,7 @@
 import { CookieJar } from 'tough-cookie'
 import type { SimpleArgType } from './payload-parser'
 import type { IGMessageRanges } from './types'
+import { BIGINT_MARKER } from './constants'
 
 export const genClientContext = () => {
   const randomBinary = Math.floor(Math.random() * 0xFFFFFFFF).toString(2).padStart(22, '0').slice(-22)
@@ -11,8 +12,24 @@ export const genClientContext = () => {
 export class AutoIncrementStore {
   private i: number
 
+  private counter: number
+
+  private lastTimestamp: number
+
   constructor(private readonly start = 0) {
     this.i = start
+    this.counter = 0
+    this.lastTimestamp = 0
+  }
+
+  public incrementCounter(timestamp: number) {
+    if (timestamp === this.lastTimestamp) {
+      this.counter++
+    } else {
+      this.lastTimestamp = timestamp
+      this.counter = 0
+    }
+    return this.counter
   }
 
   public gen() {
@@ -24,15 +41,30 @@ export class AutoIncrementStore {
   }
 }
 
-export const getTimeValues = () => {
-  // console.log(typing.toString("hex").match(/../g).join(" "));
-  // https://intuitiveexplanations.com/tech/messenger
-  // link above has good explanation of otid
+export const getTimeValues = (store: AutoIncrementStore) => {
   const now = Date.now()
   const timestamp = BigInt(now)
-  const epoch_id = timestamp << BigInt(22)
-  const otid = epoch_id + BigInt(Math.floor(Math.random() * 2 ** 22))
-  return { timestamp, epoch_id: Number(epoch_id), otid, now } as const
+
+  const counter = BigInt(store.incrementCounter(now))
+
+  const epoch_id = (timestamp << 22n) | (counter << 12n) | 42n
+  const otid = epoch_id | BigInt(Math.floor(Math.random() * 2 ** 22))
+  return {
+    epoch_id,
+    otid: otid.toString(),
+    timestamp,
+    now,
+  }
+}
+
+const metaJSONStringifyCB = (key: string, value: any) => {
+  if (typeof value === 'bigint') return `${BIGINT_MARKER}${value.toString()}`
+  return value
+}
+
+export const metaJSONStringify = (obj: any) => {
+  const output = JSON.stringify(obj, metaJSONStringifyCB)
+  return output.replace(/"\$bigint(\d+)"/g, '$1')
 }
 
 export const getMqttSid = () => parseInt(Math.random().toFixed(16).split('.')[1], 10)

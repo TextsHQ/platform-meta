@@ -1319,7 +1319,7 @@ export default class MetaMessengerAPI {
   }
 
   async createGroupThread(participants: string[]) {
-    const { otid, now } = getTimeValues()
+    const { otid, now } = getTimeValues(this.papi.socket.requestIds)
     const thread_id = genClientContext()
     const response = await this.papi.socket.publishTask(SocketRequestResolverType.CREATE_GROUP_THREAD, [{
       label: '130',
@@ -1367,7 +1367,7 @@ export default class MetaMessengerAPI {
   }
 
   async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
-    const { otid, timestamp, now } = getTimeValues()
+    const { otid, timestamp, now } = getTimeValues(this.papi.socket.requestIds)
 
     const reply_metadata = quotedMessageID && {
       reply_source_id: quotedMessageID,

@@ -139,7 +139,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   searchUsers = async (query: string) => {
     await this.api.initPromise
-    const { timestamp } = getTimeValues()
+    const { timestamp } = getTimeValues(this.socket.requestIds)
     const payload = JSON.stringify({
       query,
       supported_types: [1, 3, 4, 2, 6, 7, 8, 9, 14],
@@ -688,7 +688,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       if (!thread_id) throw new Error('thread_id is required')
       if (!forwarded_msg_id || !forwarded_msg_id.startsWith('mid.')) throw new Error('forwarded_msg_id is required')
 
-      const { otid } = getTimeValues()
+      const { otid } = getTimeValues(this.socket.requestIds)
       await this.socket.publishTask(SocketRequestResolverType.FORWARD_MESSAGE, [{
         label: '46',
         payload: JSON.stringify({
