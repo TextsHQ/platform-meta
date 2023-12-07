@@ -1370,7 +1370,7 @@ export default class MetaMessengerAPI {
     }])
   }
 
-  async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID, externalUrl, attribution_app_id }: MessageSendOptions, attachmentFbids: string[] = []) {
+  async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[], externalUrl?: string, attribution_app_id?: number) {
     const { otid, timestamp, now } = getTimeValues(this.papi.socket.requestIds)
     const reply_metadata = quotedMessageID && {
       reply_source_id: quotedMessageID,
@@ -1392,7 +1392,7 @@ export default class MetaMessengerAPI {
           payload: JSON.stringify({
             thread_id: threadID,
             otid: otid.toString(),
-            source: (2 ** 16) + 1,,
+            source: (2 ** 16) + 1,
             attribution_app_id,
             url: externalUrl,
             send_type: sendType,

@@ -487,13 +487,13 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAILBOX)
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs, giphyID }: MessageContent, { pendingMessageID, quotedMessageID, externalUrl, attribution_app_id }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs, giphyID }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
     await this.api.initPromise
 
+    let externalUrl: string
+    let attribution_app_id: number
     if (giphyID) {
-      // eslint-disable-next-line no-param-reassign
       externalUrl = `https://media1.giphy.com/media/${giphyID}/giphy.gif`
-      // eslint-disable-next-line no-param-reassign
       attribution_app_id = 406655189415060
     }
     if (!text && filePath) {
@@ -518,7 +518,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       }
       return [userMessage]
     }
-    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text, mentionedUserIDs }, { pendingMessageID, quotedMessageID, externalUrl, attribution_app_id })
+    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text, mentionedUserIDs }, { pendingMessageID, quotedMessageID }, [], externalUrl, attribution_app_id)
     return [{
       id: messageId,
       timestamp,
