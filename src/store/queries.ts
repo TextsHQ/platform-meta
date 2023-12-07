@@ -24,6 +24,7 @@ export async function queryThreads(db: DrizzleDB, args: Partial<Pick<QueryThread
           userId: true,
           isAdmin: true,
           readWatermarkTimestampMs: true,
+          readActionTimestampMs: true,
         },
         with: {
           contacts: {
@@ -93,6 +94,7 @@ export async function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessa
               userId: true,
               isAdmin: true,
               readWatermarkTimestampMs: true,
+              readActionTimestampMs: true,
             },
             with: {
               contacts: {

@@ -2,7 +2,6 @@ import {
   type ServerEvent,
   StateSyncEvent,
   ServerEventType,
-  UNKNOWN_DATE,
   ThreadMessagesRefreshEvent,
 } from '@textshq/platform-sdk'
 import { and, eq, lt } from 'drizzle-orm'
@@ -1948,7 +1947,8 @@ export default class MetaMessengerPayloadHandler {
       lt(schema.participants.readWatermarkTimestampMs, r.readWatermarkTimestampMs),
     )).run())
 
-    const readOn = r.readWatermarkTimestampMs || UNKNOWN_DATE
+    const readOn = r.readActionTimestampMs
+    if (!readOn) return
 
     if (newestMessage.seen && typeof newestMessage.seen !== 'boolean') {
       if (newestMessage.seen instanceof Date && newestMessage.seen.getTime?.() >= readOn.getTime()) return
