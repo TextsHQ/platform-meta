@@ -19,7 +19,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
-import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncGroup, ThreadRangeFilter } from './types'
+import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncGroup, ThreadRangeFilter, SendType } from './types'
 import {
   createPromise,
   genClientContext,
@@ -943,19 +943,23 @@ export default class MetaMessengerAPI {
     filePath,
     fileName,
   }: { filePath: string, fileName: string }) {
-    this.logger.debug('sendMedia about to call uploadFile')
-    const res = await this.uploadFile(threadID, filePath, fileName)
-    if (!res?.payload?.metadata) {
-      console.error(res)
-      throw Error('uploadFile failed: ' + JSON.stringify(res))
+    const attachment_fbids = []
+    if (filePath && fileName) {
+      this.logger.debug('sendMedia about to call uploadFile')
+      const res = await this.uploadFile(threadID, filePath, fileName)
+      if (!res?.payload?.metadata) {
+        console.error(res)
+        throw Error('uploadFile failed: ' + JSON.stringify(res))
+      }
+      const metadata = res.payload.metadata[0] as {
+        image_id?: string
+        video_id?: string
+        gif_id?: string
+      }
+      attachment_fbids.push(metadata.image_id || metadata.video_id || metadata.gif_id)
+      this.logger.debug('sendMedia', res)
     }
-    const metadata = res.payload.metadata[0] as {
-      image_id?: string
-      video_id?: string
-      gif_id?: string
-    }
-    this.logger.debug('sendMedia', res, metadata)
-    return this.sendMessage(threadID, {}, opts, [metadata.image_id || metadata.video_id || metadata.gif_id])
+    return this.sendMessage(threadID, {}, opts, attachment_fbids)
   }
 
   // tabId and random number for messengerWebPushRegister
@@ -1366,9 +1370,8 @@ export default class MetaMessengerAPI {
     }])
   }
 
-  async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID }: MessageSendOptions, attachmentFbids: string[] = []) {
+  async sendMessage(threadID: string, { text, mentionedUserIDs }: MessageContent, { quotedMessageID, externalUrl, attribution_app_id }: MessageSendOptions, attachmentFbids: string[] = []) {
     const { otid, timestamp, now } = getTimeValues(this.papi.socket.requestIds)
-
     const reply_metadata = quotedMessageID && {
       reply_source_id: quotedMessageID,
       reply_source_type: 1,
@@ -1376,11 +1379,12 @@ export default class MetaMessengerAPI {
     }
 
     const hasAttachment = attachmentFbids.length > 0
+    let sendType = hasAttachment ? SendType.MEDIA : SendType.TEXT
+    sendType = externalUrl ? SendType.EXTERNAL_MEDIA : sendType
 
     const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
 
     const mentionsData = mentionedUserIDs?.length ? await mapUserMentions(this.papi.db, text, mentionedUserIDs) : undefined
-
     const result = await Promise.race([
       this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [
         {
@@ -1388,8 +1392,10 @@ export default class MetaMessengerAPI {
           payload: JSON.stringify({
             thread_id: threadID,
             otid: otid.toString(),
-            source: (2 ** 16) + 1,
-            send_type: hasAttachment ? 3 : 1,
+            source: (2 ** 16) + 1,,
+            attribution_app_id,
+            url: externalUrl,
+            send_type: sendType,
             sync_group: SyncGroup.MAILBOX,
             text: !hasAttachment ? text : null,
             initiating_source: hasAttachment ? undefined : 1,

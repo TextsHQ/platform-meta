@@ -487,10 +487,17 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncGroup.MAILBOX)
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs, giphyID }: MessageContent, { pendingMessageID, quotedMessageID, externalUrl, attribution_app_id }: MessageSendOptions) => {
     await this.api.initPromise
-    if (!text) {
-      if (fileBuffer || isRecordedAudio || !filePath) throw Error('not implemented')
+
+    if (giphyID) {
+      // eslint-disable-next-line no-param-reassign
+      externalUrl = `https://media1.giphy.com/media/${giphyID}/giphy.gif`
+      // eslint-disable-next-line no-param-reassign
+      attribution_app_id = 406655189415060
+    }
+    if (!text && filePath) {
+      if (fileBuffer || isRecordedAudio) throw Error('not implemented')
       this.logger.debug('sendMessage', filePath)
       const { timestamp, messageId } = await this.api.sendMedia(threadID, { pendingMessageID, quotedMessageID }, { fileName, filePath })
       this.logger.debug('sendMessage got response', {
@@ -511,7 +518,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       }
       return [userMessage]
     }
-    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text, mentionedUserIDs }, { pendingMessageID, quotedMessageID })
+    const { timestamp, messageId } = await this.api.sendMessage(threadID, { text, mentionedUserIDs }, { pendingMessageID, quotedMessageID, externalUrl, attribution_app_id })
     return [{
       id: messageId,
       timestamp,

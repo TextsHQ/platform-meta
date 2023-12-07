@@ -12,6 +12,14 @@ export interface SerializedSession {
   _v: 'v3'
 }
 
+export const enum SendType {
+  TEXT = 1,
+  STICKER = 2,
+  MEDIA = 3,
+  FORWARD = 5,
+  EXTERNAL_MEDIA = 7,
+}
+
 export const enum SyncGroup {
   MAILBOX = 1,
   CONTACT = 2,
