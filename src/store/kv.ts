@@ -2,15 +2,17 @@ import type PlatformAPI from '../api'
 import { keyValues } from './schema'
 import { ParentThreadKey, SyncChannel } from '../types'
 
-type DbId = number
+type DbId = string
 
 type ThreadRangesFolderName = string
 type ThreadRangesParentThreadKey = string
 type ThreadRangesThreadRangeFilter = string
 
-type Key =
+export type Key =
   | '_fullConfig' // not used, for debugging
   | 'wwwClaim'
+  | `_lastReceivedCursor-${DbId}` // not used, for debugging
+  | `cursor-${DbId}`
   | `_lastReceivedCursor-${DbId}-${SyncChannel}` // not used, for debugging
   | `cursor-${DbId}-${SyncChannel}`
   | `threadsRanges-${SyncChannel}-${ParentThreadKey}`
