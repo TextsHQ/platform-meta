@@ -19,7 +19,7 @@ import {
   type IGReadReceipt,
   IGThread,
   ParentThreadKey,
-  SyncGroup,
+  SyncChannel,
 } from './types'
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
@@ -843,7 +843,7 @@ export default class MetaMessengerPayloadHandler {
     const sendSyncParams = a[5] as string
     // const minTimeToSyncTimestampMs = c.i64.eq(a[6], c.i64.cast([0, 0])) ? c.i64.cast([0, 0]) : c.i64.add(d[4], a[6])
     const canIgnoreTimestamp = a[7] as string
-    const syncChannel = a[8] as SyncGroup // @TODO: not sure
+    const syncChannel = a[8] as SyncChannel // @TODO: not sure
     // const lastSyncCompletedTimestampMs = d[5]
     this.__logger.debug('executeFirstBlockForSyncTransaction', {
       database_id,
@@ -1813,7 +1813,7 @@ export default class MetaMessengerPayloadHandler {
   private truncateTablesForSyncGroup(a: SimpleArgType[]) {
     const syncGroup = a[0] as string
     if (syncGroup === '1') {
-      // remove SyncGroup.MAILBOX
+      // remove SyncChannel.MAILBOX
     }
     this.__logger.debug('truncateTablesForSyncGroup (ignored)', { syncGroup })
   }
@@ -2225,7 +2225,7 @@ export default class MetaMessengerPayloadHandler {
 
   private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
     const range = {
-      syncGroup: a[0] as SyncGroup,
+      syncGroup: a[0] as SyncChannel,
       parentThreadKey: a[1] as ParentThreadKey,
       minLastActivityTimestampMs: a[2] as string,
       hasMoreBefore: Boolean(a[3]),

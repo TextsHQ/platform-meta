@@ -20,7 +20,7 @@ export const enum SendType {
   EXTERNAL_MEDIA = 7,
 }
 
-export const enum SyncGroup {
+export const enum SyncChannel {
   MAILBOX = 1,
   CONTACT = 2,
   E2EE = 95,
@@ -424,7 +424,7 @@ export type IGMessageRanges = {
 }
 
 export type MetaThreadRanges = {
-  syncGroup: SyncGroup
+  syncGroup: SyncChannel
   parentThreadKey: ParentThreadKey
   minLastActivityTimestampMs: string
   hasMoreBefore: boolean

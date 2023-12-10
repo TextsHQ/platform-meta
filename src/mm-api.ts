@@ -19,7 +19,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
-import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncGroup, ThreadRangeFilter, SendType } from './types'
+import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, ThreadRangeFilter, SendType } from './types'
 import {
   createPromise,
   genClientContext,
@@ -495,7 +495,7 @@ export default class MetaMessengerAPI {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
-  private getSyncGroupThreadsRange(syncGroup: SyncGroup, parentThreadKey: ParentThreadKey) {
+  private getSyncGroupThreadsRange(syncGroup: SyncChannel, parentThreadKey: ParentThreadKey) {
     const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
     return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
   }
@@ -647,21 +647,21 @@ export default class MetaMessengerAPI {
     )
 
     const { supportsArchive } = this.papi.envOpts
-    const syncGroups: [SyncGroup, ParentThreadKey][] = []
+    const syncGroups: [SyncChannel, ParentThreadKey][] = []
 
     if (inbox === 'requests') {
       syncGroups.push(
-        generalEnabled && [SyncGroup.MAILBOX, ParentThreadKey.GENERAL],
-        generalEnabled && [SyncGroup.E2EE, ParentThreadKey.GENERAL],
-        [SyncGroup.MAILBOX, ParentThreadKey.SPAM],
-        [SyncGroup.E2EE, ParentThreadKey.SPAM],
+        generalEnabled && [SyncChannel.MAILBOX, ParentThreadKey.GENERAL],
+        generalEnabled && [SyncChannel.E2EE, ParentThreadKey.GENERAL],
+        [SyncChannel.MAILBOX, ParentThreadKey.SPAM],
+        [SyncChannel.E2EE, ParentThreadKey.SPAM],
       )
     } else {
       syncGroups.push(
-        [SyncGroup.MAILBOX, ParentThreadKey.PRIMARY],
-        [SyncGroup.E2EE, ParentThreadKey.PRIMARY],
-        supportsArchive ? [SyncGroup.MAILBOX, ParentThreadKey.ARCHIVE] : undefined,
-        supportsArchive ? [SyncGroup.E2EE, ParentThreadKey.ARCHIVE] : undefined,
+        [SyncChannel.MAILBOX, ParentThreadKey.PRIMARY],
+        [SyncChannel.E2EE, ParentThreadKey.PRIMARY],
+        supportsArchive ? [SyncChannel.MAILBOX, ParentThreadKey.ARCHIVE] : undefined,
+        supportsArchive ? [SyncChannel.E2EE, ParentThreadKey.ARCHIVE] : undefined,
       )
     }
 
@@ -697,8 +697,8 @@ export default class MetaMessengerAPI {
     } as const
     const getFetcher = () => {
       if (isSpam) {
-        const group1 = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.SPAM)
-        const group95 = this.getSyncGroupThreadsRange(SyncGroup.E2EE, ParentThreadKey.SPAM)
+        const group1 = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.SPAM)
+        const group95 = this.getSyncGroupThreadsRange(SyncChannel.E2EE, ParentThreadKey.SPAM)
         this.logger.debug('fetchRequestThreads', {
           group1,
           group95,
@@ -714,7 +714,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-1'),
               messaging_tag: null,
-              sync_group: SyncGroup.MAILBOX,
+              sync_group: SyncChannel.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -730,7 +730,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-95'),
               messaging_tag: null,
-              sync_group: SyncGroup.E2EE,
+              sync_group: SyncChannel.E2EE,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -750,7 +750,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-1'),
               messaging_tag: null,
-              sync_group: SyncGroup.MAILBOX,
+              sync_group: SyncChannel.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -766,7 +766,7 @@ export default class MetaMessengerAPI {
               additional_pages_to_fetch: 0,
               cursor: this.papi.kv.get('cursor-1-95'),
               messaging_tag: null,
-              sync_group: SyncGroup.E2EE,
+              sync_group: SyncChannel.E2EE,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -783,7 +783,7 @@ export default class MetaMessengerAPI {
               reference_thread_key: INT64_MAX_AS_STRING,
               secondary_filter: 0,
               filter_value: '',
-              sync_group: SyncGroup.MAILBOX,
+              sync_group: SyncChannel.MAILBOX,
             }),
             queue_name: 'trq',
             task_id: this.papi.socket.taskIds.gen(),
@@ -796,7 +796,7 @@ export default class MetaMessengerAPI {
           ThreadRangeFilter.IGD_PRO_PRIMARY,
           ThreadRangeFilter.IGD_PRO_GENERAL,
         ].map(async filter => {
-          const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
+          const sg1Primary = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.PRIMARY)
 
           return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_INBOX_THREADS, [
             {
@@ -810,7 +810,7 @@ export default class MetaMessengerAPI {
                 reference_thread_key: sg1Primary.minThreadKey,
                 secondary_filter: 0,
                 filter_value: '',
-                sync_group: SyncGroup.MAILBOX,
+                sync_group: SyncChannel.MAILBOX,
               }),
               queue_name: 'trq',
               task_id: this.papi.socket.taskIds.gen(),
@@ -828,8 +828,8 @@ export default class MetaMessengerAPI {
       //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
       //   return
       // }
-      const sg1Primary = this.getSyncGroupThreadsRange(SyncGroup.MAILBOX, ParentThreadKey.PRIMARY)
-      const sg95Primary = this.getSyncGroupThreadsRange(SyncGroup.E2EE, ParentThreadKey.PRIMARY) || sg1Primary
+      const sg1Primary = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.PRIMARY)
+      const sg95Primary = this.getSyncGroupThreadsRange(SyncChannel.E2EE, ParentThreadKey.PRIMARY) || sg1Primary
       return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, [
         {
           label: '145',
@@ -841,7 +841,7 @@ export default class MetaMessengerAPI {
             additional_pages_to_fetch: 0,
             cursor: this.papi.kv.get('cursor-1-1'),
             messaging_tag: null,
-            sync_group: SyncGroup.MAILBOX,
+            sync_group: SyncChannel.MAILBOX,
           }),
           queue_name: 'trq',
           task_id: this.papi.socket.taskIds.gen(),
@@ -857,7 +857,7 @@ export default class MetaMessengerAPI {
             additional_pages_to_fetch: 0,
             cursor: null,
             messaging_tag: null,
-            sync_group: SyncGroup.E2EE,
+            sync_group: SyncChannel.E2EE,
           }),
           queue_name: 'trq',
           task_id: this.papi.socket.taskIds.gen(),
@@ -1239,7 +1239,7 @@ export default class MetaMessengerAPI {
     return m
   }
 
-  removeThread(remove_type: ThreadRemoveType, thread_key: string, sync_group: SyncGroup) {
+  removeThread(remove_type: ThreadRemoveType, thread_key: string, sync_group: SyncChannel) {
     if (remove_type === ThreadRemoveType.ARCHIVE && !this.papi.envOpts.supportsArchive) throw new Error('removeThread is not supported in this environment')
     return this.papi.socket.publishTask(
       remove_type === ThreadRemoveType.ARCHIVE ? SocketRequestResolverType.ARCHIVE_THREAD : SocketRequestResolverType.DELETE_THREAD,
@@ -1264,7 +1264,7 @@ export default class MetaMessengerAPI {
         thread_fbid: threadKey,
         force_upsert: 0,
         use_open_messenger_transport: 0,
-        sync_group: SyncGroup.MAILBOX,
+        sync_group: SyncChannel.MAILBOX,
         metadata_only: 0,
         preview_only: 0,
       }),
@@ -1314,7 +1314,7 @@ export default class MetaMessengerAPI {
         actor_id: this.config.fbid,
         reaction,
         reaction_style: null,
-        sync_group: SyncGroup.MAILBOX,
+        sync_group: SyncChannel.MAILBOX,
       }),
       queue_name: `["reaction",${JSON.stringify(messageID)}]`,
       task_id: this.papi.socket.taskIds.gen(),
@@ -1361,7 +1361,7 @@ export default class MetaMessengerAPI {
         direction: 0,
         reference_timestamp_ms: Number(ranges.minTimestamp),
         reference_message_id: ranges.minMessageId,
-        sync_group: SyncGroup.MAILBOX,
+        sync_group: SyncChannel.MAILBOX,
         cursor: this.papi.kv.get('cursor-1-1'),
       }),
       queue_name: `mrq.${threadID}`,
@@ -1396,7 +1396,7 @@ export default class MetaMessengerAPI {
             attribution_app_id,
             url: externalUrl,
             send_type: sendType,
-            sync_group: SyncGroup.MAILBOX,
+            sync_group: SyncChannel.MAILBOX,
             text: !hasAttachment ? text : null,
             initiating_source: hasAttachment ? undefined : 1,
             skip_url_preview_gen: hasAttachment ? undefined : 0,
@@ -1414,7 +1414,7 @@ export default class MetaMessengerAPI {
           payload: JSON.stringify({
             thread_id: threadID,
             last_read_watermark_ts: Number(timestamp),
-            sync_group: SyncGroup.MAILBOX,
+            sync_group: SyncChannel.MAILBOX,
           }),
           queue_name: threadID.toString(),
           task_id: this.papi.socket.taskIds.gen(),

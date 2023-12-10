@@ -15,7 +15,7 @@ import {
 } from './util'
 import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
-import { SyncGroup, SocketRequestResolverType, MMSocketTask } from './types'
+import { SyncChannel, SocketRequestResolverType, MMSocketTask } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
@@ -536,14 +536,14 @@ export default class MetaMessengerWebSocket {
       let sync_params = syncGroup.syncParams ?? null
       let requestType = 1
 
-      if (syncGroup.groupId === SyncGroup.MAILBOX) {
+      if (syncGroup.groupId === SyncChannel.MAILBOX) {
         last_applied_cursor = this.papi.kv.get('cursor-1-1')
         requestType = 2
-      } else if (syncGroup.groupId === SyncGroup.CONTACT) {
+      } else if (syncGroup.groupId === SyncChannel.CONTACT) {
         last_applied_cursor = this.papi.kv.get('cursor-1-2')
         sync_params = JSON.stringify(this.papi.api.config.syncParams.contact)
         requestType = 2
-      } else if (syncGroup.groupId === SyncGroup.E2EE) {
+      } else if (syncGroup.groupId === SyncChannel.E2EE) {
         last_applied_cursor = this.papi.kv.get('cursor-1-95')
         sync_params = this.papi.api.config.syncParams.e2ee ?? '{}'
         requestType = 2
