@@ -1,6 +1,8 @@
 import { PlatformInfo, MessageDeletionMode, Attribute } from '@textshq/platform-sdk'
 import infoDefaults from '../info'
 
+const js = "if (window.location.hostname === 'www.messenger.com' && +require('CurrentUserInitialData')?.USER_ID) setTimeout(() => window.close(), 100)"
+
 const info: PlatformInfo = {
   ...infoDefaults,
   name: 'fb-messenger',
@@ -21,7 +23,8 @@ const info: PlatformInfo = {
   `,
   browserLogin: {
     url: 'https://www.messenger.com',
-    authCookieName: 'c_user',
+    runJSOnLaunch: js,
+    runJSOnNavigate: js,
   },
   autofillHostnames: ['messenger.com', 'facebook.com'],
   deletionMode: MessageDeletionMode.DELETE_FOR_EVERYONE,
