@@ -20,7 +20,7 @@ const info: PlatformInfo = {
   </svg>
   `,
   browserLogin: {
-    url: 'https://messenger.com',
+    url: 'https://www.messenger.com',
     authCookieName: 'c_user',
   },
   autofillHostnames: ['messenger.com', 'facebook.com'],
