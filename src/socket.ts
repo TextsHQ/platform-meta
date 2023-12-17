@@ -341,6 +341,7 @@ export default class MetaMessengerWebSocket {
   }
 
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
+    const promises: Promise<void>[] = []
     for (let i = 0; i < topics.length; i++) {
       const topic = topics[i]
       if (this.subscribedTopics.has(topic)) continue
@@ -349,7 +350,7 @@ export default class MetaMessengerWebSocket {
         this.logger.debug(`suback for ${topic} (${messageId})`)
         this.subscribedTopics.add(topic)
       })
-
+      promises.push(promise)
       await this.send({
         cmd: 'subscribe',
         qos: 1,
@@ -362,6 +363,8 @@ export default class MetaMessengerWebSocket {
         messageId,
       } as any)
     }
+
+    await Promise.all(promises)
   }
 
   private async onPacket(packet: Packet) {
@@ -484,13 +487,12 @@ export default class MetaMessengerWebSocket {
   } = {}): Promise<MetaMessengerPayloadHandlerResponse> {
     const { epoch_id } = getTimeValues(this.requestIds)
     const { promise, request_id } = this.createRequest(type)
-    const payload = metaJSONStringify({
-      tasks,
-      epoch_id,
-      version_id: EnvOptions[this.papi.env].defaultVersionId,
-    })
     await this.publishLightspeedRequest({
-      payload,
+      payload: metaJSONStringify({
+        tasks,
+        epoch_id,
+        version_id: EnvOptions[this.papi.env].defaultVersionId,
+      }),
       request_id,
       type: 3,
     })
