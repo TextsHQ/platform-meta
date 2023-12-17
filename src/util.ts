@@ -57,12 +57,14 @@ export const getTimeValues = (store: AutoIncrementStore) => {
   }
 }
 
-const metaJSONStringifyCB = (key: string, value: any) => {
+type JSONValue = string | number | boolean | null | undefined | BigInt | JSONValue[] | { [key: string]: JSONValue }
+
+const metaJSONStringifyCB = (key: string, value: JSONValue) => {
   if (typeof value === 'bigint') return `${BIGINT_MARKER}${value.toString()}`
   return value
 }
 
-export const metaJSONStringify = (obj: any) => {
+export const metaJSONStringify = (obj: JSONValue) => {
   const output = JSON.stringify(obj, metaJSONStringifyCB)
   return output.replace(/"\$bigint(\d+)"/g, '$1')
 }
