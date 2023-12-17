@@ -1,3 +1,4 @@
+import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import type { Logger } from './logger'
 import { MetaMessengerError } from './errors'
 import { getLogger } from './logger'
@@ -91,7 +92,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
       resolve: value => {
         this.logger?.debug(`resolving ${generatedKey}#${id}`)
         if (hasTimedOut) {
-          throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve timed out promise', `value: ${JSON.stringify(value)}, timeout: ${timeoutMs}ms`)
+          throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve timed out promise', `value: ${smartJSONStringify(value)}, timeout: ${timeoutMs}ms`)
         }
         if (!hasSettled) {
           resolve(value as T)
@@ -102,7 +103,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
       reject: reason => {
         this.logger?.debug(`rejecting ${generatedKey}#${id}`)
         if (hasTimedOut) {
-          throw new MetaMessengerError(this.config.env, -1, 'attempted to reject timed out promise', `reason: ${JSON.stringify(reason)}, timeout: ${timeoutMs}ms`)
+          throw new MetaMessengerError(this.config.env, -1, 'attempted to reject timed out promise', `reason: ${smartJSONStringify(reason)}, timeout: ${timeoutMs}ms`)
         }
         if (!hasSettled) {
           reject(reason)

@@ -1,4 +1,5 @@
 import { texts } from '@textshq/platform-sdk'
+import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import type { EnvKey } from './env'
 import type { SentryExtra } from './logger'
 
@@ -20,7 +21,7 @@ export class MetaMessengerError extends Error {
       `[${metaMessengerEnv}] Error${id === -1 ? '' : ` (${id})`}: `,
       title,
       details?.length > 0 ? `(${details})` : '',
-      context ? ` context: [${JSON.stringify(context)}]` : '',
+      context ? ` context: [${smartJSONStringify(context)}]` : '',
     ].filter(Boolean).join(''))
 
     this.name = 'MetaMessengerError'
