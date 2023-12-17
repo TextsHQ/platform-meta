@@ -2067,7 +2067,23 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private updateTypingIndicator(a: SimpleArgType[]) {
-    this.__logger.debug('updateTypingIndicator (ignored)', a)
+    const r = {
+      threadKey: a[0],
+      senderId: a[1],
+      // expirationTimestampMS: a[2] ? Date.now() : 0,
+      isTyping: a[2],
+    }
+    const eventData: UserActivityEvent = {
+      type: ServerEventType.USER_ACTIVITY,
+      activityType: r.isTyping ? ActivityType.TYPING : ActivityType.NONE,
+      threadID: r.threadKey.toString(),
+      participantID: r.senderId.toString(),
+      durationMs: r.isTyping ? 5_000 : 0,
+    }
+    this.__logger.debug('updateTypingIndicator event:', eventData)
+    return () => {
+      this.__events.push(eventData)
+    }
   }
 
   private updateUnsentMessageCollapsedStatus(a: SimpleArgType[]) {

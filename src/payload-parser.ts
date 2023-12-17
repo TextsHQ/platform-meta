@@ -77,7 +77,6 @@ const IGNORED_CALLS = new Set([
   'updateThreadParticipantAdminStatus',
   'updateThreadSnippet',
   'updateThreadSnippetFromLastMessage',
-  'updateTypingIndicator',
   'updateUnsentMessageCollapsedStatus',
   'upsertFolder',
   'upsertFolderSeenTimestamp',
