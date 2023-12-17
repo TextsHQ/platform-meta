@@ -1762,6 +1762,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('shimCopyAllParticipantNicknamesForThread (ignored)', a)
   }
 
+  private storyContactSyncFromBucket(a: SimpleArgType[]) {
+    this.__logger.debug('storyContactSyncFromBucket (ignored)', a)
+  }
+
   private syncUpdateThreadName(a: SimpleArgType[]) {
     const t = {
       threadName: a[0] as string,

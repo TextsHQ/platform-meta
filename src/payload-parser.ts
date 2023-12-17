@@ -164,6 +164,7 @@ export type OperationKey =
   | 'setMessagesViewedPlugin'
   | 'setPinnedMessage'
   | 'setRegionHint'
+  | 'storyContactSyncFromBucket'
   | 'syncUpdateThreadName'
   | 'taskExists'
   | 'threadsRangesQuery'
