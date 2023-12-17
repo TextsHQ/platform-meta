@@ -110,7 +110,7 @@ export default class MetaMessengerPayloadHandler {
         })
       })
 
-      this.__papi.onEvent(errorEvents)
+      if (errorEvents.length > 0) this.__papi.onEvent(errorEvents)
     }
 
     if (
