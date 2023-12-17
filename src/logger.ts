@@ -1,5 +1,6 @@
 import { texts } from '@textshq/platform-sdk'
 import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
+import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import { MetaMessengerError } from './errors'
 import { EnvKey } from './env'
 import { MqttError } from './MetaMQTTErrors'
@@ -33,7 +34,7 @@ export const getLogger = (env: EnvKey | 'META', feature = '') => {
   const prefix = `[${env}]${feature ? `[${feature}]` : ''}`
 
   const formatMessage = (type: LoggerType, ...args: any[]): string =>
-    [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg))].join(' ')
+    [new Date().toISOString(), prefix, type, ...args.map(arg => (typeof arg === 'object' ? smartJSONStringify(arg) : arg))].join(' ')
 
   const logger = (method: LoggerMethod, type: LoggerType) => (...args: any[]) => texts[method](formatMessage(type, ...args))
   const warn = logger('log', 'warn')

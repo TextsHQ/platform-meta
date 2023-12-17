@@ -13,7 +13,6 @@ import {
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
-
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
@@ -197,7 +196,8 @@ export default class MetaMessengerAPI {
     }
 
     for (const payload of this.config.initialPayloads) {
-      await new MetaMessengerPayloadHandler(this.papi, payload, 'initial').__handle()
+      const handler = new MetaMessengerPayloadHandler(this.papi, payload, 'initial')
+      await handler.__handle()
     }
 
     await this.envSwitch(() => this.getSnapshotPayloadForIGD(), () => this.getSnapshotPayloadForFB())()
