@@ -8,6 +8,7 @@ import {
 } from '@textshq/platform-sdk'
 import { and, eq, lt } from 'drizzle-orm'
 import { pick } from 'lodash'
+import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
@@ -107,7 +108,7 @@ export default class MetaMessengerPayloadHandler {
         errorEvents.push({
           type: ServerEventType.TOAST,
           toast: {
-            text: err?.getPublicMessage?.() || err?.toString?.() || `Unknown error: ${JSON.stringify(err)}`,
+            text: err?.getPublicMessage?.() || err?.toString?.() || `Unknown error: ${smartJSONStringify(err)}`,
           },
         })
       })
@@ -170,7 +171,7 @@ export default class MetaMessengerPayloadHandler {
               typeof err === 'string' ? err : err.message,
               {
                 error: err.toString(),
-                // args: JSON.stringify(args), // @IMPORTANT@ This creates privacy issues
+                // args: smartJSONStringify(args), // @IMPORTANT@ This creates privacy issues
               },
             ),
           )
@@ -237,7 +238,7 @@ export default class MetaMessengerPayloadHandler {
       }
 
       tx.update(schema.threads).set({
-        ranges: JSON.stringify(ranges),
+        ranges: smartJSONStringify(ranges),
       }).where(eq(schema.threads.threadKey, threadKey)).run()
     })
 
@@ -383,6 +384,7 @@ export default class MetaMessengerPayloadHandler {
 
   private applyNewGroupThread(a: SimpleArgType[]) {
     const parsed = {
+      otidOfFirstMessage: a[0],
       threadKey: a[1],
       // mailboxType: b.i64.cast([0, 0]),
       threadType: a[2],
@@ -400,7 +402,6 @@ export default class MetaMessengerPayloadHandler {
       capabilities: a[13],
       // capabilities2: b.i64.cast([0, 0]),
       // capabilities3: b.i64.cast([0, 0]),
-      otidOfFirstMessage: a[0],
       // authorityLevel: b.i64.cast([0, 80]),
       // unsendLimitMs: b.i64.cast([-1, 4294967295]),
       inviterId: a[14],
