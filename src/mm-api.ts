@@ -171,9 +171,7 @@ export default class MetaMessengerAPI {
       })
       this.config = getMessengerConfig(body)
     } catch (err) {
-      if (err instanceof ReAuthError) {
-        throw err
-      }
+      if (err instanceof ReAuthError) throw err
       console.error(err)
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)

@@ -1,4 +1,7 @@
-import { ReAuthError } from '@textshq/platform-sdk'
+import path from 'path'
+import os from 'os'
+import fs from 'fs'
+import { texts, ReAuthError } from '@textshq/platform-sdk'
 import { htmlTitleRegex } from '@textshq/platform-sdk/dist/json'
 import { TypedMap } from '../util'
 
@@ -266,7 +269,7 @@ function pickMessengerEnv(env: Config['CurrentEnvironment']) {
 const findCurrentUserInitialData = (htmlString: string) => {
   const regex = /,\["CurrentUserInitialData",\[\],(.*?),\d+\]/
   const match = htmlString.match(regex)
-  if (match && match[1]) {
+  if (match?.[1]) {
     return JSON.parse(match[1]) as Config['CurrentUserInitialData']
   }
   return null
@@ -281,10 +284,12 @@ export function parseMessengerInitialPage(html: string) {
     const hasUserId = !!currentUser?.USER_ID?.toString()?.length
     const hasAnyId = hasIgUserId || hasUserId
     const [, title] = htmlTitleRegex.exec(html) || []
-    if (hasAnyId) {
-      throw new ReAuthError(`Session expired, fbid: ${currentUser?.USER_ID}, igid: ${currentUser?.NON_FACEBOOK_USER_ID}, title: ${title}`)
+    if (texts.isLoggingEnabled) {
+      fs.writeFileSync(path.join(os.homedir(), `Desktop/meta-login-error-${Date.now()}.html`), html)
     }
-    throw new ReAuthError(`Session expired, title: ${title}`)
+    throw new ReAuthError(hasAnyId
+      ? `Session expired, fbid: ${currentUser?.USER_ID}, igid: ${currentUser?.NON_FACEBOOK_USER_ID}, title: ${title}`
+      : `Session expired, title: ${title}`)
   }
 
   const definesMap = new TypedMap<Config>()
