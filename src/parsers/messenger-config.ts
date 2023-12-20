@@ -6,36 +6,6 @@ type SyncParams = {
   locale: string
 }
 
-type XIGSharedDataRawConfigViewer = {
-  biography: string
-  business_address_json: null
-  business_contact_method: string
-  business_email: null
-  business_phone_number: null
-  can_see_organic_insights: boolean
-  category_name: null
-  external_url: null
-  fbid: string
-  full_name: string
-  has_phone_number: boolean
-  has_profile_pic: boolean
-  has_tabbed_inbox: boolean
-  hide_like_and_view_counts: boolean
-  id: string
-  is_business_account: boolean
-  is_joined_recently: boolean
-  is_supervised_user: boolean
-  guardian_id: null
-  is_private: boolean
-  is_professional_account: boolean
-  is_supervision_enabled: boolean
-  profile_pic_url: string
-  profile_pic_url_hd: string
-  should_show_category: boolean
-  should_show_public_contacts: boolean
-  username: string
-}
-
 export interface Config {
   DTSGInitialData: {
     token: string
@@ -69,62 +39,39 @@ export interface Config {
     pollingEndpoint: string
     subscribedTopics: any[]
   }
-  XIGSharedData: {
-    native: {
-      browser_push_pub_key: string
-      bundle_variant: string
-      cache_schema_version: number
-      config: {
-        csrf_token: string
-        viewer: {
-          basic_ads_tier: number
-          is_basic_ads_opted_in: boolean
-        }
-        viewerId: string
-      }
-      consent_dialog_config: {
-        is_user_linked_to_fb: boolean
-        should_show_consent_dialog: boolean
-      }
-      country_code: string
-      deployment_stage: string
-      device_id: string
-      entry_data: any
-      frontend_env: string
-      hostname: string
-      is_allowlisted_crawl_bot: boolean
-      is_e2e: boolean
-      is_on_vpn: boolean
-      language_code: string
-      locale: string
-      nonce: string
-      platform_install_badge_links: {
-        android: string
-        ios: string
-        windows_nt_10: string
-      }
-      privacy_flow_trigger: null | any
-      rollout_hash: string
-      send_device_id_header: boolean
-      seo_crawl_bot: {
-        is_allowlisted_crawl_bot: boolean
-        is_google_crawl_bot: boolean
-      }
-      server_checks: {
-        hfe: boolean
-      }
-      should_show_digital_collectibles_privacy_notice: boolean
-      signal_collection_config: {
-        sid: number
-      }
-      www_routing_config: {
-        frontend_only_routes: Array<{
-          destination: string
-          path: string
-        }>
-      }
+  PolarisViewer: {
+    data: {
+      has_phone_number: boolean
+      has_profile_pic: boolean
+      hide_like_and_view_counts: boolean
+      is_supervised_user: boolean
+      guardian_id: null | string
+      is_professional_account: boolean
+      is_supervision_enabled: boolean
+      profile_pic_url_hd: string
+      badge_count: string
+      biography: string
+      business_contact_method: null | string
+      can_follow_hashtag: boolean
+      can_see_organic_insights: boolean
+      category_name: null | string
+      external_url: string
+      fbid: string
+      full_name: string
+      id: string
+      is_business_account: boolean
+      is_joined_recently: boolean
+      is_user_in_canada: boolean
+      is_private: boolean
+      profile_pic_url: string
+      should_show_category: null | string
+      should_show_public_contacts: null | string
+      username: string
+      is_basic_ads_opted_in: boolean
+      basic_ads_tier: number
+      probably_has_app: boolean
     }
-    raw: string
+    id: string
   }
   MqttWebDeviceID: {
     clientID: string
@@ -279,7 +226,7 @@ type ConfigDefine =
   | ConfigDefineType<'LSPlatformMessengerSyncParams'>
   | ConfigDefineType<'MessengerWebInitData'>
   | ConfigDefineType<'MqttWebConfig'>
-  | ConfigDefineType<'XIGSharedData'>
+  | ConfigDefineType<'PolarisViewer'>
   | ConfigDefineType<'MqttWebDeviceID'>
   | ConfigDefineType<'CurrentUserInitialData'>
   | ConfigDefineType<'RelayAPIConfigDefaults'>
@@ -402,15 +349,7 @@ export function parseMessengerInitialPage(html: string) {
   }
 
   // instagram-only
-  const igSharedData = definesMap.get('XIGSharedData')
-  const XIGSharedData = {
-    ...(igSharedData || {}),
-    raw: igSharedData?.raw ? JSON.parse(igSharedData.raw) as {
-      config: {
-        viewer: XIGSharedDataRawConfigViewer
-      }
-    } : undefined,
-  }
+  const PolarisViewer = definesMap.get('PolarisViewer')
 
   const CurrentEnvironment = pickMessengerEnv(definesMap.get('CurrentEnvironment'))
   const MqttWebConfig = definesMap.get('MqttWebConfig')
@@ -436,7 +375,7 @@ export function parseMessengerInitialPage(html: string) {
     RelayAPIConfigDefaults: definesMap.get('RelayAPIConfigDefaults'),
     SiteData: definesMap.get('SiteData'),
     SprinkleConfig: definesMap.get('SprinkleConfig'),
-    XIGSharedData,
+    PolarisViewer,
     IntlCurrentLocale: definesMap.get('IntlCurrentLocale'),
   } as const
 }
@@ -521,7 +460,6 @@ export function getCurrentUser(currentUserInitialData: Config['CurrentUserInitia
 
 export function getMessengerConfig(html: string) {
   const parsed = parseMessengerInitialPage(html)
-  const igViewerConfig = parsed.XIGSharedData?.raw?.config?.viewer // instagram-only
   return {
     env: parsed.CurrentEnvironment,
     appId: String(parsed.MessengerWebInitData?.appId),
@@ -529,8 +467,7 @@ export function getMessengerConfig(html: string) {
     fb_dtsg: parsed.DTSGInitialData?.token,
     fbid: parsed.CurrentUserInitialData?.IG_USER_EIMU || parsed.CurrentUserInitialData?.ACCOUNT_ID, // if not instagram
     name: parsed.CurrentUserInitialData?.NAME,
-    igViewerConfig,
-    igUserId: igViewerConfig?.id,
+    polarisViewer: parsed.PolarisViewer,
     lsdToken: parsed.LSD?.token,
     siteData: parsed.SiteData,
     mqttEndpoint: parsed.MqttWebConfig?.endpoint,

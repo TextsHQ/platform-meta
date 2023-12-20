@@ -185,14 +185,14 @@ export default class MetaMessengerAPI {
     }
 
     if (this.papi.env === 'IG') {
-      if (!this.config.igViewerConfig?.id) {
+      if (!this.config.polarisViewer.data?.id) {
         throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
       }
 
       // config.id, is the instagram id but fbid is instead used for chat
-      this.papi.currentUser.fullName = this.config.igViewerConfig?.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.igViewerConfig.full_name) : null
-      this.papi.currentUser.imgURL = this.config.igViewerConfig?.profile_pic_url_hd ? fixUrl(this.config.igViewerConfig.profile_pic_url_hd) : null
-      this.papi.currentUser.username = this.config.igViewerConfig?.username
+      this.papi.currentUser.fullName = this.config.polarisViewer.data?.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.polarisViewer.data.full_name) : null
+      this.papi.currentUser.imgURL = this.config.polarisViewer.data?.profile_pic_url_hd ? fixUrl(this.config.polarisViewer.data.profile_pic_url_hd) : null
+      this.papi.currentUser.username = this.config.polarisViewer.data?.username
     }
 
     for (const payload of this.config.initialPayloads) {
@@ -289,7 +289,7 @@ export default class MetaMessengerAPI {
         const { json } = await this.httpJSONRequest(`${baseURL}api/v1/web/accounts/logout/ajax/`, {
           // todo: refactor headers
           method: 'POST',
-          body: `one_tap_app_login=1&user_id=${this.config.igUserId}`,
+          body: `one_tap_app_login=1&user_id=${this.config.polarisViewer.id}`,
           headers: {
             accept: '*/*',
             ...SHARED_HEADERS,
@@ -304,7 +304,7 @@ export default class MetaMessengerAPI {
           },
         })
         if (json.status !== 'ok') {
-          throw new Error(`logout ${this.config.igUserId} failed: ${JSON.stringify(json, null, 2)}`)
+          throw new Error(`logout ${this.config.polarisViewer.id} failed: ${JSON.stringify(json, null, 2)}`)
         }
         break
       }
@@ -1561,7 +1561,6 @@ export default class MetaMessengerAPI {
   }
 
   hasTabbedInbox() { // @TODO: don't rely on this
-    const has_tabbed_inbox = this.config?.igViewerConfig?.has_tabbed_inbox
-    return typeof has_tabbed_inbox === 'boolean' ? has_tabbed_inbox : false
+    return this.config?.polarisViewer?.data?.is_business_account || this.config?.polarisViewer?.data?.is_professional_account
   }
 }

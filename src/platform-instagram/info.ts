@@ -6,7 +6,7 @@ import icon from './icon'
 const js = `if (
 window.location.hostname === 'www.instagram.com' &&
 !window.location.pathname.includes('/challenge/') &&
-window._sharedData.config.viewer.username) setTimeout(() => window.close(), 100)`
+require('PolarisViewer')?.id) setTimeout(() => window.close(), 100)`
 
 const info: PlatformInfo = {
   ...infoDefaults,
