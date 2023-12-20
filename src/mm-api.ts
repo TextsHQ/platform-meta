@@ -101,8 +101,8 @@ export default class MetaMessengerAPI {
   private async httpRequest(url: string, opts: FetchOptions) {
     const res = await this.http.requestAsString(url, {
       cookieJar: this.jar,
-      ...opts,
       followRedirect: false,
+      ...opts,
       headers: {
         'user-agent': this.ua,
         authority: this.papi.envOpts.domain,
@@ -158,6 +158,7 @@ export default class MetaMessengerAPI {
     let response: FetchResponse<string>
     try {
       response = await this.httpRequest(this.papi.envOpts.initialURL, {
+        followRedirect: true,
         // todo: refactor headers
         headers: {
           accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
