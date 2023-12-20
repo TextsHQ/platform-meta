@@ -464,6 +464,7 @@ export function getCurrentUser(currentUserInitialData: Config['CurrentUserInitia
 }
 
 export function getMessengerConfig(html: string) {
+  if (!html) throw Error('html is empty')
   const parsed = parseMessengerInitialPage(html)
   return {
     env: parsed.CurrentEnvironment,

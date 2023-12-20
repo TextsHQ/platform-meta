@@ -9,6 +9,7 @@ import {
   ReAuthError,
   texts,
   type User,
+  FetchResponse,
 } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
@@ -154,8 +155,9 @@ export default class MetaMessengerAPI {
   async init(triggeredFrom: 'login' | 'init') {
     this.logger.debug(`init triggered from ${triggeredFrom}`)
 
+    let response: FetchResponse<string>
     try {
-      const { body } = await this.httpRequest(this.papi.envOpts.initialURL, {
+      response = await this.httpRequest(this.papi.envOpts.initialURL, {
         // todo: refactor headers
         headers: {
           accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -169,10 +171,10 @@ export default class MetaMessengerAPI {
           'viewport-width': '1280',
         },
       })
-      this.config = getMessengerConfig(body)
+      this.config = getMessengerConfig(response.body)
     } catch (err) {
+      console.error('fetching initialURL failed', response.statusCode, response.headers, err)
       if (err instanceof ReAuthError) throw err
-      console.error(err)
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)
     }
