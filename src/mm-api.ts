@@ -174,7 +174,7 @@ export default class MetaMessengerAPI {
       })
       this.config = getMessengerConfig(response.body)
     } catch (err) {
-      console.error('fetching initialURL failed', response.statusCode, response.headers, err)
+      console.error('fetching initialURL failed', response?.statusCode, response?.headers, err)
       if (err instanceof ReAuthError) throw err
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)
