@@ -102,9 +102,6 @@ export function fixEmoji(emoji: string) {
   return emoji
 }
 
-export const getRetryTimeout = (attempt: number) =>
-  Math.min(100 + (2 ** attempt + Math.random() * 100), 2000)
-
 export function getOriginalURL(linkURL: string) {
   const MESSENGER_LINK_SHIM = '//l.messenger.com/l.php?u='
   const FACEBOOK_LINK_SHIM = '//l.facebook.com/l.php?u='

@@ -1,15 +1,13 @@
-import WebSocket from 'ws'
-import { debounce } from 'lodash'
 import mqttPacket, { type Packet } from 'mqtt-packet'
 import { setTimeout as sleep } from 'timers/promises'
 
+import PersistentWS, { WebSocketClientOptions } from '@textshq/platform-sdk/dist/PersistentWS'
 import { InboxName } from '@textshq/platform-sdk'
 import mqtt from 'mqtt-packet'
 import {
   AutoIncrementStore,
   createPromise,
   getMqttSid,
-  getRetryTimeout,
   getTimeValues,
   metaJSONStringify,
 } from './util'
@@ -19,13 +17,9 @@ import { SyncChannel, SocketRequestResolverType, MMSocketTask } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
-import { MqttErrors } from './MetaMQTTErrors'
+// import { MqttErrors } from './MetaMQTTErrors'
 import { PromiseStore } from './PromiseStore'
 import { NEVER_SYNC_TIMESTAMP } from './constants'
-import { PlatformRequestScheduler } from './PlatformRequestScheduler'
-
-const MAX_RETRY_ATTEMPTS = 12
-const SOCKET_CONNECTION_TIMEOUT_MS = 20 * 1e3
 
 export const enum ThreadRemoveType {
   DELETE = 0,
@@ -36,12 +30,6 @@ export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResp
 export type RequestResolverReject = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
 export default class MetaMessengerWebSocket {
-  private retryAttempt = 0
-
-  private stop = false
-
-  private ws: WebSocket
-
   private logger: Logger
 
   private get lsAppSettings() {
@@ -55,6 +43,20 @@ export default class MetaMessengerWebSocket {
     } as const
   }
 
+  private packetAckPromises: PromiseStore<void>
+
+  private isInitialConnection = true
+
+  private isMQTTConnected = false
+
+  private subscribedTopics = new Set<string>()
+
+  readonly taskIds = new AutoIncrementStore()
+
+  readonly requestIds = new AutoIncrementStore()
+
+  private packetQueue: Packet[] = []
+
   constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
     this.packetAckPromises = new PromiseStore({
@@ -62,23 +64,11 @@ export default class MetaMessengerWebSocket {
       env: this.papi.env,
       timeoutMs: 0,
     })
+    this.mqttParser.on('packet', packet => this.onPacket(packet))
+    this.mqttParser.on('error', error => {
+      this.logger.error(error, {}, '[ws] mqtt parser error')
+    })
   }
-
-  private isInitialConnection = true
-
-  private isConnected = false
-
-  private subscribedTopics = new Set<string>()
-
-  taskIds = new AutoIncrementStore()
-
-  requestIds = new AutoIncrementStore()
-
-  requestScheduler = new PlatformRequestScheduler()
-
-  private packetAckPromises: PromiseStore<void>
-
-  private packetQueue: Packet[] = []
 
   private generateMQTTConfig = () => {
     const mqttSid = getMqttSid()
@@ -103,7 +93,7 @@ export default class MetaMessengerWebSocket {
       mqtt_sid: '',
       aid: Number(this.papi.api.config.appId),
       st: [...this.subscribedTopics],
-      pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 65536, isBase64Publish: false }],
+      pm: this.isInitialConnection ? [] as const : [{ ...this.lsAppSettings, messageId: 2 ** 16, isBase64Publish: false }],
       dc: '',
       no_auto_fg: true,
       gas: null,
@@ -140,164 +130,23 @@ export default class MetaMessengerWebSocket {
 
   private mqttConfig: ReturnType<typeof this.generateMQTTConfig> = null
 
-  private mqttParser: mqtt.Parser = null
+  private mqttParser: mqtt.Parser = mqtt.parser({ protocolVersion: 3 })
 
-  readonly connect = async () => {
-    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      this.logger.warn('[ws] already connected')
-      return
-    }
-
-    this.logger.debug('[ws]', 'connecting to ws', {
-      lastTaskId: this.taskIds.current,
-      lastRequestId: this.requestIds.current,
-    })
-
-    try {
-      this.ws?.close()
-    } catch (err) {
-      this.logger.error(err, {
-        lastTaskId: this.taskIds.current,
-        lastRequestId: this.requestIds.current,
-      }, '[ws]', 'failed to close previous on connect error')
-    }
-
-    this.isConnected = false
-
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout)
-      this.connectionTimeout = null
-    }
-
-    // @TODO: does not yet does anything
-    this.connectionTimeout = setTimeout(() => {
-      this.logger.error(MqttErrors.CONNECT_TIMEOUT)
-    }, SOCKET_CONNECTION_TIMEOUT_MS)
-
-    if (this.mqttParser) {
-      this.mqttParser.removeAllListeners()
-      this.mqttParser = null
-    }
-
-    this.mqttParser = mqtt.parser({
-      protocolVersion: 3,
-    })
-
-    this.mqttParser.on('packet', packet => this.onPacket(packet))
-
-    this.mqttParser.on('error', error => {
-      this.logger.error(error, {}, '[ws] mqtt parser error')
-    })
-
-    // ig web on reconnections does not reset last task id and last request id
-    // but on initial connection (page load) they are 0, since we keep these in memory
-    // just not resetting mirrors the ig web behavior
-    // this.lastTaskId = 0
-    // this.lastRequestId = 0
-
-    const { endpoint, wsOptions } = this.generateMQTTConfig()
-    this.ws = new WebSocket(
-      endpoint.toString(),
-      wsOptions,
-    )
-
-    this.ws.binaryType = 'arraybuffer'
-
-    this.ws.addEventListener('message', data => {
-      const wsData = data.data
-      if (!(wsData instanceof ArrayBuffer)) {
-        this.logger.error('[ws] message is not an array buffer')
-        return
-      }
-      this.mqttParser.parse(Buffer.from(wsData))
-    })
-
-    const retry = debounce(() => {
-      this.logger.debug('[ws]', {
-        retryAttempt: this.retryAttempt,
-        MAX_RETRY_ATTEMPTS,
-        stop: this.stop,
-      })
-      if (++this.retryAttempt <= MAX_RETRY_ATTEMPTS) {
-        clearTimeout(this.connectTimeout)
-        this.connectTimeout = setTimeout(() => this.connect(), getRetryTimeout(this.retryAttempt))
-      } else {
-        this.stop = true
-        // trackEvent('error', {
-        //   context: 'ws-error',
-        //   message: 'Lost connection',
-        // })
-        // Sentry.captureMessage('Lost connection')
-      }
-    }, 25)
-
-    this.ws.onopen = () => {
-      this.logger.debug('[ws] onopen', {
-        retryAttempt: this.retryAttempt,
-      })
-      if (this.retryAttempt) {
-        this.logger.info('[ws] reconnected')
-      }
-      this.retryAttempt = 0
-      this.onOpen()
-    }
-
-    this.ws.onerror = ev => {
-      this.logger.error(ev, {}, '[ws] onerror', {
-        error: ev.error,
-        type: ev.type,
-        message: ev.message,
-      })
-      if (!this.stop) retry()
-    }
-
-    this.ws.onclose = ev => {
-      this.logger.debug('[ws] onclose', ev)
-      this.isConnected = false
-
-      if (this.pingInterval) {
-        clearInterval(this.pingInterval)
-      }
-      if (!this.stop) retry()
-    }
+  private readonly onWSMessage = (data: Buffer) => {
+    this.mqttParser.parse(data)
   }
 
-  dispose() {
-    this.logger.info('[ws] disposing', {
-      stop: this.stop,
-    })
-    this.stop = true
-    try {
-      if (this.ws?.readyState === WebSocket.OPEN) this.sendBrowserClosed()
-      this.ws?.close()
-    } catch (err) {
-      this.logger.error(err, {
-        stop: this.stop,
-      }, '[ws] failed to close on dispose')
-    }
-    clearTimeout(this.connectTimeout)
+  private readonly onWSClose = () => {
+    this.isMQTTConnected = false
   }
 
-  private connectTimeout: ReturnType<typeof setTimeout>
-
-  readonly send = async (p: Packet, forceSend = false) => {
-    if (this.isConnected || forceSend) {
-      this.logger.debug('sending', p)
-      this.ws.send(mqttPacket.generate(p))
-      return
-    }
-
-    this.logger.debug('enqueuing', p)
-    this.packetQueue.push(p)
-  }
-
-  private async onOpen() {
+  private readonly onWSOpen = async () => {
     this.logger.debug('[ws] after connect', {
       isInitialConnection: this.isInitialConnection,
       subscribedTopics: this.subscribedTopics,
     })
 
-    await this.send({
+    await this.wsSend({
       cmd: 'connect',
       protocolId: 'MQIsdp',
       clientId: 'mqttwsclient',
@@ -305,23 +154,55 @@ export default class MetaMessengerWebSocket {
       clean: true,
       keepalive: 10,
       username: this.mqttConfig.username,
-    }, true)
+    })
 
     if (this.isInitialConnection) {
-      await this.send({
+      await this.wsSend({
         cmd: 'publish',
         messageId: 1,
         qos: 1,
         dup: false,
         retain: false,
         ...this.lsAppSettings,
-      }, true)
+      })
     }
 
     this.startPing()
   }
 
-  private connectionTimeout: NodeJS.Timeout
+  private ws = new PersistentWS(this.getConnectionInfo.bind(this), this.onWSMessage, this.onWSOpen, this.onWSClose)
+
+  private getConnectionInfo(): { endpoint: string, options?: WebSocketClientOptions } {
+    const config = this.generateMQTTConfig()
+    return { endpoint: config.endpoint.toString(), options: config.wsOptions }
+  }
+
+  // ig web on reconnections does not reset last task id and last request id
+  // but on initial connection (page load) they are 0, since we keep these in memory
+  // just not resetting mirrors the ig web behavior
+  // this.lastTaskId = 0
+  // this.lastRequestId = 0
+  readonly connect = () => {
+    this.isMQTTConnected = false
+    return this.ws.connect()
+  }
+
+  dispose() {
+    this.isMQTTConnected = false
+    this.sendBrowserClosed()
+    this.ws.dispose()
+  }
+
+  readonly wsSend = async (packet: Packet) => {
+    this.logger.debug('sending', packet)
+    await this.ws.send(mqttPacket.generate(packet))
+  }
+
+  readonly send = async (packet: Packet) => {
+    if (this.isMQTTConnected) return this.wsSend(packet)
+    this.logger.debug('enqueuing', packet)
+    this.packetQueue.push(packet)
+  }
 
   private pingInterval: NodeJS.Timeout
 
@@ -330,9 +211,10 @@ export default class MetaMessengerWebSocket {
   private startPing() {
     this.logger.debug('ping started')
     // instagram.com does it every 10 seconds
-    if (this.pingInterval) clearInterval(this.pingInterval)
-    const intervalMs = 10000 - 100
+    const intervalMs = 10_000 - 100
+    clearInterval(this.pingInterval)
     this.pingInterval = setInterval(() => {
+      if (!this.ws.connected) return
       const timeSinceLastMsg = Date.now() - this.lastReceivedMessageAt
       if (timeSinceLastMsg > intervalMs) {
         this.send({ cmd: 'pingreq' })
@@ -377,11 +259,7 @@ export default class MetaMessengerWebSocket {
 
     switch (packet.cmd) {
       case 'connack':
-        if (this.connectionTimeout) {
-          clearTimeout(this.connectionTimeout)
-          this.connectionTimeout = null
-        }
-        this.isConnected = true
+        this.isMQTTConnected = true
         await this.runPacketQueue()
         await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
         await this.afterInitialHandshake()
@@ -565,9 +443,5 @@ export default class MetaMessengerWebSocket {
       }))
     }
     await Promise.allSettled(promises)
-  }
-
-  private clearTimeouts() {
-    clearTimeout(this.connectTimeout)
   }
 }

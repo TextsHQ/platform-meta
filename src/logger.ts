@@ -1,5 +1,4 @@
 import { texts } from '@textshq/platform-sdk'
-import WebSocket, { type ErrorEvent as WSErrorEvent } from 'ws'
 import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import { MetaMessengerError } from './errors'
 import { EnvKey } from './env'
@@ -8,7 +7,7 @@ import { MqttError } from './MetaMQTTErrors'
 export type SentryExtra = Record<string, string | boolean | number>
 type LoggerMethod = 'log' | 'error'
 type LoggerType = 'debug' | 'info' | 'warn' | 'error'
-export type ErrorAlt = Error | WSErrorEvent | MetaMessengerError | MqttError | string
+export type ErrorAlt = Error | MetaMessengerError | MqttError | string
 
 const onError = (env: EnvKey | 'META', err: ErrorAlt, feature?: string, extra: SentryExtra = {}) => {
   const isError = err instanceof Error
@@ -22,9 +21,6 @@ const onError = (env: EnvKey | 'META', err: ErrorAlt, feature?: string, extra: S
       feature,
       ...extra,
       ...((err instanceof MetaMessengerError) ? err.getErrorData?.() : {}),
-      ...{
-        socketStatus: isError && 'target' in err && err.target instanceof WebSocket ? err.target.readyState : undefined,
-      },
       metaMessengerType: env === 'IG' ? 'instagram' : env,
     },
   })

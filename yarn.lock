@@ -2195,13 +2195,12 @@ __metadata:
   resolution: "@textshq/platform-meta@workspace:."
   dependencies:
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
-    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88"
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"
     "@types/better-sqlite3": "npm:^7.6.5"
     "@types/eslint": "npm:^8.21.3"
     "@types/lodash": "npm:4.14.198"
     "@types/node": "npm:^18.15.8"
     "@types/tough-cookie": "npm:^4.0.3"
-    "@types/ws": "npm:^8.5.10"
     better-sqlite3: "npm:^8.5.0"
     bufferutil: "npm:^4.0.7"
     copyfiles: "npm:^2.4.1"
@@ -2218,17 +2217,23 @@ __metadata:
     tough-cookie: "npm:^4.1.2"
     typescript: "npm:^5.0.2"
     utf-8-validate: "npm:^6.0.3"
-    ws: "npm:^8.14.2"
   languageName: unknown
   linkType: soft
 
-"@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88":
+"@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk#main":
   version: 0.4.4
-  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=cff4936201f0761427ac3816bbd30500be43af88"
+  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=c2febc2307481eaa90c2b9e842b8f5e4de7fe94c"
   dependencies:
     emoji-regex: "npm:^10.1.0"
+    lodash: "npm:^4.17.21"
     qrcode.react: "npm:^3.1.0"
-  checksum: c381c5f74d7d18f92895d774ab372f7c531d13f9eb22f628ce416c0feff1db604b8c362c68d10292c69b963dfff9350b7084ca836b7a86c0d4ea66ddf35675d5
+    ws: "npm:^8.15.1"
+  dependenciesMeta:
+    lodash:
+      optional: true
+    ws:
+      optional: true
+  checksum: 2952071d7fa691b84d76cc9405e3400086c8bbdb4692d5a9e930e55b727d5a6a2ebfc3f9d0a62627b1af42b66c76a11b61bd5e343644d562214990a2357199db
   languageName: node
   linkType: hard
 
@@ -2327,15 +2332,6 @@ __metadata:
   version: 4.0.3
   resolution: "@types/tough-cookie@npm:4.0.3"
   checksum: 32d17b50766357b0297762d4ee0e42b430f36f0397eec38559b9ce18120f64f07922cca3ecc6bdb5a097ba75ec71e91879bdb89a7c532de43b5eff6775625334
-  languageName: node
-  linkType: hard
-
-"@types/ws@npm:^8.5.10":
-  version: 8.5.10
-  resolution: "@types/ws@npm:8.5.10"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 9b414dc5e0b6c6f1ea4b1635b3568c58707357f68076df9e7cd33194747b7d1716d5189c0dbdd68c8d2521b148e88184cf881bac7429eb0e5c989b001539ed31
   languageName: node
   linkType: hard
 
@@ -3577,9 +3573,9 @@ __metadata:
   linkType: hard
 
 "emoji-regex@npm:^10.1.0":
-  version: 10.2.1
-  resolution: "emoji-regex@npm:10.2.1"
-  checksum: fb2143d669ed7a3b180a56bfb5fc0638af25aeef421df4bb9c3a835dccfc4b737bcb45dfc8cea33c3f2b9dcd92a3fdb79820c7a840491a899e2d68aa3245c4b5
+  version: 10.3.0
+  resolution: "emoji-regex@npm:10.3.0"
+  checksum: b9b084ebe904f13bb4b66ee4c29fb41a7a4a1165adcc33c1ce8056c0194b882cc91ebdc782f1a779b5d7ea7375c5064643a7734893d7c657b44c5c6b9d7bf1e7
   languageName: node
   linkType: hard
 
@@ -7636,7 +7632,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.11.0, ws@npm:^8.14.2":
+"ws@npm:^8.11.0":
   version: 8.14.2
   resolution: "ws@npm:8.14.2"
   peerDependencies:
@@ -7648,6 +7644,21 @@ __metadata:
     utf-8-validate:
       optional: true
   checksum: 815ff01d9bc20a249b2228825d9739268a03a4408c2e0b14d49b0e2ae89d7f10847e813b587ba26992bdc33e9d03bed131e4cae73ff996baf789d53e99c31186
+  languageName: node
+  linkType: hard
+
+"ws@npm:^8.15.1":
+  version: 8.15.1
+  resolution: "ws@npm:8.15.1"
+  peerDependencies:
+    bufferutil: ^4.0.1
+    utf-8-validate: ">=5.0.2"
+  peerDependenciesMeta:
+    bufferutil:
+      optional: true
+    utf-8-validate:
+      optional: true
+  checksum: 746a3102d43e8df7b09f5814bec858f12d10185a7abd655537f3291b687d440bb80fc9d1e082f8dee42d4d74307f78a96810e18a2c8e13053b003c6608c1c648
   languageName: node
   linkType: hard
 

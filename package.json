@@ -17,7 +17,7 @@
     "watch": "tsc --watch"
   },
   "dependencies": {
-    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#cff4936201f0761427ac3816bbd30500be43af88",
+    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "drizzle-orm": "^0.29.0",
@@ -28,8 +28,7 @@
     "postinstall-postinstall": "^2.1.0",
     "react": "https://github.com/TextsHQ/react-global-shim",
     "tough-cookie": "^4.1.2",
-    "utf-8-validate": "^6.0.3",
-    "ws": "^8.14.2"
+    "utf-8-validate": "^6.0.3"
   },
   "devDependencies": {
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
@@ -38,7 +37,6 @@
     "@types/lodash": "4.14.198",
     "@types/node": "^18.15.8",
     "@types/tough-cookie": "^4.0.3",
-    "@types/ws": "^8.5.10",
     "copyfiles": "^2.4.1",
     "drizzle-kit": "^0.20.4",
     "eslint": "^8.36.0",
