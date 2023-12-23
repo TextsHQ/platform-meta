@@ -11,9 +11,7 @@ type ThreadRangesThreadRangeFilter = string
 export type Key =
   | '_fullConfig' // not used, for debugging
   | 'wwwClaim'
-  | `_lastReceivedCursor-${DbId}` // not used, for debugging
   | `cursor-${DbId}`
-  | `_lastReceivedCursor-${DbId}-${SyncChannel}` // not used, for debugging
   | `cursor-${DbId}-${SyncChannel}`
   | `threadsRanges-${SyncChannel}-${ParentThreadKey}`
   | `threadsRangesV2-${string}-${ParentThreadKey}`

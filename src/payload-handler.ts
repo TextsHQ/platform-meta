@@ -26,6 +26,7 @@ import {
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
 import { MetaMessengerError } from './errors'
+import { executeFirstBlockForSyncTransaction } from './ls-sp-mappers'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -47,6 +48,7 @@ export interface MetaMessengerPayloadHandlerResponse {
     isVerified: boolean
     cannotMessage: boolean
   }[]
+  executeFirstBlockForSyncTransaction?: ReturnType<typeof executeFirstBlockForSyncTransaction>[]
 }
 
 type DbTransaction = Parameters<PlatformMetaMessenger['db']['transaction']>[0]
@@ -836,36 +838,12 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
-    const database_id = a[0] as string
-    const epoch_id = a[1] as string
-    const currentCursor = a[3] as string
-    const syncStatus = a[4] as string
-    const sendSyncParams = a[5] as string
-    // const minTimeToSyncTimestampMs = c.i64.eq(a[6], c.i64.cast([0, 0])) ? c.i64.cast([0, 0]) : c.i64.add(d[4], a[6])
-    const canIgnoreTimestamp = a[7] as string
-    const syncChannel = a[8] as SyncChannel // @TODO: not sure
-    // const lastSyncCompletedTimestampMs = d[5]
-    this.__logger.debug('executeFirstBlockForSyncTransaction', {
-      database_id,
-      epoch_id,
-      currentCursor,
-      syncStatus,
-      sendSyncParams,
-      canIgnoreTimestamp,
-      syncChannel,
-      a2: a[2],
-    })
-
-    this.__papi.kv.set(`cursor-${Number(database_id)}-${syncChannel}`, currentCursor)
-    this.__papi.kv.set(`_lastReceivedCursor-${Number(database_id)}-${syncChannel}`, JSON.stringify({
-      database_id,
-      epoch_id,
-      currentCursor,
-      syncStatus,
-      sendSyncParams,
-      canIgnoreTimestamp,
-      syncChannel,
-    }))
+    const data = executeFirstBlockForSyncTransaction(a)
+    if (!this.__responses.executeFirstBlockForSyncTransaction?.length) {
+      this.__responses.executeFirstBlockForSyncTransaction = []
+    }
+    this.__responses.executeFirstBlockForSyncTransaction.push(data)
+    this.__papi.kv.set(`cursor-${Number(data.databaseId)}-${data.syncChannel}`, data.nextCursor)
   }
 
   private getFirstAvailableAttachmentCTAID(a: SimpleArgType[]) {

@@ -32,7 +32,6 @@ export const IGNORED_CALLS = new Set([
   'deleteThenInsertContactPresence',
   'deleteThenInsertMessageRequest',
   'deleteThenInsertProactiveWarningSettings',
-  'executeFinallyBlockForSyncTransaction',
   'getFirstAvailableAttachmentCTAID',
   'handleRepliesOnUnsend',
   'hasMatchingAttachmentCTA',
