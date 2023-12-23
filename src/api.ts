@@ -545,9 +545,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         }),
         version: '6243569662359088',
       }),
-      request_id: this.socket.requestIds.gen(),
       type: 4,
-    })
+    }, { waitForResponse: false })
   }
 
   deleteMessage = async (_threadID: string, messageID: string, _forEveryone?: boolean) => {

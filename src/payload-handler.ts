@@ -85,27 +85,24 @@ export default class MetaMessengerPayloadHandler {
   }
 
   async __handle() {
-    const [requestType, resolve, reject] = (
-      this.__requestId !== null
-      && this.__requestId !== 'initial'
-      && this.__requestId !== 'snapshot'
-      && this.__papi.socket.requestResolvers?.has(this.__requestId)
-    ) ? this.__papi.socket.requestResolvers.get(this.__requestId) : ([undefined, undefined] as const)
+    const reqId = typeof this.__requestId === 'number' ? this.__requestId : undefined
+    const { requestResolvers } = this.__papi.socket
+    const hasResolver = requestResolvers.has(reqId)
 
     await this.__run()
 
     const hasErrors = this.__errors.length > 0
 
     if (hasErrors) {
-      if (requestType) {
-        reject(this.__errors[0])
+      if (hasResolver) {
+        requestResolvers.reject(reqId, this.__errors[0])
       }
 
       const errorEvents: ServerEvent[] = []
 
       this.__errors.forEach((err, i) => {
         this.__logger.error(err)
-        if ((requestType && i === 0) || err?.isToastDisabled) return
+        if ((hasResolver && i === 0) || err?.isToastDisabled) return
         errorEvents.push({
           type: ServerEventType.TOAST,
           toast: {
@@ -126,14 +123,14 @@ export default class MetaMessengerPayloadHandler {
     }
 
     // wait for everything to be synced before resolving
-    if (requestType && !hasErrors) {
-      this.__logger.debug(`resolved request for type ${requestType}`, this.__responses)
-      resolve(this.__responses)
+    if (hasResolver && !hasErrors) {
+      // this.__logger.debug(`resolved request for type ${requestType}`, this.__responses)
+      requestResolvers.resolve(reqId, this.__responses)
     }
 
-    // if (this.__promises.length > 0) {
-    //   await Promise.allSettled(this.__promises)
-    // }
+    if (this.__promises.length > 0) {
+      await Promise.allSettled(this.__promises)
+    }
   }
 
   private __run = async () => {

@@ -2,21 +2,20 @@ import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import type { Logger } from './logger'
 import { MetaMessengerError } from './errors'
 import { getLogger } from './logger'
-import type { EnvKey } from './env'
+import { AutoIncrementStore } from './util'
 
 export class PromiseStore<DefaultPromiseType = unknown> {
   private readonly logger: Logger
 
-  private lastId: number
-
   constructor(
-    private readonly config: { env: EnvKey, startAt: number, timeoutMs: number },
+    private readonly timeoutMs: number = 0,
+    private readonly counter: AutoIncrementStore = new AutoIncrementStore(),
   ) {
-    this.logger = getLogger(this.config.env, 'ps')
-    this.lastId = typeof this.config.startAt === 'number' ? this.config.startAt : 0
+    this.logger = getLogger('META', 'ps')
   }
 
   private promises: Map<number, {
+    id: number
     resolve: (value: unknown) => void
     reject: (reason?: unknown) => void
     promise: Promise<unknown>
@@ -26,12 +25,12 @@ export class PromiseStore<DefaultPromiseType = unknown> {
 
   promisesByKeys = new Map<string, number>()
 
-  createId = () => this.lastId++
+  createId = () => this.counter.gen()
 
   create<T = DefaultPromiseType>(
     key?: string,
     extra?: object,
-    timeoutMs = this.config.timeoutMs,
+    timeoutMs = this.timeoutMs,
   ) {
     let resolve: (value: T) => void
     let reject: (reason?: unknown) => void
@@ -89,10 +88,11 @@ export class PromiseStore<DefaultPromiseType = unknown> {
     this.promisesByKeys.set(generatedKey, id)
 
     this.promises.set(id, {
+      id,
       resolve: value => {
         this.logger?.debug(`resolving ${generatedKey}#${id}`)
         if (hasTimedOut) {
-          throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve timed out promise', `value: ${smartJSONStringify(value)}, timeout: ${timeoutMs}ms`)
+          throw new MetaMessengerError('META', -1, 'attempted to resolve timed out promise', `value: ${smartJSONStringify(value)}, timeout: ${timeoutMs}ms`)
         }
         if (!hasSettled) {
           resolve(value as T)
@@ -103,7 +103,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
       reject: reason => {
         this.logger?.debug(`rejecting ${generatedKey}#${id}`)
         if (hasTimedOut) {
-          throw new MetaMessengerError(this.config.env, -1, 'attempted to reject timed out promise', `reason: ${smartJSONStringify(reason)}, timeout: ${timeoutMs}ms`)
+          throw new MetaMessengerError('META', -1, 'attempted to reject timed out promise', `reason: ${smartJSONStringify(reason)}, timeout: ${timeoutMs}ms`)
         }
         if (!hasSettled) {
           reject(reason)
@@ -121,7 +121,7 @@ export class PromiseStore<DefaultPromiseType = unknown> {
 
   resolve<T = DefaultPromiseType>(id: number, payload?: T) {
     const p = this.promises.get(id)
-    if (!p) throw new MetaMessengerError(this.config.env, -1, 'attempted to resolve missing promise', `id: ${id}`)
+    if (!p) throw new MetaMessengerError('META', -1, 'attempted to resolve missing promise', `id: ${id}`)
     p.resolve(payload)
   }
 
@@ -132,21 +132,21 @@ export class PromiseStore<DefaultPromiseType = unknown> {
 
   reject(id: number, reason?: any) {
     const p = this.promises.get(id)
-    if (!p) throw new MetaMessengerError(this.config.env, -1, 'attempted to reject missing promise', `id: ${id}`)
+    if (!p) throw new MetaMessengerError('META', -1, 'attempted to reject missing promise', `id: ${id}`)
     p.reject(reason)
   }
 
   get<T = DefaultPromiseType>(id: number) {
     const p = this.promises.get(id)
-    // if (!p) throw new MetaMessengerError(this.config.env, -1, 'missing promise', `id: ${id}`)
+    // if (!p) throw new MetaMessengerError('META', -1, 'missing promise', `id: ${id}`)
     if (!p) return
     return { promise: p.promise as T, key: p.key, extra: p.extra }
   }
 
   getByKey<T = DefaultPromiseType>(key: string) {
-    if (!key) throw new MetaMessengerError(this.config.env, -1, 'missing key')
+    if (!key) throw new MetaMessengerError('META', -1, 'missing key')
     const id = this.promisesByKeys.get(String(key))
-    // if (!id) throw new MetaMessengerError(this.config.env, -1, 'missing promise', `key: ${key}`)
+    // if (!id) throw new MetaMessengerError('META', -1, 'missing promise', `key: ${key}`)
     if (!id) return
     return this.get<T>(id)
   }

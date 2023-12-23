@@ -6,7 +6,6 @@ import { InboxName } from '@textshq/platform-sdk'
 import mqtt from 'mqtt-packet'
 import {
   AutoIncrementStore,
-  createPromise,
   getMqttSid,
   getTimeValues,
   metaJSONStringify,
@@ -15,7 +14,6 @@ import { getLogger, type Logger } from './logger'
 import type PlatformMetaMessenger from './api'
 import { SyncChannel, SocketRequestResolverType, MMSocketTask } from './types'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
-import { MetaMessengerError } from './errors'
 import EnvOptions from './env'
 // import { MqttErrors } from './MetaMQTTErrors'
 import { PromiseStore } from './PromiseStore'
@@ -25,9 +23,6 @@ export const enum ThreadRemoveType {
   DELETE = 0,
   ARCHIVE = 1,
 }
-
-export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResponse) => void
-export type RequestResolverReject = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
 // instagram.com does it every 10 seconds
 const PING_INTERVAL_MS = 10_000 - 100
@@ -58,15 +53,14 @@ export default class MetaMessengerWebSocket {
 
   readonly requestIds = new AutoIncrementStore()
 
+  readonly requestResolvers: PromiseStore<MetaMessengerPayloadHandlerResponse>
+
   private packetQueue: Packet[] = []
 
   constructor(private readonly papi: PlatformMetaMessenger) {
     this.logger = getLogger(this.papi.env, 'socket')
-    this.packetAckPromises = new PromiseStore({
-      startAt: 2,
-      env: this.papi.env,
-      timeoutMs: 0,
-    })
+    this.requestResolvers = new PromiseStore(0, this.requestIds)
+    this.packetAckPromises = new PromiseStore(0, new AutoIncrementStore(2))
     this.mqttParser.on('packet', packet => this.onPacket(packet))
     this.mqttParser.on('error', error => {
       this.logger.error(error, {}, '[ws] mqtt parser error')
@@ -318,39 +312,23 @@ export default class MetaMessengerWebSocket {
     this.isInitialConnection = false
   }
 
-  requestResolvers = new Map<number, [SocketRequestResolverType, RequestResolverResolve, RequestResolverReject]>()
-
-  createRequest(type: SocketRequestResolverType) {
-    const request_id = this.requestIds.gen()
-    const { promise, resolve, reject } = createPromise<MetaMessengerPayloadHandlerResponse>()
-    const logPrefix = `[REQUEST #${request_id}][${type}]`
-    this.logger.debug(logPrefix, 'sent')
-    const resolver = (response: MetaMessengerPayloadHandlerResponse) => {
-      this.logger.debug(logPrefix, 'got response', response)
-      resolve(response)
-      this.requestResolvers.delete(request_id)
-    }
-    const _reject = (response: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => {
-      if (!(response instanceof MetaMessengerError)) {
-        this.logger.error(new MetaMessengerError(this.papi.env, -1, 'request resolver rejected', `payload: ${JSON.stringify(response)}`))
-      }
-      reject(response)
-      this.requestResolvers.delete(request_id)
-    }
-    this.requestResolvers.set(request_id, [type, resolver, _reject])
-    return { request_id, promise }
-  }
-
-  async publishLightspeedRequest({
-    payload,
-    request_id,
-    type,
-  }: {
+  async publishLightspeedRequest(reqData: {
     payload: string
-    request_id: number
     type: number
+  }, {
+    waitForResponse = true,
+    type,
+    timeoutMs,
+  }: {
+    waitForResponse?: boolean
+    type?: SocketRequestResolverType
+    timeoutMs?: number
   }) {
-    const { promise, id: messageId } = this.packetAckPromises.create()
+    const { promise, id: request_id } = waitForResponse
+      ? this.requestResolvers.create(undefined, {
+        type,
+      }, timeoutMs) : { promise: null, id: this.requestIds.gen() }
+    const { promise: packetAckPromise, id: messageId } = this.packetAckPromises.create()
 
     await this.send({
       cmd: 'publish',
@@ -361,46 +339,31 @@ export default class MetaMessengerWebSocket {
       topic: '/ls_req',
       payload: JSON.stringify({
         app_id: this.papi.api.config.appId,
-        payload,
+        payload: reqData.payload,
         request_id,
-        type,
+        type: reqData.type,
       }),
     })
 
-    await promise
+    await packetAckPromise
+
+    if (promise) return promise
   }
 
   async publishTask(type: SocketRequestResolverType, tasks: MMSocketTask[], {
-    timeout,
-    throwOnTimeout,
+    timeoutMs,
   }: {
-    timeout?: number // defaults to never
-    throwOnTimeout?: boolean // defaults to false
+    timeoutMs?: number // defaults to never
   } = {}): Promise<MetaMessengerPayloadHandlerResponse> {
     const { epoch_id } = getTimeValues(this.requestIds)
-    const { promise, request_id } = this.createRequest(type)
-    await this.publishLightspeedRequest({
+    return this.publishLightspeedRequest({
       payload: metaJSONStringify({
         tasks,
         epoch_id,
         version_id: EnvOptions[this.papi.env].defaultVersionId,
       }),
-      request_id,
       type: 3,
-    })
-
-    if (typeof timeout === 'number' && timeout > 0) {
-      const timeoutPromise = sleep(timeout).then(() => {
-        if (throwOnTimeout) {
-          throw new MetaMessengerError(this.papi.env, -1, `publishTask/${type} timed out`)
-        }
-        return {}
-      })
-
-      return Promise.race([promise, timeoutPromise])
-    }
-
-    return promise
+    }, { waitForResponse: true, timeoutMs })
   }
 
   private sendBrowserClosed() {
@@ -419,13 +382,12 @@ export default class MetaMessengerWebSocket {
     const syncGroups = this.papi.api.getDefaultSyncGroups()
     const syncGroupsForEnv = this.papi.env === 'IG' ? syncGroups.igdSyncGroups : syncGroups.defaultSyncGroups
 
-    const promises: Promise<void>[] = []
+    const promises: Promise<unknown>[] = []
 
     for (let i = 0; i < syncGroupsForEnv.length; i++) {
       const syncGroup = syncGroupsForEnv[i]
       if (!syncGroup?.groupId || syncGroup?.minTimeToSyncTimestampMs === NEVER_SYNC_TIMESTAMP) continue
 
-      const request_id = this.requestIds.gen()
       let last_applied_cursor = null
       let sync_params = syncGroup.syncParams ?? null
       let requestType = 1
@@ -452,9 +414,8 @@ export default class MetaMessengerWebSocket {
           sync_params,
           version: this.papi.envOpts.defaultVersionId,
         }),
-        request_id,
         type: requestType,
-      }))
+      }, { waitForResponse: false }))
     }
     await Promise.allSettled(promises)
   }

@@ -21,6 +21,7 @@ import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
 import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, ThreadRangeFilter, SendType } from './types'
 import {
+  AutoIncrementStore,
   createPromise,
   genClientContext,
   getTimeValues,
@@ -72,16 +73,8 @@ export default class MetaMessengerAPI {
     this.initPromise.then(() => {
       this.initResolved = true
     })
-    this.messageRangeResolvers = new PromiseStore({
-      env,
-      startAt: 1,
-      timeoutMs: 15_000,
-    })
-    this.sendMessageResolvers = new PromiseStore({
-      env,
-      startAt: 1,
-      timeoutMs: 15_000,
-    })
+    this.messageRangeResolvers = new PromiseStore(15_000, new AutoIncrementStore(1))
+    this.sendMessageResolvers = new PromiseStore(15_000, new AutoIncrementStore(1))
   }
 
   authMethod: 'login-window' | 'extension' = 'login-window'
@@ -735,8 +728,7 @@ export default class MetaMessengerAPI {
     const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
     if (!canFetchMore) return { fetched: false } as const
     const publishTaskOpts = {
-      timeout: 15000,
-      throwOnTimeout: false,
+      timeoutMs: 15000,
     } as const
     const getFetcher = () => {
       if (isSpam) {
@@ -1523,8 +1515,7 @@ export default class MetaMessengerAPI {
     // if there are no more threads to load
     if (tasks.length === 0) return
     const task = this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, tasks, {
-      timeout: 15000,
-      throwOnTimeout: false,
+      timeoutMs: 15_000,
     })
     task.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
     this.fetchMoreThreadsV3Promises.set(inbox, task)
