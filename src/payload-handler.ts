@@ -26,7 +26,7 @@ import {
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
 import { MetaMessengerError } from './errors'
-import { executeFirstBlockForSyncTransaction } from './ls-sp-mappers'
+import * as mappers from './ls-sp-mappers'
 
 type SearchArgumentType = 'user' | 'group' | 'unknown_user'
 
@@ -48,7 +48,7 @@ export interface MetaMessengerPayloadHandlerResponse {
     isVerified: boolean
     cannotMessage: boolean
   }[]
-  executeFirstBlockForSyncTransaction?: ReturnType<typeof executeFirstBlockForSyncTransaction>[]
+  executeFirstBlockForSyncTransaction?: ReturnType<typeof mappers.executeFirstBlockForSyncTransaction>[]
 }
 
 type DbTransaction = Parameters<PlatformMetaMessenger['db']['transaction']>[0]
@@ -838,7 +838,7 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
-    const data = executeFirstBlockForSyncTransaction(a)
+    const data = mappers.executeFirstBlockForSyncTransaction(a)
     if (!this.__responses.executeFirstBlockForSyncTransaction?.length) {
       this.__responses.executeFirstBlockForSyncTransaction = []
     }
