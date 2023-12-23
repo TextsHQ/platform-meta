@@ -29,6 +29,9 @@ export const enum ThreadRemoveType {
 export type RequestResolverResolve = (response?: MetaMessengerPayloadHandlerResponse) => void
 export type RequestResolverReject = (response?: MetaMessengerPayloadHandlerResponse | MetaMessengerError) => void
 
+// instagram.com does it every 10 seconds
+const PING_INTERVAL_MS = 10_000 - 100
+
 export default class MetaMessengerWebSocket {
   private logger: Logger
 
@@ -166,8 +169,6 @@ export default class MetaMessengerWebSocket {
         ...this.lsAppSettings,
       })
     }
-
-    this.startPing()
   }
 
   private ws = new PersistentWS(this.getConnectionInfo.bind(this), this.onWSMessage, this.onWSOpen, this.onWSClose)
@@ -209,17 +210,28 @@ export default class MetaMessengerWebSocket {
   private lastReceivedMessageAt: number
 
   private startPing() {
+    if (this.pingInterval) throw new Error('pingInterval already exists')
     this.logger.debug('ping started')
-    // instagram.com does it every 10 seconds
-    const intervalMs = 10_000 - 100
-    clearInterval(this.pingInterval)
     this.pingInterval = setInterval(() => {
       if (!this.ws.connected) return
       const timeSinceLastMsg = Date.now() - this.lastReceivedMessageAt
-      if (timeSinceLastMsg > intervalMs) {
+      if (timeSinceLastMsg > PING_INTERVAL_MS) {
         this.send({ cmd: 'pingreq' })
       }
-    }, intervalMs)
+    }, PING_INTERVAL_MS)
+  }
+
+  private clearPing() {
+    this.logger.debug('ping cleared')
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval)
+    }
+  }
+
+  private resetPing() {
+    this.logger.debug('ping reset')
+    this.clearPing()
+    this.startPing()
   }
 
   private async subscribeToTopicsIfNotSubscribed(...topics: string[]) {
@@ -259,6 +271,7 @@ export default class MetaMessengerWebSocket {
 
     switch (packet.cmd) {
       case 'connack':
+        this.resetPing()
         this.isMQTTConnected = true
         await this.runPacketQueue()
         await this.subscribeToTopicsIfNotSubscribed('/ls_foreground_state', '/ls_resp')
