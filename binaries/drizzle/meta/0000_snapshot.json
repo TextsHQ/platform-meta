@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "sqlite",
-  "id": "860e6e87-107c-4afc-9792-9df7483f26ef",
+  "id": "c95c96ac-25c6-419e-8c46-6275a610f6d7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "attachments": {
@@ -58,7 +58,8 @@
             "attachmentFbid",
             "messageId",
             "threadKey"
-          ]
+          ],
+          "name": "attachments_threadKey_messageId_attachmentFbid_pk"
         }
       },
       "uniqueConstraints": {}
@@ -255,7 +256,8 @@
           "columns": [
             "threadKey",
             "userId"
-          ]
+          ],
+          "name": "participants_threadKey_userId_pk"
         }
       },
       "uniqueConstraints": {}
@@ -307,7 +309,8 @@
             "actorId",
             "messageId",
             "threadKey"
-          ]
+          ],
+          "name": "reactions_threadKey_messageId_actorId_pk"
         }
       },
       "uniqueConstraints": {}

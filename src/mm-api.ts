@@ -3,13 +3,14 @@ import crypto from 'crypto'
 import { CookieJar } from 'tough-cookie'
 import FormData from 'form-data'
 import {
-  type FetchOptions,
-  InboxName, MessageContent,
-  type MessageSendOptions,
-  ReAuthError,
   texts,
+  InboxName,
+  ReAuthError,
+  type FetchOptions,
+  type MessageContent,
+  type MessageSendOptions,
   type User,
-  FetchResponse,
+  type FetchResponse,
 } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'

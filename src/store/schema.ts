@@ -41,7 +41,7 @@ export const attachments = sqliteTable('attachments', {
   timestampMs: integer('timestampMs', { mode: 'timestamp' }),
   offlineAttachmentId: text('offlineAttachmentId'),
 }, table => ({
-  pk: primaryKey(table.threadKey, table.messageId, table.attachmentFbid),
+  pk: primaryKey({ columns: [table.threadKey, table.messageId, table.attachmentFbid] }),
 }))
 
 export const attachmentRelations = relations(attachments, ({ one }) => ({
@@ -76,7 +76,7 @@ export const participants = sqliteTable('participants', {
   // lastDeliveredWatermarkTimestampMs: integer('lastDeliveredWatermarkTimestampMs', { mode: 'timestamp' }),
   isAdmin: integer('isAdmin', { mode: 'boolean' }),
 }, table => ({
-  pk: primaryKey(table.threadKey, table.userId),
+  pk: primaryKey({ columns: [table.threadKey, table.userId] }),
 }))
 
 export const participantRelations = relations(participants, ({ one }) => ({
@@ -111,7 +111,7 @@ export const reactions = sqliteTable('reactions', {
   actorId: text('actorId'),
   reaction: text('reaction'),
 }, table => ({
-  pk: primaryKey(table.threadKey, table.messageId, table.actorId),
+  pk: primaryKey({ columns: [table.threadKey, table.messageId, table.actorId] }),
 }))
 
 export const reactionRelations = relations(reactions, ({ one }) => ({
@@ -128,19 +128,3 @@ export const keyValues = sqliteTable('key_values', {
   key: text('key').notNull().primaryKey(),
   value: text('value'),
 })
-
-// export const filteredThreadRanges = sqliteTable('filtered_thread_ranges', {
-//   folderName: text('folderName'),
-//   parentThreadKey: text('parentThreadKey'),
-//   threadRangeFilter: text('threadRangeFilter'),
-//   minLastActivityTimestampMs: integer('minLastActivityTimestampMs'),
-//   maxThreadKey: text('minLastActivityTimestampMs'),
-//   maxLastActivityTimestampMs: integer('maxLastActivityTimestampMs'),
-//   minThreadKey: text('minThreadKey'),
-//   isLoadingBefore: integer('isLoadingBefore', { mode: 'boolean' }),
-//   isLoadingAfter: integer('isLoadingAfter', { mode: 'boolean' }),
-//   hasMoreBefore: integer('hasMoreBefore', { mode: 'boolean' }),
-//   hasMoreAfter: integer('hasMoreAfter', { mode: 'boolean' }),
-//   secondaryThreadRangeFilter: text('secondaryThreadRangeFilter'),
-//   threadRangeFilterValue: text('threadRangeFilterValue'),
-// })
