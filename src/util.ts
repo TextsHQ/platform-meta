@@ -1,5 +1,5 @@
 import { CookieJar } from 'tough-cookie'
-import type { SimpleArgType } from './payload-parser'
+import type { SimpleArgType } from './ls-parser'
 import type { IGMessageRanges } from './types'
 import { BIGINT_MARKER } from './constants'
 

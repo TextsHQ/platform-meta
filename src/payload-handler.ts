@@ -12,7 +12,7 @@ import { smartJSONStringify } from '@textshq/platform-sdk/dist/json'
 import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
-import { CallList, generateCallList, type IGSocketPayload, type SimpleArgType } from './payload-parser'
+import { LSParser, type SimpleArgType } from './ls-parser'
 import { fixEmoji, getOriginalURL, parseMessageRanges, parseMsAsDate, parseMs } from './util'
 import {
   type IGAttachment,
@@ -52,9 +52,9 @@ export interface MetaMessengerPayloadHandlerResponse {
 type DbTransaction = Parameters<PlatformMetaMessenger['db']['transaction']>[0]
 
 export default class MetaMessengerPayloadHandler {
-  private readonly __calls: CallList
-
   private readonly __logger: ReturnType<typeof getLogger>
+
+  private readonly __parser = new LSParser()
 
   private __promises: Promise<unknown>[] = []
 
@@ -76,11 +76,12 @@ export default class MetaMessengerPayloadHandler {
 
   constructor(
     private readonly __papi: PlatformMetaMessenger,
-    __data: IGSocketPayload,
+    __data: string,
     private readonly __requestId: number | 'initial' | 'snapshot',
   ) {
     this.__logger = getLogger(this.__papi.env, `payload:${this.__requestId}:${Date.now()}`)
-    this.__calls = generateCallList(this.__papi.env, __data)
+    const payload = JSON.parse(__data)
+    this.__parser.decode(payload.step)
   }
 
   async __handle() {
@@ -136,24 +137,24 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private __run = async () => {
-    for (const [method, args] of this.__calls) {
-      if (method.startsWith('__')) {
+    for (const { procedure, args } of this.__parser.payloads) {
+      if (procedure.startsWith('__')) {
         // we assume meta doesn't send any methods that start with __
         // this is to prevent any potential security issues
         // better way to handle this is prefixing the handlers or putting them in another class
         // but this is a quick "fix" that should work
-        throw new MetaMessengerError(this.__papi.env, -1, `called a reserved method (${method})`)
+        throw new MetaMessengerError(this.__papi.env, -1, `called a reserved method (${procedure})`)
       }
 
-      const isValidMethod = method in this && typeof this[method] === 'function'
+      const isValidMethod = procedure in this && typeof this[procedure] === 'function'
       if (!isValidMethod) {
-        this.__logger.warn(`missing handler (${method})`, args)
-        this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${method})`, undefined, undefined, true))
+        this.__logger.warn(`missing handler (${procedure})`, args)
+        this.__errors.push(new MetaMessengerError(this.__papi.env, -1, `missing handler (${procedure})`, undefined, undefined, true))
         continue
       }
 
       try {
-        const call = this[method].bind(this)
+        const call = this[procedure].bind(this)
         const result = await call(args)
 
         if (typeof result === 'function') {
@@ -167,7 +168,7 @@ export default class MetaMessengerPayloadHandler {
             new MetaMessengerError(
               this.__papi.env,
               -1,
-              `failed to call method (${method})`,
+              `failed to call method (${procedure})`,
               typeof err === 'string' ? err : err.message,
               {
                 error: err.toString(),

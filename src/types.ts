@@ -706,3 +706,10 @@ export const enum SocketRequestResolverType {
   UNARCHIVE_THREAD = 'UNARCHIVE_THREAD',
   UNSEND_MESSAGE = 'UNSEND_MESSAGE',
 }
+
+export interface MMResponse {
+  request_id: number | null
+  payload: string
+  sp: string[]
+  target: number
+}

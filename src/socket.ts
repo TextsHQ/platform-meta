@@ -225,6 +225,7 @@ export default class MetaMessengerWebSocket {
     this.logger.debug('ping cleared')
     if (this.pingInterval) {
       clearInterval(this.pingInterval)
+      this.pingInterval = null
     }
   }
 
