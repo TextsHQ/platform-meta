@@ -250,6 +250,49 @@ export default class MetaMessengerAPI {
     return user
   }
 
+  private getGraphqlPayload(variables: {}, doc_id: string, fb_api_req_friendly_name?: string, _extraParams?: Record<string, string>) {
+    const extraParams = _extraParams ?? {}
+
+    if (doc_id?.length) extraParams.doc_id = doc_id
+
+    if (fb_api_req_friendly_name?.length) {
+      extraParams.fb_api_req_friendly_name = fb_api_req_friendly_name
+      extraParams.fb_api_caller_class = 'RelayModern'
+    }
+
+    if (variables && Object.keys(variables).length > 0) {
+      extraParams.variables = JSON.stringify(variables)
+    }
+
+    const body = new URLSearchParams({
+      ...extraParams,
+      av: this.config.eqmc.user,
+      fb_dtsg: this.config.fb_dtsg,
+      lsd: this.config.lsdToken,
+      jazoest: this.config.eqmc.jazoest,
+      dpr: this.config.siteData?.pr?.toString(),
+      server_timestamps: 'true',
+      __rev: this.config.siteData?.client_revision?.toString(),
+      __user: this.config.eqmc.user,
+      __req: this.papi.socket.requestIds.gen().toString(),
+      __a: this.config.eqmc.a,
+      __hs: this.config.siteData.haste_session,
+      __hsi: this.config.siteData.hsi,
+      __s: this.config.webSessionId,
+      __spin_r: this.config.siteData?.__spin_r?.toString(),
+      __spin_b: this.config.siteData?.__spin_b,
+      __spin_t: this.config.siteData?.__spin_t?.toString(),
+      __dyn: this.config.bitmaps.bitmap.toCompressedString(),
+      __csr: this.config.bitmaps.csrBitmap.toCompressedString(),
+      __comet_req: this.config.eqmc.comet_req,
+      __ccg: this.config.webConnectionClassServerGuess.connectionClass,
+      __jssesw: this.config.jsErrorLogging?.sampleWeight?.toString(),
+      __aaid: '0',
+    })
+
+    return body.toString()
+  }
+
   private async graphqlCall<T extends {}>(doc_id: string, variables: T, { headers, bodyParams }: {
     headers?: Record<string, string>
     bodyParams?: Record<string, string>
@@ -263,13 +306,12 @@ export default class MetaMessengerAPI {
         ...headers,
         'content-type': 'application/x-www-form-urlencoded',
       },
-      // todo: maybe use FormData instead:
-      body: new URLSearchParams({
-        ...bodyParams,
-        fb_dtsg: this.config.fb_dtsg,
-        variables: JSON.stringify(variables),
+      body: this.getGraphqlPayload(
+        variables,
         doc_id,
-      }).toString(),
+        headers['x-fb-friendly-name'],
+        bodyParams,
+      ),
     })
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
     return { data: json }
