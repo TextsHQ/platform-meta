@@ -29,7 +29,7 @@ import {
 } from './util'
 import { mapUserMentions, mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
-import { getMessengerConfig } from './parsers/messenger-config'
+import { getMessengerConfig } from './config-parser'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'

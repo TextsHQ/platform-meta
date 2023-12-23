@@ -1,9 +1,9 @@
 import { readFile } from 'fs/promises'
 // @ts-expect-error
 import { describe, expect, test } from 'bun:test'
-import { getMessengerConfig, parseMessengerInitialPage } from './messenger-config'
-import { generateCallList } from '../payload-parser'
-import { EnvKey } from '../env'
+import { getMessengerConfig, parseMessengerInitialPage } from './config-parser'
+import { generateCallList } from './payload-parser'
+import { EnvKey } from './env'
 
 const instagramHtml = readFile('./fixtures/instagram.com.direct.html', 'utf-8')
 const messengerHtml = readFile('./fixtures/messenger.com.html', 'utf-8')

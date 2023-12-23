@@ -718,7 +718,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   registerForPushNotifications = async (type: keyof NotificationsInfo, token: string) => {
     await this.api.initPromise
     if (type !== 'web') throw Error('invalid type')
-    const parsed: PushSubscriptionJSON = JSON.parse(token)
+    const parsed = JSON.parse(token)
     await this.api.webPushRegister(parsed.endpoint, parsed.keys.p256dh, parsed.keys.auth)
   }
 
