@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
-    "@textshq/platform-test-lib": "link:../platform-test-lib",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "drizzle-orm": "^0.29.0",
@@ -33,6 +32,7 @@
   },
   "devDependencies": {
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
+    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#a6905f8f2198fc42b116ab335f560f4329f6529b",
     "@types/better-sqlite3": "^7.6.5",
     "@types/bun": "^1.0.0",
     "@types/eslint": "^8.21.3",
