@@ -107,9 +107,9 @@ export type LSParserPayload = { procedure: StoredProcedureName, args: SimpleArgT
 export class LSParser {
   payloads: LSParserPayload[] = []
 
-  store = new Map()
+  private store = new Map()
 
-  static parse(payload: string) {
+  private static parse(payload: string) {
     const parser = new LSParser()
     const { step } = JSON.parse(payload)
     parser.decode(step)
@@ -158,11 +158,11 @@ export class LSParser {
       case LightSpeedStep.NOT:
         return this.decode(step_data[0])
       default:
-        console.log('skipping:', step_type, step_data)
+        console.log('[LSParser] skipping:', step_type, step_data)
     }
   }
 
-  handleStoredProcedure(data: any[]) {
+  private handleStoredProcedure(data: any[]) {
     try {
       const procedure = data[0] as StoredProcedureName
       if (IGNORED_CALLS.has(procedure)) return
@@ -178,7 +178,7 @@ export class LSParser {
     }
   }
 
-  getValue(data: SimpleArgType | SimpleArgType[]) {
+  private getValue(data: SimpleArgType | SimpleArgType[]) {
     const type = getType(data)
     switch (type) {
       case 'string':
