@@ -35,7 +35,7 @@ import * as schema from './store/schema'
 import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
-import { getCookieJar, getTimeValues } from './util'
+import { genClientContext, getCookieJar, getTimeValues } from './util'
 import { STICKERS_DIR_PATH } from './constants'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
@@ -487,8 +487,12 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     await this.api.removeThread(ThreadRemoveType.DELETE, threadID, SyncChannel.MAILBOX)
   }
 
-  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs, giphyID }: MessageContent, { pendingMessageID, quotedMessageID }: MessageSendOptions) => {
+  sendMessage = async (threadID: string, { text, fileBuffer, isRecordedAudio, mimeType, fileName, filePath, mentionedUserIDs, giphyID }: MessageContent, { pendingMessageID: pmID, quotedMessageID }: MessageSendOptions) => {
     await this.api.initPromise
+
+    const pendingMessageID = pmID?.includes('-')
+      ? genClientContext().toString() // for ios
+      : pmID
 
     let externalUrl: string
     let attribution_app_id: number
