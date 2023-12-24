@@ -157,6 +157,13 @@ export class LSParser {
         break
       case LightSpeedStep.NOT:
         return this.decode(step_data[0])
+      case LightSpeedStep.LOGGER_LOG: {
+        const [msg, level] = (step_data as string[]) || []
+        const log = (level === 'error' || level === 'warn' || level === 'warn')
+          ? console[level] : console.log
+        log('LSParser [LOGGER_LOG]', level, msg)
+      }
+        break
       default:
         console.log('[LSParser] skipping:', step_type, step_data)
     }
