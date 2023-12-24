@@ -223,9 +223,10 @@ export default class PlatformMetaMessenger implements PlatformAPI {
       if (!stamp?.toJSON()) stamp = new Date()
       oldestCursor = `${stamp.getTime()},${lastThread.id}`
     } else {
-      await (this.env === 'IG'
-        ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
-        : this.api.fetchMoreThreadsV3(inbox)).catch(e => this.logger.error(e))
+      await this.api.paginationQueue.executeTask(() =>
+        (this.env === 'IG'
+          ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
+          : this.api.fetchMoreThreadsV3(inbox)))
     }
     if (hasMore && (!items.length || !oldestCursor)) {
       // todo fix

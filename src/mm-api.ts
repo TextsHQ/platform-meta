@@ -19,7 +19,7 @@ import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
-import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges } from './types'
+import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges, MMSocketTask } from './types'
 import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, ThreadRangeFilter, SendType } from './types'
 import {
   AutoIncrementStore,
@@ -39,6 +39,8 @@ import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
 import { NEVER_SYNC_TIMESTAMP } from './constants'
 import { INT64_MAX_AS_STRING } from './mm-utils'
+import * as lsMappers from './ls-sp-mappers'
+import { PaginationQueue } from './PaginationQueue'
 
 // @TODO: needs to be updated
 export const SHARED_HEADERS = {
@@ -89,6 +91,8 @@ export default class MetaMessengerAPI {
   messageRangeResolvers: PromiseStore<IGMessageRanges>
 
   sendMessageResolvers: PromiseStore<MetaMessengerPayloadHandlerResponse>
+
+  paginationQueue = new PaginationQueue()
 
   private readonly http = texts.createHttpClient()
 
@@ -1467,17 +1471,43 @@ export default class MetaMessengerAPI {
     }
   }
 
-  private fetchMoreThreadsV3Promises = new Map<InboxName, Promise<unknown>>()
+  threadsRangesQuery = async (
+    query: ReturnType<typeof lsMappers.threadsRangesQuery>,
+    sync_group?: SyncChannel,
+  ) => {
+    const cursor = sync_group ? this.papi.kv.get(`cursor-1-${sync_group}`) : undefined
+    if (!cursor) {
+      this.logger.error('threadsRangesQuery: cursor not found')
+      return Promise.resolve(null)
+    }
+    const reference_thread_key = query.isAfter ? query.maxThreadKey : query.minThreadKey
+    const reference_activity_timestamp = query.isAfter ? query.maxLastActivityTimestampMs : query.minLastActivityTimestampMs
+
+    const task: MMSocketTask = {
+      label: '145',
+      payload: JSON.stringify({
+        is_after: query.isAfter ? 1 : 0,
+        parent_thread_key: query.parentThreadKey,
+        reference_thread_key: reference_thread_key || 0,
+        reference_activity_timestamp: reference_activity_timestamp || 9999999999999,
+        additional_pages_to_fetch: query.additionalPagesToFetch,
+        cursor,
+        messaging_tag: null,
+        sync_group,
+      }),
+      queue_name: 'trq',
+      task_id: this.papi.socket.taskIds.gen(),
+      failure_count: null,
+    }
+    return task
+  }
 
   fetchMoreThreadsV3 = async (inbox: InboxName) => {
     if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error('fetchMoreThreadsV3 is only supported with Facebook/Messenger')
-    if (this.fetchMoreThreadsV3Promises.has(inbox)) {
-      return this.fetchMoreThreadsV3Promises.get(inbox)
-    }
 
     // const threadsRanges = this.papi.kv.getThreadsRanges()
     // const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
-    // const filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
+    const _filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
     const syncGroups = this.computeSyncGroups(inbox)
 
     this.logger.debug('fetchMoreThreadsV3', {
@@ -1488,39 +1518,27 @@ export default class MetaMessengerAPI {
       // filteredThreadsRanges,
     })
 
-    const tasks = syncGroups.map(([syncGroup, parentThreadKey]) => {
+    const tasks = (await Promise.all(syncGroups.map(async ([syncGroup, parentThreadKey]) => {
       const range = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
       if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
-      const parent_thread_key = parentThreadKey
-      const reference_thread_key = range?.minThreadKey || 0
-      const reference_activity_timestamp = range?.minLastActivityTimestampMs ? range.minLastActivityTimestampMs : 9999999999999
-      const cursor = this.papi.kv.get(`cursor-1-${syncGroup}`)
-      return {
-        label: '145',
-        payload: JSON.stringify({
-          is_after: 0,
-          parent_thread_key,
-          reference_thread_key,
-          reference_activity_timestamp,
-          additional_pages_to_fetch: 0,
-          cursor,
-          messaging_tag: null,
-          sync_group: syncGroup,
-        }),
-        queue_name: 'trq',
-        task_id: this.papi.socket.taskIds.gen(),
-        failure_count: null,
-      } as const
-    }).filter(Boolean)
+      return this.threadsRangesQuery({
+        isAfter: false,
+        parentThreadKey,
+        minLastActivityTimestampMs: range?.minLastActivityTimestampMs ? Number(range.minLastActivityTimestampMs) : undefined,
+        minThreadKey: range?.minThreadKey,
+        shouldSkipE2eeThreadsRanges: false,
+        additionalPagesToFetch: 0,
+        maxThreadKey: undefined,
+        maxLastActivityTimestampMs: undefined,
+        isBefore: undefined,
+      }, syncGroup)
+    }))).filter(Boolean)
 
     // if there are no more threads to load
     if (tasks.length === 0) return
-    const task = this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, tasks, {
+    await this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, tasks, {
       timeoutMs: 15_000,
     })
-    task.finally(() => this.fetchMoreThreadsV3Promises.delete(inbox))
-    this.fetchMoreThreadsV3Promises.set(inbox, task)
-    return task
   }
 
   // does not work for moving threads out of the message requests folder

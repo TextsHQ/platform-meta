@@ -1,6 +1,7 @@
 import type PlatformAPI from '../api'
 import { keyValues } from './schema'
 import { ParentThreadKey, SyncChannel } from '../types'
+import { MM_DEFAULT_VALUES } from '../defaults'
 
 type DbId = string
 
@@ -97,14 +98,32 @@ export default class KeyValueStore {
   }
 
   getThreadsRanges() {
-    return this.papi.preparedQueries.getThreadsRanges.all()
+    return this.papi.preparedQueries.getThreadsRanges.all().map(range => ({
+      key: range.key,
+      value: {
+        ...MM_DEFAULT_VALUES.sync_group_threads_ranges,
+        ...(range.value ? JSON.parse(range.value) : {}),
+      },
+    }))
   }
 
   getThreadsRangesV2() {
-    return this.papi.preparedQueries.getThreadsRangesV2.all()
+    return this.papi.preparedQueries.getThreadsRangesV2.all().map(range => ({
+      key: range.key,
+      value: {
+        ...MM_DEFAULT_VALUES.threads_ranges_v2__generated,
+        ...(range.value ? JSON.parse(range.value) : {}),
+      },
+    }))
   }
 
   getFilteredThreadsRanges() {
-    return this.papi.preparedQueries.getFilteredThreadsRanges.all()
+    return this.papi.preparedQueries.getFilteredThreadsRanges.all().map(range => ({
+      key: range.key,
+      value: {
+        ...MM_DEFAULT_VALUES.filtered_threads_ranges_v3__generated,
+        ...(range.value ? JSON.parse(range.value) : {}),
+      },
+    }))
   }
 }

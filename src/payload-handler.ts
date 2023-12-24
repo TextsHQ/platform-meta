@@ -1,6 +1,6 @@
 import {
-  ServerEventType,
   ActivityType,
+  ServerEventType,
   type ServerEvent,
   type StateSyncEvent,
   type ThreadMessagesRefreshEvent,
@@ -13,15 +13,16 @@ import type PlatformMetaMessenger from './api'
 import * as schema from './store/schema'
 import { getLogger } from './logger'
 import { LSParser, type SimpleArgType } from './ls-parser'
-import { fixEmoji, getOriginalURL, parseMessageRanges, parseMsAsDate, parseMs } from './util'
+import { fixEmoji, getOriginalURL, parseMessageRanges, parseMs, parseMsAsDate } from './util'
 import {
+  ParentThreadKey,
+  SocketRequestResolverType,
+  SyncChannel,
   type IGAttachment,
   type IGMessage,
-  IGMessageRanges,
+  type IGMessageRanges,
   type IGReadReceipt,
-  IGThread,
-  ParentThreadKey,
-  SyncChannel,
+  type IGThread,
 } from './types'
 import { mapParticipants } from './mappers'
 import { QueryWhereSpecial } from './store/helpers'
@@ -1715,25 +1716,15 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private threadsRangesQuery(a: SimpleArgType[]) {
-    const q = {
-      parentThreadKey: a[0],
-      minThreadKey: a[1],
-      is_after: a[2],
-    }
-    /*
-    Array(9) [
-      -1,
-      1,
-      0,
-      0,
-      undefined,
-      undefined,
-      9999999999999,
-      0,
-      0
-     ]
-     */
-    this.__logger.debug('threadsRangesQuery (ignored)', a, q)
+    this.__papi.api.paginationQueue.executeTask(async () => {
+      const task = await this.__papi.api.threadsRangesQuery(
+        mappers.threadsRangesQuery(a),
+        SyncChannel.MAILBOX,
+      )
+      await this.__papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, [task], {
+        timeoutMs: 15_000,
+      })
+    })
   }
 
   private transportHybridParticipantUpdateReceipts(a: SimpleArgType[]) {
@@ -1795,15 +1786,7 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private updateFilteredThreadsRanges(a: SimpleArgType[]) {
-    const ranges = {
-      folderName: a[0] as string,
-      parentThreadKey: a[1] as string,
-      threadRangeFilter: a[2] as string,
-      minLastActivityTimestampMs: a[3] as string,
-      minThreadKey: a[4] as string,
-      secondaryThreadRangeFilter: a[7] as string,
-      threadRangeFilterValue: a[8] as string,
-    }
+    const ranges = mappers.updateFilteredThreadsRanges(a)
     this.__papi.kv.set(`filteredThreadsRanges-${ranges.folderName}-${ranges.parentThreadKey}-${ranges.threadRangeFilter}`, JSON.stringify(ranges))
     this.__logger.debug('updateFilteredThreadsRanges', ranges)
   }
@@ -2053,6 +2036,7 @@ export default class MetaMessengerPayloadHandler {
 
   private upsertInboxThreadsRange(a: SimpleArgType[]) {
     const data = mappers.upsertInboxThreadsRange(a)
+    // @TODO - save this
     this.__logger.debug('upsertInboxThreadsRange (ignored)', data)
   }
 
@@ -2174,14 +2158,7 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
-    const range = {
-      syncGroup: a[0] as SyncChannel,
-      parentThreadKey: a[1] as ParentThreadKey,
-      minLastActivityTimestampMs: a[2] as string,
-      hasMoreBefore: Boolean(a[3]),
-      isLoadingBefore: Boolean(a[4]),
-      minThreadKey: a[5] as string,
-    }
+    const range = mappers.upsertSyncGroupThreadsRange(a)
     this.__logger.debug('upsertSyncGroupThreadsRange', a)
     this.__papi.api.setSyncGroupThreadsRange(range)
   }

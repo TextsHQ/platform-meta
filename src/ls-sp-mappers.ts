@@ -83,3 +83,40 @@ export function deleteThenInsertContact(a: SimpleArgType[]) {
     // isEmployee: !1
   }
 }
+
+export function threadsRangesQuery(a: SimpleArgType[]) {
+  return {
+    parentThreadKey: a[0] as ParentThreadKey,
+    isBefore: a[1] as boolean,
+    isAfter: a[2] as boolean,
+    minThreadKey: a[3] as string,
+    maxThreadKey: a[4] as string,
+    maxLastActivityTimestampMs: Number(a[5]),
+    minLastActivityTimestampMs: Number(a[6]),
+    additionalPagesToFetch: a[7] as number,
+    shouldSkipE2eeThreadsRanges: a[8] as boolean,
+  }
+}
+
+export function updateFilteredThreadsRanges(a: SimpleArgType[]) {
+  return {
+    folderName: a[0] as string,
+    parentThreadKey: a[1] as string,
+    threadRangeFilter: a[2] as string,
+    minLastActivityTimestampMs: a[3] as string,
+    minThreadKey: a[4] as string,
+    secondaryThreadRangeFilter: a[7] as string,
+    threadRangeFilterValue: a[8] as string,
+  }
+}
+
+export function upsertSyncGroupThreadsRange(a: SimpleArgType[]) {
+  return {
+    syncGroup: a[0] as SyncChannel,
+    parentThreadKey: a[1] as ParentThreadKey,
+    minLastActivityTimestampMs: a[2] as string,
+    hasMoreBefore: Boolean(a[3]),
+    isLoadingBefore: Boolean(a[4]),
+    minThreadKey: a[5] as string,
+  }
+}
