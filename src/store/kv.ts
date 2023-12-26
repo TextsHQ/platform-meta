@@ -1,6 +1,6 @@
 import type PlatformAPI from '../api'
 import { keyValues } from './schema'
-import { ParentThreadKey, SyncChannel } from '../types'
+import { type MetaThreadRanges, ParentThreadKey, SyncChannel } from '../types'
 import { MM_DEFAULT_VALUES } from '../defaults'
 
 type DbId = string
@@ -103,7 +103,7 @@ export default class KeyValueStore {
       value: {
         ...MM_DEFAULT_VALUES.sync_group_threads_ranges,
         ...(range.value ? JSON.parse(range.value) : {}),
-      },
+      } as MetaThreadRanges,
     }))
   }
 

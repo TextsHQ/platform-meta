@@ -86,6 +86,12 @@ export function createPromise<T>() {
   return p
 }
 
+export function parseNumber(ms: SimpleArgType) {
+  if (!ms) return undefined
+  const num = Number(ms)
+  return (!Number.isNaN(num) && num > 0) ? num : undefined
+}
+
 export function parseMs(ms: SimpleArgType) {
   const num = Number(ms)
   return (!Number.isNaN(num) && num > 0) ? num : undefined

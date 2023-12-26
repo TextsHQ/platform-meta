@@ -219,18 +219,18 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
     let oldestCursor: string | undefined
     const hasMoreInDatabase = items.length >= THREAD_PAGE_SIZE
-    const hasMoreInServer = this.api.computeServerHasMoreThreads(inbox)
+    const hasMoreInServer = this.api.computeServerHasMoreThreads()
     const hasMore = hasMoreInDatabase || hasMoreInServer
+
+    if (hasMoreInServer) {
+      await this.api.paginationQueue.executeTask(() => this.api.fetchMoreThreadsV4(inbox))
+    }
+
     if (hasMoreInDatabase) {
       const lastThread = items.at(-1)
       let stamp = lastThread.extra.lastActivityTimestampMs
       if (!stamp?.toJSON()) stamp = new Date()
       oldestCursor = `${stamp.getTime()},${lastThread.id}`
-    } else {
-      await this.api.paginationQueue.executeTask(() =>
-        (this.env === 'IG'
-          ? this.api.fetchMoreThreadsForIG(isSpam, typeof pagination === 'undefined')
-          : this.api.fetchMoreThreadsV3(inbox)))
     }
     if (hasMore && (!items.length || !oldestCursor)) {
       // todo fix
@@ -263,7 +263,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
         // If we don't, we create a new promise and call fetchMessages
         const promise = this.api.messageRangeResolvers.hasKey(threadID)
           ? this.api.messageRangeResolvers.getByKey(threadID).promise
-          : Promise.allSettled([
+          : Promise.all([
             this.api.messageRangeResolvers.getOrCreate(threadID).promise,
             this.api.fetchMessages(threadID),
           ])

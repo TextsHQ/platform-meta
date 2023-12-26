@@ -2,7 +2,6 @@ import mqttPacket, { type Packet } from 'mqtt-packet'
 import { setTimeout as sleep } from 'timers/promises'
 
 import PersistentWS, { WebSocketClientOptions } from '@textshq/platform-sdk/dist/PersistentWS'
-import { InboxName } from '@textshq/platform-sdk'
 import mqtt from 'mqtt-packet'
 import {
   AutoIncrementStore,
@@ -305,12 +304,14 @@ export default class MetaMessengerWebSocket {
   // - we get ack for requesting app settings
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
-    await Promise.all([
-      this.papi.syncManager ? this.papi.syncManager.ensureSyncedSocket([
+    if (this.papi.syncManager) {
+      await this.papi.syncManager.ensureSyncedSocket([
         1,
-      ]) : this.subscribeToAllDatabases(),
-      this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
-    ])
+      ])
+    } else {
+       await this.subscribeToAllDatabases()
+    }
+    await this.papi.syncManager ?  : this.subscribeToAllDatabases()
     this.isInitialConnection = false
   }
 

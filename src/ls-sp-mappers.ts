@@ -1,6 +1,6 @@
 import { SimpleArgType } from './ls-parser'
-import { ParentThreadKey, SyncChannel } from './types'
-import { parseMsAsDate } from './util'
+import { ParentThreadKey, SyncChannel, ThreadRangeFilter } from './types'
+import { parseMsAsDate, parseNumber } from './util'
 
 export function executeFirstBlockForSyncTransaction(a: SimpleArgType[]) {
   return {
@@ -81,6 +81,23 @@ export function deleteThenInsertContact(a: SimpleArgType[]) {
     restrictionType: a[44] as string,
     waConnectStatus: a[45] as string,
     // isEmployee: !1
+  }
+}
+
+export function filteredThreadsRangesQuery(a: SimpleArgType[]) {
+  return {
+    parentThreadKey: a[0] as ParentThreadKey,
+    threadRangeFilter: a[1] as ThreadRangeFilter,
+    isBefore: a[2] as boolean,
+    isAfter: a[3] as boolean,
+    minThreadKey: a[4] as string, // 4: (2) [233260, 3068464911]
+    maxThreadKey: a[5] as string, // 5: undefined
+    minLastActivityTimestampMs: parseNumber(a[6]), // 6: undefined
+    maxLastActivityTimestampMs: parseNumber(a[7]), // 7: (2) [383, 3107845504]
+    numThreads: parseNumber(a[8]), // 8: 10
+    numMessages: parseNumber(a[9]), // 9: 1
+    secondaryThreadRangeFilter: a[10], // 10: 0
+    filter_value: a[11], // 11: ""
   }
 }
 

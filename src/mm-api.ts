@@ -20,7 +20,7 @@ import { messages as messagesSchema, threads as threadsSchema } from './store/sc
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges, MMSocketTask } from './types'
-import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, ThreadRangeFilter, SendType } from './types'
+import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, SendType } from './types'
 import {
   AutoIncrementStore,
   createPromise,
@@ -38,7 +38,6 @@ import { MetaMessengerError } from './errors'
 import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
 import { NEVER_SYNC_TIMESTAMP } from './constants'
-import { INT64_MAX_AS_STRING } from './mm-utils'
 import * as lsMappers from './ls-sp-mappers'
 import { PaginationQueue } from './PaginationQueue'
 
@@ -539,11 +538,6 @@ export default class MetaMessengerAPI {
     this.papi.kv.set(`threadsRanges-${p.syncGroup}-${p.parentThreadKey}`, JSON.stringify(p))
   }
 
-  private getSyncGroupThreadsRange(syncGroup: SyncChannel, parentThreadKey: ParentThreadKey) {
-    const value = this.papi.kv.get(`threadsRanges-${syncGroup}-${parentThreadKey}`)
-    return typeof value === 'string' ? JSON.parse(value) as MetaThreadRanges : null
-  }
-
   getDefaultSyncGroups() {
     const igdSyncGroups = [
       {
@@ -712,209 +706,9 @@ export default class MetaMessengerAPI {
     return syncGroups.filter(Boolean)
   }
 
-  computeServerHasMoreThreads(inbox: InboxName) {
-    // const threadsRanges = this.papi.kv.getThreadsRanges()
-    // const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
-    // const filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
-    const syncGroups = this.computeSyncGroups(inbox)
-    //
-    // this.logger.debug('computeServerHasMoreThreads', {
-    //   threadsRanges,
-    //   threadsRangesV2,
-    //   filteredThreadsRanges,
-    //   syncGroups,
-    // })
-    return syncGroups.some(([syncGroup, parentThreadKey]) => {
-      const value = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
-      return typeof value?.hasMoreBefore === 'boolean' ? value.hasMoreBefore : false
-    })
-  }
-
-  // @TODO: this should be migrated to `fetchMoreThreadsV3`
-  async fetchMoreThreadsForIG(isSpam: boolean, isInitial: boolean) {
-    if (this.papi.env !== 'IG') throw new Error(`fetchMoreThreadsForIG is only supported on IG but called on ${this.papi.env}`)
-    const canFetchMore = this.computeServerHasMoreThreads(isSpam ? InboxName.REQUESTS : InboxName.NORMAL)
-    if (!canFetchMore) return { fetched: false } as const
-    const publishTaskOpts = {
-      timeoutMs: 15000,
-    } as const
-    const getFetcher = () => {
-      if (isSpam) {
-        const group1 = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.SPAM)
-        const group95 = this.getSyncGroupThreadsRange(SyncChannel.E2EE, ParentThreadKey.SPAM)
-        this.logger.debug('fetchRequestThreads', {
-          group1,
-          group95,
-        })
-        return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_INITIAL_THREADS, [
-          {
-            label: '145',
-            payload: JSON.stringify({
-              is_after: 0,
-              parent_thread_key: ParentThreadKey.SPAM,
-              reference_thread_key: INT64_MAX_AS_STRING,
-              reference_activity_timestamp: INT64_MAX_AS_STRING,
-              additional_pages_to_fetch: 0,
-              cursor: this.papi.kv.get('cursor-1-1'),
-              messaging_tag: null,
-              sync_group: SyncChannel.MAILBOX,
-            }),
-            queue_name: 'trq',
-            task_id: this.papi.socket.taskIds.gen(),
-            failure_count: null,
-          },
-          {
-            label: '145',
-            payload: JSON.stringify({
-              is_after: 0,
-              parent_thread_key: ParentThreadKey.SPAM,
-              reference_thread_key: INT64_MAX_AS_STRING,
-              reference_activity_timestamp: INT64_MAX_AS_STRING,
-              additional_pages_to_fetch: 0,
-              cursor: this.papi.kv.get('cursor-1-95'),
-              messaging_tag: null,
-              sync_group: SyncChannel.E2EE,
-            }),
-            queue_name: 'trq',
-            task_id: this.papi.socket.taskIds.gen(),
-            failure_count: null,
-          },
-        ], publishTaskOpts)
-      }
-      if (isInitial) {
-        return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_INITIAL_THREADS, [
-          {
-            label: '145',
-            payload: JSON.stringify({
-              is_after: 0,
-              parent_thread_key: ParentThreadKey.GENERAL,
-              reference_thread_key: 0,
-              reference_activity_timestamp: 9999999999999,
-              additional_pages_to_fetch: 0,
-              cursor: this.papi.kv.get('cursor-1-1'),
-              messaging_tag: null,
-              sync_group: SyncChannel.MAILBOX,
-            }),
-            queue_name: 'trq',
-            task_id: this.papi.socket.taskIds.gen(),
-            failure_count: null,
-          },
-          {
-            label: '145',
-            payload: JSON.stringify({
-              is_after: 0,
-              parent_thread_key: ParentThreadKey.GENERAL,
-              reference_thread_key: 0,
-              reference_activity_timestamp: 9999999999999,
-              additional_pages_to_fetch: 0,
-              cursor: this.papi.kv.get('cursor-1-95'),
-              messaging_tag: null,
-              sync_group: SyncChannel.E2EE,
-            }),
-            queue_name: 'trq',
-            task_id: this.papi.socket.taskIds.gen(),
-            failure_count: null,
-          },
-          this.papi.env === 'IG' && this.hasTabbedInbox() && {
-            label: '313',
-            payload: JSON.stringify({
-              cursor: this.papi.kv.get('cursor-1-1'),
-              filter: ThreadRangeFilter.IGD_PRO_PRIMARY,
-              is_after: 0,
-              parent_thread_key: ParentThreadKey.GENERAL,
-              reference_activity_timestamp: INT64_MAX_AS_STRING,
-              reference_thread_key: INT64_MAX_AS_STRING,
-              secondary_filter: 0,
-              filter_value: '',
-              sync_group: SyncChannel.MAILBOX,
-            }),
-            queue_name: 'trq',
-            task_id: this.papi.socket.taskIds.gen(),
-            failure_count: null,
-          },
-        ], publishTaskOpts)
-      }
-      if (this.hasTabbedInbox()) {
-        return Promise.all([
-          ThreadRangeFilter.IGD_PRO_PRIMARY,
-          ThreadRangeFilter.IGD_PRO_GENERAL,
-        ].map(async filter => {
-          const sg1Primary = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.PRIMARY)
-
-          return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_INBOX_THREADS, [
-            {
-              label: '313',
-              payload: JSON.stringify({
-                cursor: this.papi.kv.get('cursor-1-1'),
-                filter,
-                is_after: 0,
-                parent_thread_key: 0,
-                reference_activity_timestamp: sg1Primary.minLastActivityTimestampMs,
-                reference_thread_key: sg1Primary.minThreadKey,
-                secondary_filter: 0,
-                filter_value: '',
-                sync_group: SyncChannel.MAILBOX,
-              }),
-              queue_name: 'trq',
-              task_id: this.papi.socket.taskIds.gen(),
-              failure_count: null,
-            },
-          ], publishTaskOpts)
-        }))
-      }
-      // if (
-      //   (this.papi.env === 'IG' && this.hasTabbedInbox())
-      //   // || this.papi.env === 'MESSENGER'
-      //   // || this.papi.env === 'FB'
-      // ) {
-      //   await this.fetchMoreInboxThreads(ThreadFilter.PRIMARY)
-      //   await this.fetchMoreInboxThreads(ThreadFilter.GENERAL)
-      //   return
-      // }
-      const sg1Primary = this.getSyncGroupThreadsRange(SyncChannel.MAILBOX, ParentThreadKey.PRIMARY)
-      const sg95Primary = this.getSyncGroupThreadsRange(SyncChannel.E2EE, ParentThreadKey.PRIMARY) || sg1Primary
-      return this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, [
-        {
-          label: '145',
-          payload: JSON.stringify({
-            is_after: 0,
-            parent_thread_key: ParentThreadKey.PRIMARY,
-            reference_thread_key: sg1Primary.minThreadKey,
-            reference_activity_timestamp: Number(sg1Primary.minLastActivityTimestampMs),
-            additional_pages_to_fetch: 0,
-            cursor: this.papi.kv.get('cursor-1-1'),
-            messaging_tag: null,
-            sync_group: SyncChannel.MAILBOX,
-          }),
-          queue_name: 'trq',
-          task_id: this.papi.socket.taskIds.gen(),
-          failure_count: null,
-        },
-        {
-          label: '145',
-          payload: JSON.stringify({
-            is_after: 0,
-            parent_thread_key: ParentThreadKey.PRIMARY,
-            reference_thread_key: sg95Primary.minThreadKey,
-            reference_activity_timestamp: Number(sg95Primary.minLastActivityTimestampMs),
-            additional_pages_to_fetch: 0,
-            cursor: null,
-            messaging_tag: null,
-            sync_group: SyncChannel.E2EE,
-          }),
-          queue_name: 'trq',
-          task_id: this.papi.socket.taskIds.gen(),
-          failure_count: null,
-        },
-      ], publishTaskOpts)
-    }
-
-    try {
-      await getFetcher()
-    } catch (err) {
-      this.logger.error(err)
-    }
-    return { fetched: true } as const
+  computeServerHasMoreThreads() {
+    const threadsRanges = this.papi.kv.getThreadsRanges()
+    return threadsRanges.some(range => (typeof range.value.hasMoreBefore === 'boolean' ? range.value.hasMoreBefore : false))
   }
 
   async getOrRequestContactsIfNotExist(contactIds: string[]) {
@@ -1477,7 +1271,7 @@ export default class MetaMessengerAPI {
   threadsRangesQuery = async (
     query: ReturnType<typeof lsMappers.threadsRangesQuery>,
     sync_group?: SyncChannel,
-  ) => {
+  ): Promise<MMSocketTask> => {
     const cursor = sync_group ? this.papi.kv.get(`cursor-1-${sync_group}`) : undefined
     if (!cursor) {
       this.logger.error('threadsRangesQuery: cursor not found')
@@ -1485,8 +1279,7 @@ export default class MetaMessengerAPI {
     }
     const reference_thread_key = query.isAfter ? query.maxThreadKey : query.minThreadKey
     const reference_activity_timestamp = query.isAfter ? query.maxLastActivityTimestampMs : query.minLastActivityTimestampMs
-
-    const task: MMSocketTask = {
+    return {
       label: '145',
       payload: JSON.stringify({
         is_after: query.isAfter ? 1 : 0,
@@ -1502,42 +1295,35 @@ export default class MetaMessengerAPI {
       task_id: this.papi.socket.taskIds.gen(),
       failure_count: null,
     }
-    return task
   }
 
-  fetchMoreThreadsV3 = async (inbox: InboxName) => {
-    if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error('fetchMoreThreadsV3 is only supported with Facebook/Messenger')
+  fetchMoreThreadsV4 = async (inbox: InboxName) => {
+    const threadsRanges = this.papi.kv.getThreadsRanges()
+    const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
+    const filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
 
-    // const threadsRanges = this.papi.kv.getThreadsRanges()
-    // const threadsRangesV2 = this.papi.kv.getThreadsRangesV2()
-    const _filteredThreadsRanges = this.papi.kv.getFilteredThreadsRanges()
-    const syncGroups = this.computeSyncGroups(inbox)
-
-    this.logger.debug('fetchMoreThreadsV3', {
+    this.logger.debug('fetchMoreThreadsV4', {
       inbox,
-      syncGroups,
-      // threadsRanges,
-      // threadsRangesV2,
-      // filteredThreadsRanges,
+      threadsRanges,
+      threadsRangesV2,
+      filteredThreadsRanges,
     })
 
-    const tasks = (await Promise.all(syncGroups.map(async ([syncGroup, parentThreadKey]) => {
-      const range = this.getSyncGroupThreadsRange(syncGroup, parentThreadKey)
-      if (typeof range?.hasMoreBefore === 'boolean' && !range.hasMoreBefore) return
+    const tasks: MMSocketTask[] = (await Promise.all(threadsRanges.map(r => {
+      const { minThreadKey, minLastActivityTimestampMs, hasMoreBefore, syncGroup, parentThreadKey } = r.value
+      if (!hasMoreBefore) return
       return this.threadsRangesQuery({
         isAfter: false,
+        isBefore: hasMoreBefore,
         parentThreadKey,
-        minLastActivityTimestampMs: range?.minLastActivityTimestampMs ? Number(range.minLastActivityTimestampMs) : undefined,
-        minThreadKey: range?.minThreadKey,
-        shouldSkipE2eeThreadsRanges: false,
+        minLastActivityTimestampMs: minLastActivityTimestampMs ? Number(minLastActivityTimestampMs) : undefined,
+        minThreadKey,
         additionalPagesToFetch: 0,
         maxThreadKey: undefined,
         maxLastActivityTimestampMs: undefined,
-        isBefore: undefined,
+        shouldSkipE2eeThreadsRanges: false,
       }, syncGroup)
     }))).filter(Boolean)
-
-    // if there are no more threads to load
     if (tasks.length === 0) return
     await this.papi.socket.publishTask(SocketRequestResolverType.FETCH_MORE_THREADS, tasks, {
       timeoutMs: 15_000,
@@ -1581,38 +1367,6 @@ export default class MetaMessengerAPI {
       syncParams: this.config.syncParams?.mailbox,
       syncChannel: 1,
       lastSyncTimestampMs: 0,
-    } as const
-  }
-
-  private syncGroupUtils() {
-    return {
-      defaultSyncGroup: {
-        canIgnoreTimestamp: false,
-        // currentCursor: undefined,
-        // dataTraceId: undefined,
-        groupId: 0,
-        // initTraceTimestampMs: undefined,
-        // lastSyncCompletedTimestampMs: undefined,
-        lastSyncRequestTimestampMs: 0,
-        minTimeToSyncTimestampMs: -1,
-        priority: 0,
-        // regionHint: undefined,
-        sendSyncParams: true,
-        syncChannel: 1,
-        syncParams: JSON.stringify({ locale: this.config.currentLocale }),
-        syncStatus: 0,
-      } as const,
-      defaultNetworkRequest: {
-        // epochId: undefined,
-        failureCount: 0,
-        // lastDelayedRequestTimestampMs: undefined,
-        lastSentTimestampMs: 0,
-        lastSyncRequestTimestampMs: 0,
-        // networkTaskIdentifier: undefined,
-        syncDatabaseId: 0,
-        taskQueueName: '',
-      } as const,
-      neverSyncTimestamp: NEVER_SYNC_TIMESTAMP,
     } as const
   }
 
