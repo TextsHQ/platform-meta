@@ -71,7 +71,7 @@ export default class MetaMessengerPayloadHandler {
 
   private __messagesToIgnore = new Set<string>()
 
-  private __responses: MetaMessengerPayloadHandlerResponse = {}
+  __responses: MetaMessengerPayloadHandlerResponse = {}
 
   private __errors: MetaMessengerError[] = []
 

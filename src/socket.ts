@@ -306,7 +306,9 @@ export default class MetaMessengerWebSocket {
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
     await Promise.all([
-      this.subscribeToAllDatabases(),
+      this.papi.syncManager ? this.papi.syncManager.ensureSyncedSocket([
+        1,
+      ]) : this.subscribeToAllDatabases(),
       this.papi.envOpts.isFacebook ? this.papi.api.fetchMoreThreadsV3(InboxName.NORMAL) : undefined,
     ])
     this.isInitialConnection = false

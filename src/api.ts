@@ -37,6 +37,7 @@ import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
 import { genClientContext, getCookieJar, getTimeValues } from './util'
 import { STICKERS_DIR_PATH } from './constants'
+import SyncManager from './sync-manager'
 
 export default class PlatformMetaMessenger implements PlatformAPI {
   env: EnvKey
@@ -45,7 +46,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   private dbClose: () => Promise<void>
 
-  private logger: Logger
+  logger: Logger
 
   api: MetaMessengerAPI
 
@@ -55,6 +56,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   envOpts: EnvOptionsValue
 
+  syncManager?: SyncManager
+
   constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
     this.envOpts = EnvOptions[env]
@@ -62,6 +65,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.api = new MetaMessengerAPI(this, env)
     this.kv = new KeyValueStore(this)
     this.socket = new MetaMessengerWebSocket(this)
+    this.syncManager = this.envOpts.syncManagerEnabled ? new SyncManager(this) : undefined
   }
 
   onEvent: OnServerEventCallback = events => {

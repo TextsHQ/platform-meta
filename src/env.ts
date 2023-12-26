@@ -16,6 +16,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: false,
     isFacebook: false,
+    syncManagerEnabled: false,
   },
   FB: {
     id: 'facebookdotcom',
@@ -28,6 +29,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: true,
     isFacebook: true,
+    syncManagerEnabled: false,
   },
   MESSENGER: {
     id: 'messengerdotcom',
@@ -40,6 +42,7 @@ const EnvOptions = {
     migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: true,
     isFacebook: true,
+    syncManagerEnabled: false,
   },
   WORK: {
     id: 'workplacedotcom',
@@ -52,6 +55,7 @@ const EnvOptions = {
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
     isFacebook: false,
+    syncManagerEnabled: false,
   },
   WORKMETA: {
     id: 'workdotmetadotcom',
@@ -64,6 +68,7 @@ const EnvOptions = {
     // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
     isFacebook: false,
+    syncManagerEnabled: false,
   },
 } as const
 

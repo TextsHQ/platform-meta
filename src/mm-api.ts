@@ -197,6 +197,9 @@ export default class MetaMessengerAPI {
     for (const payload of this.config.initialPayloads) {
       const handler = new MetaMessengerPayloadHandler(this.papi, payload, 'initial')
       await handler.__handle()
+      if (!this.config.syncData.needSync && handler.__responses.executeFirstBlockForSyncTransaction?.length > 0) {
+        this.papi.syncManager?.syncTransaction(handler.__responses.executeFirstBlockForSyncTransaction[0])
+      }
     }
 
     await this.envSwitch(() => this.getSnapshotPayloadForIGD(), () => this.getSnapshotPayloadForFB())()
