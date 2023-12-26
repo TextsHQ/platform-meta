@@ -304,14 +304,9 @@ export default class MetaMessengerWebSocket {
   // - we get ack for requesting app settings
   // - we subscribe to /ls_foreground_state, /ls_resp
   private async afterInitialHandshake() {
-    if (this.papi.syncManager) {
-      await this.papi.syncManager.ensureSyncedSocket([
-        1,
-      ])
-    } else {
-       await this.subscribeToAllDatabases()
-    }
-    await this.papi.syncManager ?  : this.subscribeToAllDatabases()
+    await (this.papi.syncManager ? this.papi.syncManager.ensureSyncedSocket([
+      1,
+    ]) : this.subscribeToAllDatabases())
     this.isInitialConnection = false
   }
 
