@@ -143,6 +143,7 @@ export type StoredProcedureName =
   | 'deleteMessage'
   | 'deleteReaction'
   | 'deleteRtcOngoingCallData'
+  | 'deleteThenInsertAdminApprovalRequest'
   | 'deleteThenInsertAttachmentConversion'
   | 'deleteThenInsertContact'
   | 'deleteThenInsertContactPresence'

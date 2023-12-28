@@ -769,6 +769,10 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
+  private deleteThenInsertAdminApprovalRequest(a: SimpleArgType[]) {
+    this.__logger.debug('deleteThenInsertAdminApprovalRequest (ignored)', a)
+  }
+
   private deleteThread(a: SimpleArgType[]) {
     const threadID = a[0] as string
 
