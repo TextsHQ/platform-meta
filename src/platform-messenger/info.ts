@@ -1,7 +1,16 @@
 import { PlatformInfo, MessageDeletionMode, Attribute } from '@textshq/platform-sdk'
 import infoDefaults from '../info'
 
-const js = "if (window.location.hostname === 'www.messenger.com' && +require('CurrentUserInitialData')?.USER_ID) setTimeout(() => window.close(), 100)"
+const js = `
+if (window.location.hostname === 'www.messenger.com') {
+  const interval = setInterval(() => {
+    if (+require('CurrentUserInitialData')?.USER_ID) {
+      clearInterval(interval)
+      setTimeout(() => window.close(), 100)
+    }
+  }, 100)
+}
+`
 
 const info: PlatformInfo = {
   ...infoDefaults,
