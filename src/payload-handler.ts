@@ -1518,11 +1518,11 @@ export default class MetaMessengerPayloadHandler {
   }
 
   private issueInsertPersistentMenuCtasForThreadTask(a: SimpleArgType[]) {
-    this.__logger.error('encountered issueInsertPersistentMenuCtasForThreadTask (ignored)', {}, `value: ${JSON.stringify(a)}`)
+    this.__logger.info('encountered issueInsertPersistentMenuCtasForThreadTask (ignored)', {}, `value: ${JSON.stringify(a)}`)
   }
 
   private issueInsertPersistentMenuItemsForThreadTask(a: SimpleArgType[]) {
-    this.__logger.error('encountered issueInsertPersistentMenuItemsForThreadTask (ignored)', {}, `value: ${JSON.stringify(a)}`)
+    this.__logger.info('encountered issueInsertPersistentMenuItemsForThreadTask (ignored)', {}, `value: ${JSON.stringify(a)}`)
   }
 
   private issueNewError(a: SimpleArgType[]) {
