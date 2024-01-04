@@ -14,6 +14,8 @@ import {
 } from '@textshq/platform-sdk'
 import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
+import path from 'path'
+import os from 'os'
 import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
@@ -172,6 +174,15 @@ export default class MetaMessengerAPI {
       this.config = getMessengerConfig(response.body)
     } catch (err) {
       console.error('fetching initialURL failed', response?.statusCode, response?.headers, err)
+      if (texts.isLoggingEnabled) {
+        await fs.writeFile(path.join(os.homedir(), `Desktop/texts-debug-meta-login-error-${Date.now()}.json`), JSON.stringify({
+          triggeredFrom,
+          ua: this.ua,
+          authMethod: this.authMethod,
+          err: err?.toString?.(),
+          response,
+        }, null, 2))
+      }
       if (err instanceof ReAuthError) throw err
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)
