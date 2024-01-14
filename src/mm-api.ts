@@ -39,24 +39,9 @@ import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
 import { MetaMessengerError } from './errors'
 import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
-import { NEVER_SYNC_TIMESTAMP } from './constants'
+import { ASBD_ID, NEVER_SYNC_TIMESTAMP, VIEWPORT_WIDTH, defaultSharedHeaders } from './constants'
 import * as lsMappers from './ls-sp-mappers'
 import { PaginationQueue } from './PaginationQueue'
-
-// @TODO: needs to be updated
-export const SHARED_HEADERS = {
-  'accept-language': 'en',
-  'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114"',
-  'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198"',
-  'sec-ch-ua-mobile': '?0',
-  'sec-ch-ua-platform': '"macOS"',
-  'sec-ch-ua-platform-version': '"13.5.0"',
-  'sec-fetch-dest': 'empty',
-  'sec-fetch-mode': 'cors',
-  'sec-fetch-site': 'same-origin',
-  'viewport-width': '1280',
-  // te: 'trailers',
-} as const
 
 const fixUrl = (url: string) =>
   url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
@@ -105,15 +90,7 @@ export default class MetaMessengerAPI {
       headers: {
         'user-agent': this.ua,
         authority: this.papi.envOpts.domain,
-        'accept-language': 'en',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-ch-ua-platform-version': '"13.2.1"',
-        'sec-ch-ua':
-          '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        'sec-fetch-site': 'same-origin',
-        'sec-ch-ua-full-version-list':
-          '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.133", "Google Chrome";v="114.0.5735.133"',
+        ...this.sharedHeaders,
         ...opts.headers,
       },
     })
@@ -121,6 +98,14 @@ export default class MetaMessengerAPI {
     if (wwwClaim) this.papi.kv.set('wwwClaim', String(wwwClaim))
     return res
   }
+
+  private sharedHeaders = (() => {
+    const ua = (this.ua || texts.constants.USER_AGENT).toLowerCase()
+    if (ua.includes('linux')) return defaultSharedHeaders.Linux
+    if (ua.includes('mac os')) return defaultSharedHeaders.MacOS
+    if (ua.includes('windows')) return defaultSharedHeaders.Windows
+    throw Error('did not return shared headers')
+  })()
 
   private async httpJSONRequest(url: string, opts: FetchOptions) {
     const res = await this.httpRequest(url, opts)
@@ -168,7 +153,7 @@ export default class MetaMessengerAPI {
           'sec-fetch-site': 'none',
           'sec-fetch-user': '?1',
           'upgrade-insecure-requests': '1',
-          'viewport-width': '1280',
+          'viewport-width': VIEWPORT_WIDTH,
         },
       })
       this.config = getMessengerConfig(response.body)
@@ -238,7 +223,7 @@ export default class MetaMessengerAPI {
       // @TODO: refactor headers
       headers: {
         accept: '*/*',
-        ...SHARED_HEADERS,
+        ...this.sharedHeaders,
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
         'x-ig-app-id': this.config.appId,
@@ -311,9 +296,11 @@ export default class MetaMessengerAPI {
     headers: {},
     bodyParams: {},
   }) {
+    const defaultHeaders = this.getGraphQLHeaders()
     const { json } = await this.httpJSONRequest(`https://${this.papi.envOpts.domain}/api/graphql/`, {
       method: 'POST',
       headers: {
+        ...defaultHeaders,
         ...headers,
         'content-type': 'application/x-www-form-urlencoded',
       },
@@ -324,8 +311,56 @@ export default class MetaMessengerAPI {
         bodyParams,
       ),
     })
+    if (json.error) {
+      throw Error('graphqlCall failed: ' + JSON.stringify(json, null, 2))
+    }
     // texts.log(`graphqlCall ${doc_id} response: ${JSON.stringify(json, null, 2)}`)
     return { data: json }
+  }
+
+  private getGraphQLHeaders() {
+    const platform = this.config.env
+    const headers: Record<string, string> = {
+      'x-asbd-id': ASBD_ID,
+      'x-fb-lsd': this.config.lsdToken,
+      'viewport-width': VIEWPORT_WIDTH,
+    }
+
+    if (platform === 'IG') {
+      const csrfToken = this.getCSRFToken()
+      if (csrfToken) {
+        headers['x-csrftoken'] = csrfToken
+      }
+      headers['x-ig-app-id'] = this.config.appId
+      headers['x-ig-d'] = 'www'
+    }
+
+    return headers
+  }
+
+  private async getInstagramAPIHeaders(method: string, extra?: Record<string, string>) {
+    const headers: Record<string, string> = {
+      'x-asbd-id': ASBD_ID,
+      'x-ig-app-id': this.config.appId,
+      'x-ig-www-claim': this.papi.kv.get('wwwClaim') ?? '0',
+      'x-requested-with': 'XMLHttpRequest',
+      'viewport-width': VIEWPORT_WIDTH,
+      ...extra,
+    }
+
+    if (method === 'POST') {
+      // x-instagram-ajax is only set for POST requests
+      // use InstagramWebPushInfo if we want to skip converting this to string
+      // i think this is more reliable though
+      headers['x-instagram-ajax'] = this.config.siteData.client_revision.toString()
+    }
+
+    const csrfToken = this.getCSRFToken()
+    if (csrfToken) {
+      headers['x-csrftoken'] = csrfToken
+    }
+
+    return headers
   }
 
   private getSprinkleParam(token = this.config.fb_dtsg) {
@@ -346,7 +381,7 @@ export default class MetaMessengerAPI {
           body: `one_tap_app_login=1&user_id=${this.config.polarisViewer.id}`,
           headers: {
             accept: '*/*',
-            ...SHARED_HEADERS,
+            ...this.sharedHeaders,
             'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
             'x-csrftoken': this.getCSRFToken(),
             'x-ig-app-id': this.config.appId,
@@ -370,7 +405,7 @@ export default class MetaMessengerAPI {
           body: `fb_dtsg=${token}&${param}=${value}`,
           headers: {
             accept: '*/*',
-            ...SHARED_HEADERS,
+            ...this.sharedHeaders,
             Referer: baseURL,
             'content-type': 'application/x-www-form-urlencoded',
           },
@@ -423,36 +458,46 @@ export default class MetaMessengerAPI {
 
   private async getSnapshotPayloadForIGD() {
     if (this.papi.env !== 'IG') throw new Error(`getSnapshotPayloadForIGD is only supported on IG but called on ${this.papi.env}`)
-    const response = await this.graphqlCall('6195354443842040', {
-      deviceId: this.config.clientId,
-      requestId: 0,
-      requestPayload: JSON.stringify({
-        database: 1,
-        epoch_id: 0,
-        last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-        sync_params: JSON.stringify({}),
-        version: 9477666248971112,
-      }),
-      requestType: 1,
-    })
+    const response = await this.graphqlCall(
+      '6195354443842040',
+      {
+        deviceId: this.config.clientId,
+        requestId: 0,
+        requestPayload: JSON.stringify({
+          database: 1,
+          epoch_id: 0,
+          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
+          sync_params: JSON.stringify({}),
+          version: 9477666248971112,
+        }),
+        requestType: 1,
+      },
+      { // each doc_id maps to a friendly name, 6195354443842040 -> LSPlatformGraphQLLightspeedRequestForIGDQuery
+        headers: { 'x-fb-friendly-name': 'LSPlatformGraphQLLightspeedRequestForIGDQuery' },
+      },
+    )
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.lightspeed_web_request_for_igd.payload, 'snapshot').__handle()
   }
 
   private async getSnapshotPayloadForFB() {
     if (!(this.papi.env === 'FB' || this.papi.env === 'MESSENGER')) throw new Error(`getSnapshotPayloadForFB is only supported on FB/MESSENGER but called on ${this.papi.env}`)
-    const response = await this.graphqlCall('7357432314358409', {
-      deviceId: this.config.clientId,
-      includeChatVisibility: false,
-      requestId: 0,
-      requestPayload: JSON.stringify({
-        database: 1,
-        epoch_id: 0,
-        last_applied_cursor: this.papi.kv.get('cursor-1-1'),
-        sync_params: JSON.stringify(this.config.syncParams.mailbox),
-        version: this.papi.envOpts.defaultVersionId,
-      }),
-      requestType: 1,
-    })
+    const response = await this.graphqlCall(
+      '9944623912245126',
+      {
+        deviceId: this.config.clientId,
+        includeChatVisibility: false,
+        requestId: 0,
+        requestPayload: JSON.stringify({
+          database: 1,
+          epoch_id: 0,
+          last_applied_cursor: this.papi.kv.get('cursor-1-1'),
+          sync_params: JSON.stringify(this.config.syncParams.mailbox),
+          version: this.papi.envOpts.defaultVersionId,
+        }),
+        requestType: 1,
+      },
+      { headers: { 'x-fb-friendly-name': 'LSPlatformGraphQLLightspeedRequestQuery' } },
+    )
 
     await new MetaMessengerPayloadHandler(this.papi, response.data.data.viewer.lightspeed_web_request.payload, 'snapshot').__handle()
   }
@@ -754,30 +799,19 @@ export default class MetaMessengerAPI {
     const file = await fs.readFile(filePath)
     const formData = new FormData()
     formData.append('farr', file, { filename: fileName })
-    const res = await this.httpRequest(`https://${domain}/ajax/mercury/upload.php?` + new URLSearchParams({
-      __a: '1',
-      fb_dtsg: this.config.fb_dtsg,
-    }).toString(), {
+
+    const queryString = this.getGraphqlPayload(null, null, null, null)
+    const graphqlHeaders = this.getGraphQLHeaders()
+    const res = await this.httpRequest(`https://${domain}/ajax/mercury/upload.php?${queryString}`, {
       method: 'POST',
       body: formData,
       // todo: refactor headers
       headers: {
-        authority: domain,
-        accept: '*/*',
-        'accept-language': 'en',
         origin: `https://${domain}`,
         referer: `${initialURL}t/${threadID}/`,
-        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        'sec-ch-ua-full-version-list': '"Not.A/Brand";v="8.0.0.0", "Chromium";v="114.0.5735.198", "Google Chrome";v="114.0.5735.198"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-ch-ua-platform-version': '"13.4.1"',
         'sec-fetch-dest': 'empty',
         'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'viewport-width': '1280',
-        'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
-        'x-fb-lsd': this.config.lsdToken,
+        ...graphqlHeaders,
       },
     })
 
@@ -867,7 +901,7 @@ export default class MetaMessengerAPI {
       // todo: refactor headers
       headers: {
         Accept: '*/*',
-        ...SHARED_HEADERS,
+        ...this.sharedHeaders,
         'Content-Type': 'application/x-www-form-urlencoded',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-fb-lsd': this.config.lsdToken,
@@ -896,7 +930,7 @@ export default class MetaMessengerAPI {
       // todo: refactor headers
       headers: {
         accept: '*/*',
-        ...SHARED_HEADERS,
+        ...this.sharedHeaders,
         'content-type': 'application/x-www-form-urlencoded',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-csrftoken': this.getCSRFToken(),
