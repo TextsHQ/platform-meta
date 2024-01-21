@@ -1,29 +1,5 @@
 import fs from 'fs/promises'
-import {join} from 'path'
-
-async function createMigrationsTsFile() {
-  const dir = './binaries/drizzle'
-  const file = (await fs.readdir(dir)).find(f => /^0000_.*\.sql$/.test(f))
-  if (!file) throw new Error('No migration file found')
-
-  try {
-    await fs.unlink('./src/store/migrations.generated.ts')
-  } catch (e) {
-    // ignore
-  }
-
-  const content = (await Bun.file(`./binaries/drizzle/${file}`).text()).replace(/`/g, '\\`').replace(/\t/g, '  ')
-
-  const migrations = content.split('--> statement-breakpoint\n').map(c => `sql\`${c}\`,`).join('\n')
-
-  Bun.write('./src/store/migrations.generated.ts', `import { sql } from 'drizzle-orm'
-
-export const migrations = [
-  ${migrations}
-] as const
-`)
-  console.log('✅ ./src/store/migrations.generated.ts generated')
-}
+import { join } from 'path'
 
 const copyDir = async (srcDir: string, destDir: string): Promise<void> => {
   await fs.mkdir(destDir, {recursive: true})
@@ -59,7 +35,6 @@ async function main() {
   }
   console.log('✅ drizzled')
 
-  await createMigrationsTsFile()
   const tsc = Bun.spawnSync(["tsc"])
   if (!tsc.success) {
     console.error(tsc.stdout.toString())
@@ -85,7 +60,7 @@ function lint() {
   console.log('✅ no lint issues, you are amazing')
 }
 
-main()
+await main()
 
 // lint after so it doesn't slow down the build, faster feedback loop
 lint()

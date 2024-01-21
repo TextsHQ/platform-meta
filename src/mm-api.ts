@@ -16,13 +16,12 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { ExpectedJSONGotHTMLError } from '@textshq/platform-sdk/dist/json'
 import path from 'path'
 import os from 'os'
-import { type QueryMessagesArgs, QueryThreadsArgs, QueryWhereSpecial } from './store/helpers'
 import * as schema from './store/schema'
 import { messages as messagesSchema, threads as threadsSchema } from './store/schema'
 import { getLogger, Logger } from './logger'
 import type Instagram from './api'
-import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges, MMSocketTask } from './types'
-import { SocketRequestResolverType, MNetRankType, ParentThreadKey, SyncChannel, SendType } from './types'
+import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges, MMSocketTask, QueryMessagesArgs, QueryThreadsArgs } from './types'
+import { ParentThreadKey, SyncChannel, SendType, MNetRankType, QueryWhereSpecial, SocketRequestResolverType } from './types'
 import {
   AutoIncrementStore,
   createPromise,

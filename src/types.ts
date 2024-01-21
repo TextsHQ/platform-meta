@@ -1,6 +1,8 @@
 import type { PlatformAPI, Message } from '@textshq/platform-sdk'
 import type { CookieJar } from 'tough-cookie'
 
+import type { DrizzleDB } from './store/db'
+
 export type MethodReturnType<T, K extends keyof T> = T[K] extends (...args: any[]) => infer R ? R : never
 
 export type PAPIReturn<K extends keyof PlatformAPI> = Promise<Awaited<MethodReturnType<PlatformAPI, K>>>
@@ -748,3 +750,13 @@ export interface MMResponse {
   sp: string[]
   target: number
 }
+
+export type QueryMessagesArgs = Parameters<DrizzleDB['query']['messages']['findMany']>[0]
+
+export const enum QueryWhereSpecial {
+  ALL,
+  NEWEST,
+  OLDEST,
+}
+
+export type QueryThreadsArgs = Parameters<DrizzleDB['query']['threads']['findMany']>[0]

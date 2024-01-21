@@ -1,5 +1,3 @@
-import { DBType, MigrateStrategy } from './store/helpers'
-
 export const PolarisBDHeaderConfig = {
   ASBD_ID: '129477', // loaded as hard coded value in meta's code, same for both envs
 } as const
@@ -12,8 +10,6 @@ const EnvOptions = {
     initialURL: 'https://www.instagram.com/direct/' as const,
     defaultContactName: 'Instagram User' as const,
     defaultVersionId: 6552526831451374,
-    dbType: DBType.IN_MEMORY,
-    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: false,
     isFacebook: false,
     syncManagerEnabled: false,
@@ -25,8 +21,6 @@ const EnvOptions = {
     initialURL: 'https://www.facebook.com/messages/' as const,
     defaultContactName: 'Facebook User' as const,
     defaultVersionId: 6345422228920134, // @TODO: CHECK THIS
-    dbType: DBType.IN_MEMORY,
-    migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: true,
     isFacebook: true,
     syncManagerEnabled: false,
@@ -38,8 +32,6 @@ const EnvOptions = {
     initialURL: 'https://www.messenger.com/' as const,
     defaultContactName: 'Facebook User' as const,
     defaultVersionId: 6345422228920134,
-    dbType: DBType.IN_MEMORY,
-    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
     supportsArchive: true,
     isFacebook: true,
     syncManagerEnabled: false,
@@ -50,9 +42,6 @@ const EnvOptions = {
     defaultContactName: '',
     initialURL: '',
     defaultVersionId: 0,
-    dbType: DBType.IN_MEMORY,
-    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
-    // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
     isFacebook: false,
     syncManagerEnabled: false,
@@ -63,9 +52,6 @@ const EnvOptions = {
     defaultContactName: '',
     initialURL: '',
     defaultVersionId: 0,
-    dbType: DBType.PERSISTENT,
-    migrationStrategy: MigrateStrategy.RECREATE_SIMPLE,
-    // migrationStrategy: MigrateStrategy.DRIZZLE,
     supportsArchive: false,
     isFacebook: false,
     syncManagerEnabled: false,

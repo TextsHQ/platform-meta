@@ -25,7 +25,7 @@ import {
   type IGThread,
 } from './types'
 import { mapParticipants } from './mappers'
-import { QueryWhereSpecial } from './store/helpers'
+import { QueryWhereSpecial } from './types'
 import { MetaMessengerError } from './errors'
 import * as mappers from './ls-sp-mappers'
 

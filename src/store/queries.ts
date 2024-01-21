@@ -1,7 +1,7 @@
 import { asc, desc } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
 import { messages as messagesSchema, threads as threadsSchema } from './schema'
-import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
+import type { QueryMessagesArgs, QueryThreadsArgs } from '../types'
 
 // "sometimes Drizzle ORM you can go faster than better-sqlite3 driver"
 // https://orm.drizzle.team/docs/performance

@@ -2,12 +2,18 @@ import path from 'path'
 import { texts } from '@textshq/platform-sdk'
 import { DatabaseQueryMetadata, SyncChannel } from './types'
 
+const IS_IOS = process.platform as string === 'ios'
+const BINARIES_DIR_PATH = texts.getBinariesDirPath('meta')
+
 export const ASBD_ID = '129477'
 export const VIEWPORT_WIDTH = '1280' // we should make sure this is the same all the time
 export const NEVER_SYNC_TIMESTAMP = 9999999999999
+
 export const BIGINT_MARKER = '$bigint'
 
-const getBinaryPath = (binaryName: string) => path.join(texts.getBinariesDirPath('meta'), binaryName)
+const getBinaryPath = (binaryName: string) => (texts.IS_DEV && !IS_IOS
+  ? path.join(__dirname, '../binaries', binaryName)
+  : path.join(BINARIES_DIR_PATH, binaryName))
 
 export const STICKERS_DIR_PATH = getBinaryPath('stickers')
 
