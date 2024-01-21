@@ -1,6 +1,5 @@
-import { asc, desc, eq, like, sql } from 'drizzle-orm'
+import { asc, desc } from 'drizzle-orm'
 import type { DrizzleDB } from './db'
-import * as schema from './schema'
 import { messages as messagesSchema, threads as threadsSchema } from './schema'
 import type { QueryMessagesArgs, QueryThreadsArgs } from './helpers'
 
@@ -119,27 +118,3 @@ export async function queryMessages(db: DrizzleDB, args: Partial<Pick<QueryMessa
 }
 
 export type QueryMessagesResult = Awaited<ReturnType<typeof queryMessages>>
-
-export function preparedQueries(db: DrizzleDB) {
-  return {
-    getAllKeyValues: db.select().from(schema.keyValues).prepare(),
-    getKeyValue: db.select({
-      value: schema.keyValues.value,
-    }).from(schema.keyValues).where(eq(schema.keyValues.key, sql.placeholder('key'))).prepare(),
-    getThreadsRanges: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'threadsRanges-%')).prepare(),
-    getThreadsRangesV2: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'threadsRangesV2-%')).prepare(),
-    getFilteredThreadsRanges: db.select().from(schema.keyValues).where(like(schema.keyValues.key, 'filteredThreadsRanges-%')).prepare(),
-    getContact: db
-      .select({
-        id: schema.contacts.id,
-        profilePictureUrl: schema.contacts.profilePictureUrl,
-        name: schema.contacts.name,
-        username: schema.contacts.username,
-        contact: schema.contacts.contact,
-      })
-      .from(schema.contacts)
-      .limit(1)
-      .where(eq(schema.contacts.id, sql.placeholder('contactId')))
-      .prepare(),
-  } as const
-}

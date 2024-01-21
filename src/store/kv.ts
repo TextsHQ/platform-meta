@@ -1,7 +1,9 @@
+import { eq, like } from 'drizzle-orm'
 import type PlatformAPI from '../api'
 import { keyValues } from './schema'
 import { type MetaThreadRanges, ParentThreadKey, SyncChannel } from '../types'
 import { MM_DEFAULT_VALUES } from '../defaults'
+import * as schema from './schema'
 
 type DbId = string
 
@@ -80,7 +82,9 @@ export default class KeyValueStore {
         || typeof cachedValue === 'boolean'
       ) return cachedValue
     }
-    const _value = this.papi.preparedQueries.getKeyValue.get({ key })
+    const _value = this.papi.db.select({
+      value: schema.keyValues.value,
+    }).from(schema.keyValues).where(eq(schema.keyValues.key, key)).get()
     const value = deserialize(key, _value?.value || '')
     if (useCache) this.cache.set(key, value)
     if (typeof value === 'string' && value.length === 0) return undefined
@@ -88,7 +92,7 @@ export default class KeyValueStore {
   }
 
   getAll(): KeyValue {
-    const values = this.papi.preparedQueries.getAllKeyValues.all()
+    const values = this.papi.db.select().from(schema.keyValues).all()
     return values.reduce<KeyValue>((acc, { key, value }) => {
       if (isKey(key)) {
         assignToAcc(acc, key, value as ValueType<typeof key>)
@@ -98,32 +102,41 @@ export default class KeyValueStore {
   }
 
   getThreadsRanges() {
-    return this.papi.preparedQueries.getThreadsRanges.all().map(range => ({
-      key: range.key,
-      value: {
-        ...MM_DEFAULT_VALUES.sync_group_threads_ranges,
-        ...(range.value ? JSON.parse(range.value) : {}),
-      } as MetaThreadRanges,
-    }))
+    return this.papi.db.select().from(schema.keyValues)
+      .where(like(schema.keyValues.key, 'threadsRanges-%'))
+      .all()
+      .map(range => ({
+        key: range.key,
+        value: {
+          ...MM_DEFAULT_VALUES.sync_group_threads_ranges,
+          ...(range.value ? JSON.parse(range.value) : {}),
+        } as MetaThreadRanges,
+      }))
   }
 
   getThreadsRangesV2() {
-    return this.papi.preparedQueries.getThreadsRangesV2.all().map(range => ({
-      key: range.key,
-      value: {
-        ...MM_DEFAULT_VALUES.threads_ranges_v2__generated,
-        ...(range.value ? JSON.parse(range.value) : {}),
-      },
-    }))
+    return this.papi.db.select().from(schema.keyValues)
+      .where(like(schema.keyValues.key, 'threadsRangesV2-%'))
+      .all()
+      .map(range => ({
+        key: range.key,
+        value: {
+          ...MM_DEFAULT_VALUES.threads_ranges_v2__generated,
+          ...(range.value ? JSON.parse(range.value) : {}),
+        },
+      }))
   }
 
   getFilteredThreadsRanges() {
-    return this.papi.preparedQueries.getFilteredThreadsRanges.all().map(range => ({
-      key: range.key,
-      value: {
-        ...MM_DEFAULT_VALUES.filtered_threads_ranges_v3__generated,
-        ...(range.value ? JSON.parse(range.value) : {}),
-      },
-    }))
+    return this.papi.db.select().from(schema.keyValues)
+      .where(like(schema.keyValues.key, 'filteredThreadsRanges-%'))
+      .all()
+      .map(range => ({
+        key: range.key,
+        value: {
+          ...MM_DEFAULT_VALUES.filtered_threads_ranges_v3__generated,
+          ...(range.value ? JSON.parse(range.value) : {}),
+        },
+      }))
   }
 }

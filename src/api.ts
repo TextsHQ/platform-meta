@@ -32,7 +32,6 @@ import getDB, { type DrizzleDB } from './store/db'
 import type { PAPIReturn, SerializedSession } from './types'
 import { ParentThreadKey, SyncChannel, SocketRequestResolverType } from './types'
 import * as schema from './store/schema'
-import { preparedQueries } from './store/queries'
 import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
 import { genClientContext, getCookieJar, getTimeValues } from './util'
@@ -75,8 +74,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
 
   private pendingEvents: ServerEvent[] = []
 
-  preparedQueries: ReturnType<typeof preparedQueries>
-
   init = async (session: SerializedSession, { accountID, dataDirPath }: ClientContext) => {
     if (session && session._v !== 'v3') throw new ReAuthError() // upgrade from android-based session
 
@@ -87,7 +84,6 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     const { db, dbClose } = await getDB(this.env, accountID, dataDirPath)
     this.db = db
     this.dbClose = dbClose
-    this.preparedQueries = preparedQueries(this.db)
 
     this.logger.debug('loading keys', this.kv.getAll())
     if (!session?.jar) return
