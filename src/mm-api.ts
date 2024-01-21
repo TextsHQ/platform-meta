@@ -147,7 +147,7 @@ export default class MetaMessengerAPI {
         headers: {
           accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
           // 'cache-control': 'max-age=0',
-          'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
+          'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="118", "Google Chrome";v="118"',
           'sec-fetch-dest': 'document',
           'sec-fetch-mode': 'navigate',
           'sec-fetch-site': 'none',
@@ -844,69 +844,23 @@ export default class MetaMessengerAPI {
     return this.sendMessage(threadID, {}, opts, attachment_fbids)
   }
 
-  // tabId and random number for messengerWebPushRegister
-  private static randomSessionString() {
-    // let a = Math.floor(d("Random").random() * k)
-    // a = a.toString(i);
-    // return "0".repeat(j - a.length) + a
-    // temp solution
-    return Math.random().toString(36).slice(2, 8)
-  }
-
-  // stored in sessionStorage so it's ephemeral
-  // this only lasts until browser is closed
-  private webPushTabId = MetaMessengerAPI.randomSessionString()
-
-  // only stored as a class property in messenger.com so it's also ephemeral
-  // this only lasts while the page is loaded
-  private webPushRandomString = MetaMessengerAPI.randomSessionString()
-
-  private async messengerWebPushRegister(endpoint: string, p256dh: string, auth: string) {
-    // todo: add missing fields
-
-    const token = this.config.fb_dtsg
-    const [param, value] = this.getSprinkleParam(token)
-
-    const formData = new URLSearchParams({
+  private async facebookWebPushRegister(endpoint: string, p256dh: string, auth: string) {
+    const payload = this.getGraphqlPayload({}, '', '', {
       app_id: '1443096165982425',
       push_endpoint: endpoint,
       subscription_keys: JSON.stringify({ p256dh, auth }),
-      __user: this.config.fbid,
-      __a: '1',
-      __req: '9', // seen values of 'd' and 'h' as well
-      __hs: this.config.siteData.haste_session,
-      dpr: '2',
-      __ccg: 'EXCELLENT',
-      __rev: String(this.config.siteData.client_revision),
-      // sessionId is derived from a value in localStorage in messenger.com
-      __s: `:${this.webPushTabId}:${this.webPushRandomString}`, // session id + : + tabid + : + random str
-      __hsi: this.config.siteData.hsi,
-      // hashes using a BitMap. (?)
-      // __dyn seems to be fairly static. this might change on client_revision changes
-      __dyn: '7AzHK4HwBgDx-5Q1hyoyEqxd4Wo2nDwAxu13wFwkUKewSAx-bwNw9G2Saxa0DU6u3y4o27wxg3Qwb-q7oc81xoswIK1Rwwwg8a8465o-cw8a0XohwGxu782lwj8bU9kbxS210hU31w9O7Udo5qfK0zEkxe2Gexe5E766FobrwKxm5o7G4-5o4q3y2616zovUaU3_wFKq2-azqwqo4i1jg2cwMwhU9UdUcobUak2-362S269wr86C0yEeE',
-      // __csr: '', // changes every request
-      __comet_req: '1',
-      fb_dtsg: token,
-      [param]: value, // param = jazoest
-      lsd: this.config.lsdToken,
-      __spin_r: String(this.config.siteData.__spin_r),
-      __spin_b: this.config.siteData.__spin_b,
-      __spin_t: String(this.config.siteData.__spin_t),
-      __jssesw: '1',
     })
 
-    const { json } = await this.httpJSONRequest('https://www.messenger.com/push/register/service_worker/', {
+    const { json } = await this.httpJSONRequest(`https://${this.papi.envOpts.domain}/push/register/service_worker/`, {
       method: 'POST',
-      body: formData.toString(),
-      // todo: refactor headers
+      body: payload,
       headers: {
         Accept: '*/*',
         ...this.sharedHeaders,
         'Content-Type': 'application/x-www-form-urlencoded',
         'x-asbd-id': PolarisBDHeaderConfig.ASBD_ID,
         'x-fb-lsd': this.config.lsdToken,
-        Referer: 'https://www.messenger.com/',
-        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        Referer: `https://${this.papi.envOpts.domain}/`,
       },
     })
     if (!json.payload.success) {
@@ -916,17 +870,15 @@ export default class MetaMessengerAPI {
 
   private async instagramWebPushRegister(endpoint: string, p256dh: string, auth: string) {
     const { domain } = EnvOptions.IG
-    const formData = new URLSearchParams()
-    formData.set('device_token', endpoint)
-    formData.set('device_type', 'web_vapid')
-    formData.set('mid', crypto.randomUUID()) // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
-    formData.set('subscription_keys', JSON.stringify({
-      auth,
-      p256dh,
-    }))
+    const payload = {
+      device_token: endpoint,
+      device_type: 'web_vapid',
+      mid: crypto.randomUUID(), // should be something that looks like "ZNboAAAEAAGBNvdmibKpso5huLi9"
+      subscription_keys: JSON.stringify({ auth, p256dh }),
+    }
     const { json } = await this.httpJSONRequest(`https://${domain}/api/v1/web/push/register/`, {
       method: 'POST',
-      body: formData.toString(),
+      body: new URLSearchParams(payload).toString(),
       // todo: refactor headers
       headers: {
         accept: '*/*',
@@ -947,9 +899,15 @@ export default class MetaMessengerAPI {
   }
 
   async webPushRegister(endpoint: string, p256dh: string, auth: string) {
-    if (this.papi.env === 'MESSENGER') return this.messengerWebPushRegister(endpoint, p256dh, auth)
-    if (this.papi.env === 'IG') return this.instagramWebPushRegister(endpoint, p256dh, auth)
-    throw new Error('not implemented')
+    switch (this.papi.env) {
+      case 'FB':
+      case 'MESSENGER':
+        return this.facebookWebPushRegister(endpoint, p256dh, auth)
+      case 'IG':
+        return this.instagramWebPushRegister(endpoint, p256dh, auth)
+      default:
+        throw new Error('not implemented')
+    }
   }
 
   async queryThreads(threadIdsOrWhere: string[] | QueryWhereSpecial | QueryThreadsArgs['where'], extraArgs: Partial<Pick<QueryThreadsArgs, 'orderBy' | 'limit'>> = {}) {

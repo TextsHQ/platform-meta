@@ -10,6 +10,7 @@ const info: PlatformInfo = {
   browserLogin: {
     url: 'https://facebook.com',
     authCookieName: 'c_user',
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
   },
   tags: ['INTERNAL TESTING ONLY'],
   autofillHostnames: ['messenger.com', 'facebook.com'],
@@ -31,7 +32,7 @@ const info: PlatformInfo = {
     Attribute.CAN_MESSAGE_USERNAME,
     Attribute.DEFINES_MESSAGE_CURSOR,
     Attribute.SUBSCRIBE_TO_ONLINE_OFFLINE_ACTIVITY,
-    // Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
+    Attribute.SUPPORTS_PUSH_NOTIFICATIONS,
   ]),
   attachments: {
     gifMimeType: 'image/gif',

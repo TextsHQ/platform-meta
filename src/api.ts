@@ -93,6 +93,9 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     if (!session?.jar) return
     const { jar } = session
     this.api.jar = getCookieJar(jar)
+    if (session.ua) {
+      this.api.ua = session.ua
+    }
     await this.api.init('init')
   }
 
