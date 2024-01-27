@@ -827,6 +827,10 @@ export default class MetaMessengerPayloadHandler {
     this.__logger.debug('handleRepliesOnUnsend (ignored)', a)
   }
 
+  private handleRepliesOnRemove(a: SimpleArgType[]) {
+    this.__logger.debug('handleRepliesOnRemove (ignored)', a)
+  }
+
   private handleSyncFailure(a: SimpleArgType[]) {
     // @TODO: we don't know how to parse this error yet
     this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'unknown error', JSON.stringify(a), {
@@ -1575,6 +1579,10 @@ export default class MetaMessengerPayloadHandler {
 
   private resetIsLoadingBeforeOrAfterForThreadRangeV2(a: SimpleArgType[]) {
     this.__logger.debug('resetIsLoadingBeforeOrAfterForThreadRangeV2 (ignored)', a)
+  }
+
+  private refreshLastActivityTimestamp(a: SimpleArgType[]) {
+    this.__logger.debug('refreshLastActivityTimestamp (ignored)', a)
   }
 
   private removeAllParticipantsForThread(a: SimpleArgType[]) {
