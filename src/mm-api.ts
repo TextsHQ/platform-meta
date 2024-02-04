@@ -157,7 +157,8 @@ export default class MetaMessengerAPI {
       })
       this.config = getMessengerConfig(response.body)
     } catch (err) {
-      console.error('fetching initialURL failed', response?.statusCode, response?.headers, err)
+      console.error('fetching initialURL failed', response?.statusCode, response?.headers, err instanceof Error ? [err.name, err.message] : err)
+      if (err?.message?.includes?.('too many redirects')) throw new ReAuthError('Too many redirects')
       if (texts.isLoggingEnabled) {
         await fs.writeFile(path.join(os.homedir(), `Desktop/texts-debug-meta-login-error-${Date.now()}.json`), JSON.stringify({
           triggeredFrom,
