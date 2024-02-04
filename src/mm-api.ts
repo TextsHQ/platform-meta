@@ -6,6 +6,7 @@ import {
   texts,
   InboxName,
   ReAuthError,
+  RateLimitError,
   type FetchOptions,
   type MessageContent,
   type MessageSendOptions,
@@ -166,7 +167,7 @@ export default class MetaMessengerAPI {
           response,
         }, null, 2))
       }
-      if (err instanceof ReAuthError) throw err
+      if (err instanceof ReAuthError || err instanceof RateLimitError) throw err
       texts.Sentry.captureException(err)
       throw new Error(`No valid configuration was detected: ${err.message}`)
     }
