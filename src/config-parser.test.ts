@@ -8,46 +8,51 @@ const instagramHtml = readFile('./fixtures/instagram.com.direct.html', 'utf-8')
 const messengerHtml = readFile('./fixtures/messenger.com.html', 'utf-8')
 const facebookHtml = readFile('./fixtures/facebook.com.messages.html', 'utf-8')
 
-async function parse(getHtml: Promise<string>) {
-  const { getMessengerConfig, parseMessengerInitialPage } = await import('./config-parser')
-  const html = await getHtml
-  return {
-    parsed: parseMessengerInitialPage(html),
-    config: getMessengerConfig(html),
-  }
-}
-
-function makeTests(
-  { parsed , config }: Awaited<ReturnType<typeof parse>>,
-  env: string,
-  appId: string,
-  mqttEndpoint: string,
-) {
+function makeTests(getHtml: Promise<string>) {
   test('parse initially loaded html', async () => {
-    expect(parsed).toMatchSnapshot()
+    const { getMessengerConfig } = await import('./config-parser')
+    const config = getMessengerConfig(await getHtml)
+
+    expect(config.env).toMatchSnapshot()
+    expect(config.appId).toMatchSnapshot()
+    expect(config.clientId).toMatchSnapshot()
+    expect(config.fb_dtsg).toMatchSnapshot()
+    expect(config.fbid).toMatchSnapshot()
+    expect(config.name).toMatchSnapshot()
+    expect(config.polarisViewer).toMatchSnapshot()
+    expect(config.lsdToken).toMatchSnapshot()
+    expect(config.siteData).toMatchSnapshot()
+    expect(config.mqttEndpoint).toMatchSnapshot()
+    expect(config.mqttCapabilities).toMatchSnapshot()
+    expect(config.mqttClientCapabilities).toMatchSnapshot()
+    expect(config.syncParams).toMatchSnapshot()
+    expect(config.initialPayloads.length).toMatchSnapshot()
+    expect(config.gqlEndpointPath).toMatchSnapshot()
+    expect(config.gqlCustomHeaders).toMatchSnapshot()
+    expect(config.sprinkleConfig).toMatchSnapshot()
+    expect(config.currentLocale).toMatchSnapshot()
+    expect(config.bitmaps).toMatchSnapshot()
+    expect(config.eqmc).toMatchSnapshot()
+    expect(config.server_app_id).toMatchSnapshot()
+    expect(config.jsErrorLogging).toMatchSnapshot()
+    expect(config.webConnectionClassServerGuess).toMatchSnapshot()
+    expect(config.webSessionId).toMatchSnapshot()
+    expect(config.syncData.version).toMatchSnapshot()
+    expect(config.syncData.needSync).toMatchSnapshot()
+    expect(config.syncData.syncPayloads.length).toMatchSnapshot()
+    expect(config.syncData.links.length).toMatchSnapshot()
   })
 
-  test('parse config & initial payloads', async () => {
-    expect(config).toMatchSnapshot()
-    expect(config.env).toMatch(env)
-    expect(String(config.appId)).toMatch(appId)
-    expect(String(config.mqttEndpoint)).toMatch(mqttEndpoint)
-    for (let i = 0; i < config.initialPayloads.length; i++) {
-      const { LSParser } = await import('./ls-parser')
-      const payloads = LSParser.parse(config.initialPayloads[i])
-      expect(payloads).toMatchSnapshot()
-    }
-  })
 }
 
 describe('parse https://www.instagram.com/direct/', async () => {
-  makeTests(await parse(instagramHtml), 'IG', '936619743392459', 'wss://edge-chat.instagram.com/chat')
+  makeTests(instagramHtml)
 })
 
 describe('parse https://www.messenger.com/', async () => {
-  makeTests(await parse(messengerHtml), 'MESSENGER', '772021112871879', 'wss://edge-chat.messenger.com/chat')
+  makeTests(messengerHtml)
 })
 
 describe('parse https://www.facebook.com/messages/', async () => {
-  makeTests(await parse(facebookHtml), 'FB', '2220391788200892', 'wss://edge-chat.facebook.com/chat')
+  makeTests(facebookHtml)
 })

@@ -21,3 +21,15 @@ test('parse payloads to calls', async () => {
     expect(payloads).toMatchSnapshot()
   })
 })
+
+// test('parse config & initial payloads', async () => {
+//   expect(config).toMatchSnapshot()
+//   expect(config.env).toMatch(env)
+//   expect(String(config.appId)).toMatch(appId)
+//   expect(String(config.mqttEndpoint)).toMatch(mqttEndpoint)
+//   for (let i = 0; i < config.initialPayloads.length; i++) {
+//     const { LSParser } = await import('./ls-parser')
+//     const payloads = LSParser.parse(config.initialPayloads[i])
+//     expect(payloads).toMatchSnapshot()
+//   }
+// })
