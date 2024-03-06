@@ -2,6 +2,10 @@ import { PlatformInfo, MessageDeletionMode, Attribute } from '@textshq/platform-
 import infoDefaults from '../info'
 
 const js = `
+const stylesheet = document.createElement('style');
+stylesheet.innerHTML = '[role="dialog"] { opacity: 0; }';
+document.head.append(stylesheet);
+
 if (window.location.hostname === 'www.messenger.com') {
   const interval = setInterval(() => {
     if (+require('CurrentUserInitialData')?.USER_ID) {
