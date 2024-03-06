@@ -29,22 +29,17 @@ import {
   genClientContext,
   getTimeValues,
   parseMessageRanges,
-  parseUnicodeEscapeSequences,
 } from './util'
 import { mapUserMentions, mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './config-parser'
 import MetaMessengerPayloadHandler, { MetaMessengerPayloadHandlerResponse } from './payload-handler'
 import EnvOptions, { PolarisBDHeaderConfig, type EnvKey } from './env'
-import { MetaMessengerError } from './errors'
 import { ThreadRemoveType } from './socket'
 import { PromiseStore } from './PromiseStore'
 import { ASBD_ID, NEVER_SYNC_TIMESTAMP, VIEWPORT_WIDTH, defaultSharedHeaders } from './constants'
 import * as lsMappers from './ls-sp-mappers'
 import { PaginationQueue } from './PaginationQueue'
-
-const fixUrl = (url: string) =>
-  url && decodeURIComponent(url.replace(/\\u0026/g, '&'))
 
 export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
@@ -173,21 +168,7 @@ export default class MetaMessengerAPI {
       throw new Error(`No valid configuration was detected: ${err.message}`)
     }
 
-    this.papi.currentUser = {
-      id: this.config.fbid,
-      fullName: this.config.name,
-    }
-
-    if (this.papi.env === 'IG') {
-      if (!this.config.polarisViewer.data?.id) {
-        throw new MetaMessengerError('IG', 0, 'failed to fetch igViewerConfig')
-      }
-
-      // config.id, is the instagram id but fbid is instead used for chat
-      this.papi.currentUser.fullName = this.config.polarisViewer.data?.full_name?.length > 0 ? parseUnicodeEscapeSequences(this.config.polarisViewer.data.full_name) : null
-      this.papi.currentUser.imgURL = this.config.polarisViewer.data?.profile_pic_url_hd ? fixUrl(this.config.polarisViewer.data.profile_pic_url_hd) : null
-      this.papi.currentUser.username = this.config.polarisViewer.data?.username
-    }
+    this.papi.currentUser = this.config.currentUser
 
     for (const payload of this.config.initialPayloads) {
       const handler = new MetaMessengerPayloadHandler(this.papi, payload, 'initial')
@@ -378,7 +359,7 @@ export default class MetaMessengerAPI {
         const { json } = await this.httpJSONRequest(`${baseURL}api/v1/web/accounts/logout/ajax/`, {
           // todo: refactor headers
           method: 'POST',
-          body: `one_tap_app_login=1&user_id=${this.config.polarisViewer.id}`,
+          body: `one_tap_app_login=1&user_id=${this.config.igid}`,
           headers: {
             accept: '*/*',
             ...this.sharedHeaders,
@@ -393,7 +374,7 @@ export default class MetaMessengerAPI {
           },
         })
         if (json.status !== 'ok') {
-          throw new Error(`logout ${this.config.polarisViewer.id} failed: ${JSON.stringify(json, null, 2)}`)
+          throw new Error(`logout ${this.config.igid} failed: ${JSON.stringify(json, null, 2)}`)
         }
         break
       }
@@ -1374,6 +1355,6 @@ export default class MetaMessengerAPI {
   }
 
   hasTabbedInbox() { // @TODO: don't rely on this
-    return this.config?.polarisViewer?.data?.is_business_account || this.config?.polarisViewer?.data?.is_professional_account
+    return this.config?.isInstagramTabbedInbox
   }
 }

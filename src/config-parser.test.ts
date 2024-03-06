@@ -5,6 +5,7 @@ import { readFile } from 'fs/promises'
 import { describe, expect, test } from 'bun:test'
 
 const instagramHtml = readFile('./fixtures/instagram.com.direct.html', 'utf-8')
+const instagramAltHtml = readFile('./fixtures/instagram.com.direct-alt.html', 'utf-8')
 const messengerHtml = readFile('./fixtures/messenger.com.html', 'utf-8')
 const facebookHtml = readFile('./fixtures/facebook.com.messages.html', 'utf-8')
 
@@ -18,8 +19,8 @@ function makeTests(getHtml: Promise<string>) {
     expect(config.clientId).toMatchSnapshot()
     expect(config.fb_dtsg).toMatchSnapshot()
     expect(config.fbid).toMatchSnapshot()
-    expect(config.name).toMatchSnapshot()
-    expect(config.polarisViewer).toMatchSnapshot()
+    expect(config.igid).toMatchSnapshot()
+    expect(config.isInstagramTabbedInbox).toMatchSnapshot()
     expect(config.lsdToken).toMatchSnapshot()
     expect(config.siteData).toMatchSnapshot()
     expect(config.mqttEndpoint).toMatchSnapshot()
@@ -41,12 +42,17 @@ function makeTests(getHtml: Promise<string>) {
     expect(config.syncData.needSync).toMatchSnapshot()
     expect(config.syncData.syncPayloads.length).toMatchSnapshot()
     expect(config.syncData.links.length).toMatchSnapshot()
+    expect(config.currentUser).toMatchSnapshot()
   })
 
 }
 
 describe('parse https://www.instagram.com/direct/', async () => {
   makeTests(instagramHtml)
+})
+
+describe('parse https://www.instagram.com/direct/ (alt)', async () => {
+  makeTests(instagramAltHtml)
 })
 
 describe('parse https://www.messenger.com/', async () => {
