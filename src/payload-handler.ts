@@ -1672,6 +1672,62 @@ export default class MetaMessengerPayloadHandler {
     }
   }
 
+  private setThreadImageURL(a: SimpleArgType[]) {
+    const threadImage = {
+      threadKey: a[0] as string,
+      imageURL: a[1] as string,
+      imageFallbackURL: a[2] as string,
+      imageURLExpiryTimeMS: a[3] as string,
+      isCustomThreadPicture: Boolean(a[4]),
+      shouldRoundThreadPicture: Boolean(a[5]),
+    }
+    this.__logger.debug('setThreadImageURL (ignored)', threadImage)
+  }
+
+  private setThreadCannotUnsendReason(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    const reason = a[1] as string
+    this.__logger.debug('setThreadCannotUnsendReason (ignored)', threadKey, reason)
+  }
+
+  private addToMemberCount(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    const incrementCount = a[1] as string
+    this.__logger.debug('addToMemberCount (ignored)', threadKey, incrementCount)
+  }
+
+  private removeAllRequestsFromAdminApprovalQueue(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    this.__logger.debug('removeAllRequestsFromAdminApprovalQueue (ignored)', threadKey)
+  }
+
+  private updateInviterId(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    const unknown1 = a[1] as string
+    const unknown2 = a[2] as string
+    this.__logger.debug('updateInviterId (ignored)', threadKey, unknown1, unknown2)
+  }
+
+  private updateThreadTheme(a: SimpleArgType[]) {
+    const threadKey = a[0] as string
+    const inviterId = a[1] as string
+    this.__logger.debug('updateThreadTheme (ignored)', threadKey, inviterId)
+  }
+
+  private editMessage(a: SimpleArgType[]) {
+    const messageId = a[0] as string
+    const authorityLevel = a[1] as number
+    const text = a[2] as string
+    const editCount = a[3] as number
+
+    this.__logger.debug('editMessage (ignored)', {
+      messageId,
+      authorityLevel,
+      text,
+      editCount,
+    })
+  }
+
   private setMessagesViewedPlugin(a: SimpleArgType[]) {
     this.__logger.debug('setMessagesViewedPlugin (ignored)', a)
   }
