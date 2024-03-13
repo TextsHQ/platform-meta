@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main",
-    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#a6905f8f2198fc42b116ab335f560f4329f6529b",
     "@types/better-sqlite3": "^7.6.5",
     "@types/bun": "^1.0.0",
     "@types/eslint": "^8.21.3",
@@ -44,6 +43,9 @@
     "eslint": "^8.36.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.0.2"
+  },
+  "optionalDependencies": {
+    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#main"
   },
   "packageManager": "yarn@4.0.2"
 }

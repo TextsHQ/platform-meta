@@ -2375,7 +2375,7 @@ __metadata:
   dependencies:
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"
-    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#a6905f8f2198fc42b116ab335f560f4329f6529b"
+    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#main"
     "@types/better-sqlite3": "npm:^7.6.5"
     "@types/bun": "npm:^1.0.0"
     "@types/eslint": "npm:^8.21.3"
@@ -2398,6 +2398,9 @@ __metadata:
     tough-cookie: "npm:^4.1.2"
     typescript: "npm:^5.0.2"
     utf-8-validate: "npm:^6.0.3"
+  dependenciesMeta:
+    "@textshq/platform-test-lib":
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -2418,16 +2421,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib#a6905f8f2198fc42b116ab335f560f4329f6529b":
+"@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib#main":
   version: 0.1.0
-  resolution: "@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib.git#commit=a6905f8f2198fc42b116ab335f560f4329f6529b"
+  resolution: "@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib.git#commit=63e2715470fdb244c7e3c0e6e2b14caf6f63766e"
   dependencies:
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"
-    better-sqlite3: "npm:@signalapp/better-sqlite3@8.6.0"
+    better-sqlite3: "npm:@signalapp/better-sqlite3@8.7.1"
     got: "npm:^11.8.2"
   peerDependencies:
     "@textshq/platform-sdk": "*"
-  checksum: 2e94793560ede3e9410ccc4a70e413af4fdd2ca4f2983272b69fdca44fd1f45fbbd9c392b683a9cb3199fed4930d8b309403133c0fdc4dd47d90943dbc28e765
+  checksum: 1b26042d67c00281108543c73ceb4994a89ef573f5f5e9c71cf485722fd4a8e94ca6dd950d406f8d16d0db4b977c36edd32c45ea717161f9534ec50f1dda1655
   languageName: node
   linkType: hard
 
@@ -3120,14 +3123,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"better-sqlite3@npm:@signalapp/better-sqlite3@8.6.0":
-  version: 8.6.0
-  resolution: "@signalapp/better-sqlite3@npm:8.6.0"
+"better-sqlite3@npm:@signalapp/better-sqlite3@8.7.1":
+  version: 8.7.1
+  resolution: "@signalapp/better-sqlite3@npm:8.7.1"
   dependencies:
     bindings: "npm:^1.5.0"
     node-gyp: "npm:latest"
     tar: "npm:^6.1.0"
-  checksum: 390775bce9359620e129d2f80218cddd3f149b4b1ad3e06976d4717312e42195158739d1764be4cfd7289fb4d5bcf4ff4e69670d902770fd3f1876f61f1b4617
+  checksum: 107f9d2b785de2fe732efb5f2c4affe27807c8d4cd78ff4431a269e9f97608f4df17be9284d947e74f9cf05a4b781278c367a5d6e745c386e8b2f08b3d64d745
   languageName: node
   linkType: hard
 
