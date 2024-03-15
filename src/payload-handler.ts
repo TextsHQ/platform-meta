@@ -976,7 +976,7 @@ export default class MetaMessengerPayloadHandler {
   private async insertAttachmentCta(a: SimpleArgType[]) {
     const r = {
       ctaId: a[0],
-      attachmentFbid: a[1],
+      attachmentFbid: a[1] as string,
       attachmentIndex: a[2],
       threadKey: a[3],
       messageId: a[5] as string,
@@ -1033,6 +1033,7 @@ export default class MetaMessengerPayloadHandler {
         parsedMessage.links = [{
           url: mediaLink,
           title: `@${mediaLink.replace(INSTAGRAM_PROFILE_BASE_URL, '')} on Instagram`,
+          attachmentFbid: r.attachmentFbid,
         }]
       } else if (mediaLink.startsWith(`https://${this.__papi.envOpts.domain}/`)) {
         parsedMessage.extra = {
@@ -1043,6 +1044,7 @@ export default class MetaMessengerPayloadHandler {
         parsedMessage.links = [{
           url: mediaLink,
           title: parsedMessage.replySnippet,
+          attachmentFbid: r.attachmentFbid,
         }]
       }
 

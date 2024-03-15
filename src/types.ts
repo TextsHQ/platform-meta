@@ -255,13 +255,17 @@ export type IGMessage = {
   takedownState: string
   isCollapsed: boolean
   subthreadKey: string
-  links?: Message['links']
+  links?: IGLink[]
   extra?: {
     mediaLink?: string
     assetURL?: string
     primarySortKey?: number
   }
   textHeading?: string
+}
+
+export type IGLink = Message['links'][0] & {
+  attachmentFbid: string
 }
 
 export type IGAttachment = {

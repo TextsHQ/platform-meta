@@ -10,13 +10,14 @@ import {
   MessageSeen,
   MessageContent,
   TextAttributes,
+  MessageLink,
 } from '@textshq/platform-sdk'
 import { inArray } from 'drizzle-orm'
 import { truncate } from 'lodash'
 import { contacts } from './store/schema'
 import type { DBParticipantSelect, IGMessageInDB, IGThreadInDB, RawAttachment } from './store/schema'
 import { fixEmoji } from './util'
-import { IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
+import { IGLink, IGMessageRanges, ParentThreadKey, StickerConstants } from './types'
 import type { QueryMessagesResult, QueryThreadsResult } from './store/queries'
 import EnvOptions, { EnvKey } from './env'
 import { DrizzleDB } from './store/db'
@@ -59,6 +60,17 @@ export function mapAttachment(a: QueryMessagesResult[number]['attachments'][numb
       mmType: attachment.attachmentType,
       headerTitle: attachment.headerTitle,
     },
+  }
+}
+
+export function mapMessageLink(link: IGLink, attachment: Attachment) {
+  const { attachmentFbid: _, ...messageLink } = link
+  const title = link.title || attachment?.extra?.text
+  return {
+    ...messageLink,
+    title,
+    img: attachment?.srcURL,
+    imgSize: attachment?.size,
   }
 }
 
@@ -161,14 +173,30 @@ function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number][
 
   const { attachments } = m
   let attachmentWithText: string
+  const linkAttachments: Attachment[] = []
   const attachmentsWithMedia: Attachment[] = []
   let reelWithTitle: Attachment
 
   for (const a of attachments) {
     const mapped = mapAttachment(a)
-    if (!attachmentWithText && !!mapped.extra?.text) attachmentWithText = mapped.extra.text
-    if (mapped.srcURL) attachmentsWithMedia.push(mapped)
+    const isLinkAttachment = message.links?.find(l => l.attachmentFbid === a.attachmentFbid)
+    if (isLinkAttachment) {
+      linkAttachments.push(mapped)
+    } else if (mapped.srcURL) {
+      if (!attachmentWithText && !!mapped.extra?.text) attachmentWithText = mapped.extra.text
+      attachmentsWithMedia.push(mapped)
+    }
     if (!message.links && mapped.extra?.mmType === '7' && !!mapped.extra?.headerTitle && !reelWithTitle) reelWithTitle = mapped
+  }
+
+  const messageLinks: MessageLink[] = []
+
+  if (message.links) {
+    for (const l of message.links) {
+      const linkAttachment = linkAttachments.find(a => a.id === l.attachmentFbid)
+      const mapped = mapMessageLink(l, linkAttachment)
+      messageLinks.push(mapped)
+    }
   }
 
   if (reelWithTitle?.extra?.headerTitle) {
@@ -251,7 +279,7 @@ function mapMessage(m: QueryMessagesResult[number] | QueryThreadsResult[number][
     textHeading: typeof textHeading === 'string' ? textHeading : undefined,
     textFooter: textFooter && textHeading !== textFooter ? textFooter : undefined,
     seen,
-    links: message.links,
+    links: messageLinks,
     parseTemplate: isAction,
     textAttributes,
     extra: {
