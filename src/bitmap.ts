@@ -1,4 +1,4 @@
-export type CSRData = {
+export type CSRData = { // RsrcDetails
   type: string
   src: string
   c: number
@@ -8,13 +8,13 @@ export type CSRData = {
 }
 
 export type BootloaderHandlePayload = {
-  consistency: any
+  consistency: Consistency
   rsrcMap: { [key: string]: CSRData }
   csrUpgrade: string
 }
 
 export type Consistency = {
-  rev?: number
+  rev?: number // int64
 }
 
 const CHAR_MAP = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_'
