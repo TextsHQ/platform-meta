@@ -34,7 +34,8 @@ import { ParentThreadKey, SyncChannel, SocketRequestResolverType } from './types
 import * as schema from './store/schema'
 import KeyValueStore from './store/kv'
 import EnvOptions, { type EnvKey, type EnvOptionsValue, THREAD_PAGE_SIZE } from './env'
-import { genClientContext, getCookieJar, getTimeValues } from './util'
+import { getCookieJar, getTimeValues } from './util'
+import { genClientContext } from './helpers'
 import { STICKERS_DIR_PATH } from './constants'
 import SyncManager from './sync-manager'
 

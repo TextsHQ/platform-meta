@@ -1,5 +1,5 @@
 import { Attribute, MessageDeletionMode, type PlatformInfo } from '@textshq/platform-sdk'
-import { genClientContext } from './util'
+import { genClientContext } from './helpers'
 
 const infoDefaults = {
   version: '1.0.0',

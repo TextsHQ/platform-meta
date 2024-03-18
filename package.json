@@ -14,7 +14,14 @@
     "test": "bun test src",
     "lint": "eslint src --ext ts,tsx,js,jsx --cache",
     "lint:fix": "bun run lint --fix",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "pib:_release": "npx pib --upload=false --prebuild='yarn build' --postbuild='cp -r binaries/ _ncc/binaries/'",
+    "pib:release:instagram": "yarn pib:_release --entrypoint ./dist/platform-instagram/index.js",
+    "pib:release:messenger": "yarn pib:_release --entrypoint ./dist/platform-messenger/index.js",
+    "pib:release": "yarn pib:release:instagram && yarn pib:release:messenger"
+  },
+  "nativeDeps": {
+    "better-sqlite3": "^8.5.0"
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",

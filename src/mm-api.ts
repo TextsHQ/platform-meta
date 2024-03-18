@@ -23,13 +23,8 @@ import { getLogger, Logger } from './logger'
 import type Instagram from './api'
 import type { IGAttachment, IGMessage, IGMessageRanges, SerializedSession, MetaThreadRanges, MMSocketTask, QueryMessagesArgs, QueryThreadsArgs } from './types'
 import { ParentThreadKey, SyncChannel, SendType, MNetRankType, QueryWhereSpecial, SocketRequestResolverType } from './types'
-import {
-  AutoIncrementStore,
-  createPromise,
-  genClientContext,
-  getTimeValues,
-  parseMessageRanges,
-} from './util'
+import { AutoIncrementStore, createPromise, getTimeValues, parseMessageRanges } from './util'
+import { genClientContext } from './helpers'
 import { mapUserMentions, mapMessages, mapThread } from './mappers'
 import { queryMessages, queryThreads } from './store/queries'
 import { getMessengerConfig } from './config-parser'
