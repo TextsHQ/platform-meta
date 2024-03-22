@@ -20,9 +20,6 @@
     "pib:release:messenger": "yarn pib:_release --entrypoint ./dist/platform-messenger/index.js",
     "pib:release": "yarn pib:release:instagram && yarn pib:release:messenger"
   },
-  "nativeDeps": {
-    "better-sqlite3": "^8.5.0"
-  },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
     "better-sqlite3": "^8.5.0",
