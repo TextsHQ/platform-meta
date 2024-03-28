@@ -2408,7 +2408,7 @@ __metadata:
 
 "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk#main":
   version: 0.4.4
-  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=c2febc2307481eaa90c2b9e842b8f5e4de7fe94c"
+  resolution: "@textshq/platform-sdk@https://github.com/TextsHQ/platform-sdk.git#commit=69d1d78006b09323c4e5f6b6e512c7ce20f9c456"
   dependencies:
     emoji-regex: "npm:^10.1.0"
     lodash: "npm:^4.17.21"
@@ -2419,7 +2419,7 @@ __metadata:
       optional: true
     ws:
       optional: true
-  checksum: 2952071d7fa691b84d76cc9405e3400086c8bbdb4692d5a9e930e55b727d5a6a2ebfc3f9d0a62627b1af42b66c76a11b61bd5e343644d562214990a2357199db
+  checksum: e87149eb67eb189b968d88341363daf7b28ba619be2a007b3ad4e0e24f5d5972ceb771f7b1f9db5668e4c1c618a1edbfdbd80445ee21015cddeb3562673eee43
   languageName: node
   linkType: hard
 
