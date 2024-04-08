@@ -38,17 +38,17 @@ const info: PlatformInfo = {
     background: `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 48 48">
     <rect width="48" height="48" fill="url(#a)"/>
     <defs>
-      <radialGradient id="a" cx="0" cy="0" r="1" gradientTransform="matrix(52.8 0 0 52.7988 8.04 47.999)" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#09F"/>
-        <stop offset=".6" stop-color="#A033FF"/>
-        <stop offset=".9" stop-color="#FF5280"/>
-        <stop offset="1" stop-color="#FF7061"/>
-      </radialGradient>
+    <radialGradient id="a" cx="0" cy="0" r="1" gradientTransform="matrix(52.8 0 0 52.7988 8.04 47.999)" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#09F"/>
+    <stop offset=".6" stop-color="#A033FF"/>
+    <stop offset=".9" stop-color="#FF5280"/>
+    <stop offset="1" stop-color="#FF7061"/>
+    </radialGradient>
     </defs>
-  </svg>`,
+    </svg>`,
     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 48 48">
     <path fill="black" fill-rule="evenodd" d="M6 23.46C6 13.43 13.861 6 24 6s18 7.434 18 17.465c0 10.03-7.861 17.46-18 17.46a19.69 19.69 0 0 1-5.211-.694 1.447 1.447 0 0 0-.963.072l-3.573 1.576a1.44 1.44 0 0 1-2.02-1.274l-.1-3.204a1.422 1.422 0 0 0-.481-1.026C8.151 33.243 6 28.707 6 23.46Zm12.479-3.28-5.288 8.387c-.509.806.481 1.71 1.237 1.134l5.68-4.31a1.08 1.08 0 0 1 1.3-.005l4.207 3.154a2.698 2.698 0 0 0 3.907-.72l5.291-8.383c.505-.806-.486-1.715-1.242-1.139l-5.678 4.311a1.08 1.08 0 0 1-1.301.005l-4.207-3.155a2.7 2.7 0 0 0-3.907.72Z" clip-rule="evenodd"/>
-  </svg>`,
+    </svg>`,
   },
   browserLogin: {
     url: 'https://www.messenger.com',
