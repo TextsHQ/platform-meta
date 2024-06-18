@@ -2375,7 +2375,7 @@ __metadata:
   dependencies:
     "@textshq/eslint-config": "https://github.com/TextsHQ/eslint-config#main"
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"
-    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#main"
+    "@textshq/platform-test-lib": "git+ssh://git@github.com:TextsHQ/platform-test-lib#main"
     "@types/better-sqlite3": "npm:^7.6.5"
     "@types/bun": "npm:^1.0.0"
     "@types/eslint": "npm:^8.21.3"
@@ -2420,9 +2420,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib#main":
+"@textshq/platform-test-lib@git+ssh://git@github.com:TextsHQ/platform-test-lib#main":
   version: 0.1.0
-  resolution: "@textshq/platform-test-lib@https://github.com/TextsHQ/platform-test-lib.git#commit=63e2715470fdb244c7e3c0e6e2b14caf6f63766e"
+  resolution: "@textshq/platform-test-lib@git+ssh://git@github.com:TextsHQ/platform-test-lib#commit=63e2715470fdb244c7e3c0e6e2b14caf6f63766e"
   dependencies:
     "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main"
     better-sqlite3: "npm:@signalapp/better-sqlite3@8.7.1"
