@@ -2400,9 +2400,6 @@ __metadata:
     tough-cookie: "npm:^4.1.2"
     typescript: "npm:^5.0.2"
     utf-8-validate: "npm:^6.0.3"
-  dependenciesMeta:
-    "@textshq/platform-test-lib":
-      optional: true
   languageName: unknown
   linkType: soft
 
