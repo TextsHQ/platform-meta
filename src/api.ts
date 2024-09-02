@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+import HttpsProxyAgent from 'https-proxy-agent';
 import { setTimeout as sleep } from 'timers/promises'
 import url from 'url'
 import type {
@@ -57,6 +58,7 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   envOpts: EnvOptionsValue
 
   syncManager?: SyncManager
+  proxyAgent?: any;
 
   constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
@@ -66,12 +68,14 @@ export default class PlatformMetaMessenger implements PlatformAPI {
     this.kv = new KeyValueStore(this)
     this.socket = new MetaMessengerWebSocket(this)
     this.syncManager = this.envOpts.syncManagerEnabled ? new SyncManager(this) : undefined
-  }
-
+     }
+  
   onEvent: OnServerEventCallback = events => {
     this.logger.debug(`${this.env} got server event before ready`, JSON.stringify(events, null, 2))
     this.pendingEvents.push(...events)
   }
+
+
 
   private pendingEvents: ServerEvent[] = []
 
