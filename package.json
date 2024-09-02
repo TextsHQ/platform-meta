@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@textshq/platform-sdk": "https://github.com/Alameenpd/platform-sdk#main",
+    "axios": "^1.7.7",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "bun": "^1.1.26",
