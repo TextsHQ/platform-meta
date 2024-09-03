@@ -26,6 +26,7 @@
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
     "bun": "^1.1.26",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.29.1",
     "form-data": "^4.0.0",
     "http-cookie-agent": "^5.0.4",

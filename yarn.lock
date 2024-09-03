@@ -2427,6 +2427,7 @@ __metadata:
     bufferutil: "npm:^4.0.7"
     bun: "npm:^1.1.26"
     copyfiles: "npm:^2.4.1"
+    dotenv: "npm:^16.4.5"
     drizzle-kit: "npm:^0.20.7"
     drizzle-orm: "npm:^0.29.1"
     eslint: "npm:^8.36.0"
@@ -3810,6 +3811,13 @@ __metadata:
   dependencies:
     esutils: "npm:^2.0.2"
   checksum: b4b28f1df5c563f7d876e7461254a4597b8cabe915abe94d7c5d1633fed263fcf9a85e8d3836591fc2d040108e822b0d32758e5ec1fe31c590dc7e08086e3e48
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:^16.4.5":
+  version: 16.4.5
+  resolution: "dotenv@npm:16.4.5"
+  checksum: 55a3134601115194ae0f924e54473459ed0d9fc340ae610b676e248cca45aa7c680d86365318ea964e6da4e2ea80c4514c1adab5adb43d6867fb57ff068f95c8
   languageName: node
   linkType: hard
 
