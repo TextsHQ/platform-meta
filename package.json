@@ -21,12 +21,16 @@
     "pib:release": "yarn pib:release:instagram && yarn pib:release:messenger"
   },
   "dependencies": {
-    "@textshq/platform-sdk": "https://github.com/TextsHQ/platform-sdk#main",
+    "@textshq/platform-sdk": "https://github.com/Alameenpd/platform-sdk#main",
+    "axios": "^1.7.7",
     "better-sqlite3": "^8.5.0",
     "bufferutil": "^4.0.7",
+    "bun": "^1.1.26",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.29.1",
     "form-data": "^4.0.0",
     "http-cookie-agent": "^5.0.4",
+    "http-proxy-agent": "^7.0.2",
     "jsdom": "^24.0.0",
     "lodash": "4.17.21",
     "mqtt-packet": "patch:mqtt-packet@^8.2.0#patches/mqtt-packet+8.2.0.patch",
@@ -49,9 +53,6 @@
     "eslint": "^8.36.0",
     "rimraf": "^5.0.5",
     "typescript": "^5.0.2"
-  },
-  "optionalDependencies": {
-    "@textshq/platform-test-lib": "https://github.com/TextsHQ/platform-test-lib#main"
   },
   "packageManager": "yarn@4.0.2"
 }

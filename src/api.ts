@@ -1,4 +1,5 @@
 import fs from 'fs/promises'
+
 import { setTimeout as sleep } from 'timers/promises'
 import url from 'url'
 import type {
@@ -57,6 +58,8 @@ export default class PlatformMetaMessenger implements PlatformAPI {
   envOpts: EnvOptionsValue
 
   syncManager?: SyncManager
+
+  proxyAgent?: any
 
   constructor(readonly accountID: string, env: EnvKey) {
     this.env = env
