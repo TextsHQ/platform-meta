@@ -1249,9 +1249,7 @@ export default class MetaMessengerAPI {
       }
     } catch (e) {
       this.logger.error(e)
-      if (e instanceof MetaMessengerError) {
-        throw new Error(e.getErrorData()?.title)
-      }
+      if (e instanceof MetaMessengerError) throw new Error(e.getErrorData().title)
       throw e
     }
   }
