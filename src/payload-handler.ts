@@ -1553,7 +1553,7 @@ export default class MetaMessengerPayloadHandler {
 
   private markOptimisticMessageFailed(a: SimpleArgType[]) {
     this.__logger.debug('markOptimisticMessageFailed', a)
-    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, 'failed to update optimistic message', JSON.stringify(a), {
+    this.__errors.push(new MetaMessengerError(this.__papi.env, -1, a?.[1] ? a[1] as string : 'Unknown error', 'failed to update optimistic message', {
       args: JSON.stringify(a),
       issuedByMethod: 'markOptimisticMessageFailed',
     }))

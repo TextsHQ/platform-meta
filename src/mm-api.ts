@@ -35,6 +35,7 @@ import { PromiseStore } from './PromiseStore'
 import { ASBD_ID, NEVER_SYNC_TIMESTAMP, VIEWPORT_WIDTH, defaultSharedHeaders } from './constants'
 import * as lsMappers from './ls-sp-mappers'
 import { PaginationQueue } from './PaginationQueue'
+import { MetaMessengerError } from './errors'
 
 export default class MetaMessengerAPI {
   private _initPromise = createPromise<void>()
@@ -1201,49 +1202,57 @@ export default class MetaMessengerAPI {
     const { promise } = this.sendMessageResolvers.getOrCreate(otid.toString())
 
     const mentionsData = mentionedUserIDs?.length ? await mapUserMentions(this.papi.db, text, mentionedUserIDs) : undefined
-    const result = await Promise.race([
-      this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [
-        {
-          label: '46',
-          payload: JSON.stringify({
-            thread_id: threadID,
-            otid: otid.toString(),
-            source: (2 ** 16) + 1,
-            attribution_app_id,
-            url: externalUrl,
-            send_type: sendType,
-            sync_group: SyncChannel.MAILBOX,
-            text: !hasAttachment ? text : null,
-            initiating_source: hasAttachment ? undefined : 1,
-            skip_url_preview_gen: hasAttachment ? undefined : 0,
-            text_has_links: hasAttachment ? undefined : 0,
-            reply_metadata,
-            attachment_fbids: hasAttachment ? attachmentFbids : undefined,
-            ...(mentionsData ? { mention_data: mentionsData } : {}),
-          }),
-          queue_name: threadID.toString(),
-          task_id: this.papi.socket.taskIds.gen(),
-          failure_count: null,
-        },
-        {
-          label: '21',
-          payload: JSON.stringify({
-            thread_id: threadID,
-            last_read_watermark_ts: Number(timestamp),
-            sync_group: SyncChannel.MAILBOX,
-          }),
-          queue_name: threadID.toString(),
-          task_id: this.papi.socket.taskIds.gen(),
-          failure_count: null,
-        },
-      ]),
-      promise,
-    ])
+    try {
+      const result = await Promise.race([
+        this.papi.socket.publishTask(SocketRequestResolverType.SEND_MESSAGE, [
+          {
+            label: '46',
+            payload: JSON.stringify({
+              thread_id: threadID,
+              otid: otid.toString(),
+              source: (2 ** 16) + 1,
+              attribution_app_id,
+              url: externalUrl,
+              send_type: sendType,
+              sync_group: SyncChannel.MAILBOX,
+              text: !hasAttachment ? text : null,
+              initiating_source: hasAttachment ? undefined : 1,
+              skip_url_preview_gen: hasAttachment ? undefined : 0,
+              text_has_links: hasAttachment ? undefined : 0,
+              reply_metadata,
+              attachment_fbids: hasAttachment ? attachmentFbids : undefined,
+              ...(mentionsData ? { mention_data: mentionsData } : {}),
+            }),
+            queue_name: threadID.toString(),
+            task_id: this.papi.socket.taskIds.gen(),
+            failure_count: null,
+          },
+          {
+            label: '21',
+            payload: JSON.stringify({
+              thread_id: threadID,
+              last_read_watermark_ts: Number(timestamp),
+              sync_group: SyncChannel.MAILBOX,
+            }),
+            queue_name: threadID.toString(),
+            task_id: this.papi.socket.taskIds.gen(),
+            failure_count: null,
+          },
+        ]),
+        promise,
+      ])
 
-    return {
-      timestamp: new Date(now),
-      offlineThreadingId: String(otid),
-      messageId: result?.replaceOptimsiticMessage.messageId,
+      return {
+        timestamp: new Date(now),
+        offlineThreadingId: String(otid),
+        messageId: result?.replaceOptimsiticMessage.messageId,
+      }
+    } catch (e) {
+      this.logger.error(e)
+      if (e instanceof MetaMessengerError) {
+        throw new Error(e.getErrorData()?.title)
+      }
+      throw e
     }
   }
 
