@@ -5,7 +5,7 @@ const js = `
 const stylesheet = document.createElement('style');
 stylesheet.innerHTML = '[role="dialog"] { opacity: 0; }';
 document.head.append(stylesheet);
-
+document.querySelector('[data-testid="cookie-policy-manage-dialog"]').remove()
 if (window.location.hostname === 'www.messenger.com') {
   const interval = setInterval(() => {
     if (+require('CurrentUserInitialData')?.USER_ID) {
